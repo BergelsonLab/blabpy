@@ -2,6 +2,9 @@ from ..paths import get_pn_opus_path
 
 AUDIO = 'Audio'
 VIDEO = 'Video'
+ALL_CHILDREN = range(1, 46 + 1)
+ALL_MONTHS = range(6, 17 + 1)
+ANNOTATION_FILE_COUNT = 527
 
 
 def get_seedlings_path():
@@ -31,6 +34,10 @@ def _get_coding_folder(child, month):
     return child_month_dir / 'Home_Visit' / 'Coding'
 
 
+def _check_modality(modality):
+    assert modality in (AUDIO, VIDEO), f'Modality must be either Audio or Video but was {modality} instead'
+
+
 def _get_annotation_path(child, month, modality):
     """
     Finds path to the opf/cha files
@@ -39,14 +46,16 @@ def _get_annotation_path(child, month, modality):
     """
     coding_folder = _get_coding_folder(child=child, month=month)
     child, month = _normalize_child_month(child=child, month=month)
-    assert modality in (AUDIO, VIDEO), f'Modality must be either Audio or Video but was {modality} instead'
+    _check_modality(modality)
     if modality == AUDIO:
         extension = 'cha'
     elif modality == VIDEO:
         extension = 'opf'
 
     path = coding_folder / f'{modality}_Annotation' / f'{child}_{month}_sparse_code.{extension}'
-    assert path.exists()
+    if not path.exists():
+        raise FileNotFoundError()
+
     return path
 
 
@@ -57,3 +66,39 @@ def get_opf_path(child, month):
 def get_cha_path(child, month):
     return _get_annotation_path(child=child, month=month, modality=AUDIO)
 
+
+def _get_all_annotation_paths(modality):
+    """
+    Finds all the annotation files for given modality
+    :return: list of Path objects
+    """
+    _check_modality(modality)
+    if modality == AUDIO:
+        get_path_function = get_cha_path
+    elif modality == VIDEO:
+        get_path_function = get_opf_path
+
+    # Not all child-month combinations actually exist, so we want to catch any errors that this may cause and return
+    # None instead.
+    def try_to_get_path(child, month):
+        try:
+            return get_path_function(child=child, month=month)
+        except FileNotFoundError:
+            return None
+
+    paths = [try_to_get_path(child=child, month=month)
+             for child in ALL_CHILDREN for month in ALL_MONTHS]
+    # Remove None's
+    paths = [path for path in paths if path]
+
+    # Check the count
+    assert len(paths) == ANNOTATION_FILE_COUNT
+    return paths
+
+
+def get_all_opf_paths():
+    return _get_all_annotation_paths(modality=VIDEO)
+
+
+def get_all_cha_paths():
+    return _get_all_annotation_paths(modality=AUDIO)
