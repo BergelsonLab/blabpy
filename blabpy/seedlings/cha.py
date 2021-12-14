@@ -11,29 +11,29 @@ class Parser:
 
         self.input_file = input_path
         # output == None means we're being called from parse_clan2 main
-        if output == None:
+        if output is None:
             self.output_file = input_path.replace(".cha", "_processed.csv")
             self.error_file = input_path.replace(".cha", "_errors.txt")
         # otherwise, Parser object is being constructed from an external source
         else:
             processed_path = os.path.split(input_path)[1].replace(".cha", "_processed.csv")
             error_path = os.path.split(input_path)[1].replace(".cha", "_errors.txt")
-            #self.output_file = os.path.join(output, name)
+            # self.output_file = os.path.join(output, name)
             print(os.path.join(output, processed_path))
             self.output_file = os.path.join(output, processed_path)
             self.error_file = os.path.join(output, error_path)
 
         # correct regex for annotations
-        re1='((?:[a-z][a-z0-9_+]*))' # the word
-        re2='(\\s+)'	            # whitespace
-        re3='(&=)'	                # &=
-        re4='(.)'	                # utterance_type
-        re5='(_+)'	                # _
-        re6='(.)'	                # object_present
-        re7='(_+)'	                # _
-        re8='((?:[a-z][a-z0-9]*))' # speaker
-        re81='(_+)?'
-        re82='(0x[a-z0-9]{6})?'       # annotid
+        re1 = '((?:[a-z][a-z0-9_+]*))'  # the word
+        re2 = '(\\s+)'	                # whitespace
+        re3 = '(&=)'	                # &=
+        re4 = '(.)'	                    # utterance_type
+        re5 = '(_+)'	                # _
+        re6 = '(.)'	                    # object_present
+        re7 = '(_+)'	                # _
+        re8 = '((?:[a-z][a-z0-9]*))'    # speaker
+        re81 = '(_+)?'
+        re82 = '(0x[a-z0-9]{6})?'       # annotid
 
         # incorrect regexes (for typos and formatting issues)
         self.entry_regx = re.compile(re1+re2+re3+re4+re5+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
@@ -42,22 +42,22 @@ class Parser:
 
         self.joined_num_regx = re.compile("(_[yn]_[a-z0-9]{3}\d+)", re.IGNORECASE | re.DOTALL)
         self.joined_entry_wrdcount = re.compile("(_[yn]_[a-z0-9]{3}&=w)", re.IGNORECASE | re.DOTALL)
-        ## for new format:
+        # for new format:
         # self.joined_entry_wrdcount = re.compile("([a-f0-9]{6}&=w)", re.IGNORECASE | re.DOTALL)
         self.just_ampersand_regx = re.compile(re1+re2+'(&)'+'([qdiursn])'+re5+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
 
         # someword &=d-y-MOT
-        self.dash_not_underscore_all    = re.compile(re1+re2+re3+re4+'(-+)'+re6+'(-+)'+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.dash_not_underscore_all = re.compile(re1+re2+re3+re4+'(-+)'+re6+'(-+)'+re8+re81+re82, re.IGNORECASE | re.DOTALL)
         # someword &=d-y_MOT
-        self.dash_not_underscore_first  = re.compile(re1+re2+re3+re4+'(-+)'+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.dash_not_underscore_first = re.compile(re1+re2+re3+re4+'(-+)'+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
         # someword &=d_y-MOT
         self.dash_not_underscore_second = re.compile(re1+re2+re3+re4+re5+re6+'(-+)'+re8+re81+re82, re.IGNORECASE | re.DOTALL)
 
-        re9='((?:[a-z][a-z]+))'	# Word 1
-        re10='(\\s+)'	# White Space 1
-        re11='(0)'	# Any Single Character 1
-        re12='(\\s+)'	# White Space 2
-        re13='(.)'	# Any Single Character 2
+        re9 = '((?:[a-z][a-z]+))'  # Word 1
+        re10 = '(\\s+)'            # White Space 1
+        re11 = '(0)'               # Any Single Character 1
+        re12 = '(\\s+)'            # White Space 2
+        re13 = '(.)'               # Any Single Character 2
 
         # tummy 0 .
         self.missing_code_just_word = re.compile('(\\s+)'+re9+re10+re11+re12+re13,re.IGNORECASE|re.DOTALL)
@@ -66,16 +66,17 @@ class Parser:
         # tummy &=w
         self.missing_code_just_word_andcount = re.compile('(\\s+)'+re9+re10+'(&=w)',re.IGNORECASE|re.DOTALL)
 
-
         self.one_missing_code_first = re.compile(re1+re2+re3+re5+'([yn])'+re7+re8+re81+re82, re.IGNORECASE|re.DOTALL)
         self.one_missing_code_second = re.compile(re1+re2+re3+re4+re5+re7+re8+re81+re82, re.IGNORECASE|re.DOTALL)
-        self.one_missing_code_third = re.compile(re1+re2+re3+'([qdiursn])'+re5+'([yn])'+re7+'(\\s+)', re.IGNORECASE|re.DOTALL) # TODO
-        self.one_missing_code_third_joined_count = re.compile(re1+re2+re3+'([qdiursn])'+re5+'([yn])'+re7+'(&=w)', re.IGNORECASE|re.DOTALL) #TODO
+        self.one_missing_code_third = re.compile(re1+re2+re3+'([qdiursn])'+re5+'([yn])'+re7+'(\\s+)',
+                                                 re.IGNORECASE|re.DOTALL)  # TODO
+        self.one_missing_code_third_joined_count = re.compile(re1+re2+re3+'([qdiursn])'+re5+'([yn])'+re7+'(&=w)',
+                                                              re.IGNORECASE|re.DOTALL)  #TODO
 
         self.missing_underscore_first = re.compile(re3+'([qdiursn])'+'([yn])'+re5+re8+re81+re82, re.IGNORECASE|re.DOTALL)
         self.missing_underscore_second = re.compile(re3+'([qdiursn])'+re5+'([yn])'+re8+re81+re82, re.IGNORECASE|re.DOTALL)
 
-        #self.scrub_regx = re.compile()
+        # self.scrub_regx = re.compile()
 
         self.skipping = False
         self.begin_skip_start = None
@@ -115,9 +116,9 @@ class Parser:
         with open(self.input_file, "rU") as input:
             for index, line in enumerate(input):
 
-                if (line.startswith("%com:") and ("|" not in line)):
+                if line.startswith("%com:") and ("|" not in line):
                     if "begin skip" in line:
-                        print("Begin skip found in line# " + str(index)) #+ "\n"
+                        print("Begin skip found in line# " + str(index))  #+ "\n"
                         self.skipping = True
                         self.begin_skip_start = index
                         continue
@@ -142,13 +143,13 @@ class Parser:
 
                 if (line.startswith("%xcom:")) and ("|" not in line):
                     if "begin skip" in line:
-                        print("Begin skip starts at line# " + str(index)) #+ "\n"
+                        print("Begin skip starts at line# " + str(index))  #+ "\n"
                         self.skipping = True
                         self.begin_skip_start = index
                         continue
                     if "end skip" in line:
                         print("End skip found in line# " + str(index) + "\n")
-                        #print "Found *end skip*"
+                        # print "Found *end skip*"
                         self.skipping = False
                         self.begin_skip_start = None
                         continue
@@ -173,11 +174,11 @@ class Parser:
                     interval_reg_result = self.interval_regx.search(line)
 
                     if interval_reg_result is None:
-                        #print "interval regx returned none. clan line: " + str(index)
+                        # print "interval regx returned none. clan line: " + str(index)
                         last_line = line
                         multi_line += line
                         continue
-                     # rearrange previous and current intervals
+                    # rearrange previous and current intervals
                     prev_interval[0] = curr_interval[0]
                     prev_interval[1] = curr_interval[1]
 
@@ -207,7 +208,6 @@ class Parser:
                     one_missing_code_third_joined_count = self.one_missing_code_third_joined_count.findall(line)
                     missing_underscore_first = self.missing_underscore_first.findall(line)
                     missing_underscore_second = self.missing_underscore_second.findall(line)
-
 
                     if line.startswith("*SCR:"):
                         self.parse_scrub_tier(line, index, interval)
@@ -401,7 +401,8 @@ class Parser:
                     # correctly formatted entries
                     if entries:
                         if self.skipping:
-                            print("\nObject word was found in a skip region. Fix this in the .cha file. Line# " + str(index))
+                            print("\nObject word was found in a skip region. Fix this in the .cha file. Line# "
+                                  + str(index))
                             print("line: " + line)
                             continue
                         else:
@@ -535,8 +536,9 @@ class Parser:
 
                     if entries:
                         if self.skipping:
-                            print("\nObject word was found in a skip region. Fix this in the .cha file. Line# " + str(index))
-                            #print "Begin skip starts at line# " + str(self.begin_skip_start)
+                            print("\nObject word was found in a skip region. Fix this in the .cha file. Line# "
+                                  + str(index))
+                            # print("Begin skip starts at line# " + str(self.begin_skip_start))
                             print("line: " + line)
                             continue
                         for entry in entries:
@@ -551,7 +553,6 @@ class Parser:
                                                curr_interval[1]])   # offset
 
                     multi_line = "" # empty the mutiple line buffer
-
 
         if self.problems:
             # showwarning("Mistakes Found",
@@ -605,8 +606,7 @@ class Parser:
 
         print("\n\nTotal # of words: {}\n".format(len(self.words)))
 
-
-        #print self.personal_info_groups
+        # print(self.personal_info_groups)
 
     def filter_comments(self):
         """
@@ -646,24 +646,24 @@ class Parser:
         if "begin" in comment or "start" in comment:
             if "begin personal information:" not in comment:
                 self.problems.append(("Malformed personal info comment: line# {}"
-                                    .format(index),
-                                    interval,
-                                    [comment]))
+                                      .format(index),
+                                      interval,
+                                      [comment]))
         if "end" in comment:
             if "end personal information" not in comment:
                 self.problems.append(("Malformed personal info comment: line# {}"
-                                    .format(index),
-                                    interval,
-                                    [comment]))
+                                     .format(index),
+                                     interval,
+                                     [comment]))
 
         self.curr_personal_block = PersonalInfoGroup(index)
 
     def parse_scrub_tier(self, line, index, interval):
         if "Scrub" not in line:
             self.problems.append(("Personal info (scrubbing) tier missing word \"Scrub\": line# {}"
-                                    .format(index),
-                                    interval,
-                                    [line]))
+                                  .format(index),
+                                  interval,
+                                  [line]))
 
         self.curr_personal_block.start_time = interval[0]
         self.curr_personal_block.end_time = interval[1]
