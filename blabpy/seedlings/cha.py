@@ -1,8 +1,4 @@
 # Initially, an exact copy of https://github.com/SeedlingsBabylab/parse_clan2/blob/master/parse_clan2.py
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
-from tkinter.messagebox import showwarning
-
 import csv
 import re
 import os
@@ -685,12 +681,3 @@ class PersonalInfoGroup:
 
         self.start_comment = ""
         self.end_comment = ""
-
-
-if __name__ == "__main__":
-
-    Tk().withdraw()
-
-    filename = askopenfilename(filetypes=[("cha files", "*.cha")])
-
-    clanfile_parser = Parser(filename)
