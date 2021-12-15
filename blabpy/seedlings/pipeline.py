@@ -1,6 +1,8 @@
 import csv
+from pathlib import Path
 
 from .opf import OPFFile, OPFDataFrame
+from .paths import get_all_opf_paths
 
 
 def export_opf_to_csv(opf_path, csv_path):
@@ -42,3 +44,24 @@ def export_opf_to_csv(opf_path, csv_path):
         assert lines[-1] == ''
         for line in lines[1:-1]:
             f.write(line + suffix)
+
+
+def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
+    """
+    Exports all opf files, adds suffix to their names and saves to the output_folder
+    :param output_folder: Path p
+    :param suffix: str
+    :return:
+    """
+    assert not (output_folder.exists() and any(output_folder.iterdir())), \
+            'The output folder should be empty or not yet exist'
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    opf_paths = get_all_opf_paths()
+
+    for opf_path in opf_paths:
+        # Add suffix before all extensions
+        extensions = ''.join(opf_path.suffixes)
+        output_name = opf_path.name.replace(extensions, suffix + '.csv')
+
+        export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
