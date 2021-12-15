@@ -171,3 +171,8 @@ class OPFDataFrame(object):
         :return:
         """
         return str(self) == self.opf_file.db.rstrip()
+
+    @staticmethod
+    def time_column_to_milliseconds(time_str: pd.Series):
+        dt = pd.to_datetime(time_str, format=DATETIME_FORMAT)
+        return ((dt.dt.hour * 60 + dt.dt.minute) * 60 + dt.dt.second) * 1000 + dt.dt.microsecond / 1000
