@@ -2,6 +2,7 @@ import csv
 from pathlib import Path
 
 from .opf import OPFFile, OPFDataFrame
+from.cha import Parser
 from .paths import get_all_opf_paths
 
 
@@ -65,3 +66,15 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
         output_name = opf_path.name.replace(extensions, suffix + '.csv')
 
         export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
+
+
+def export_cha_to_csv(cha_path, output_folder):
+    """
+    Runs parse_clan2 (a version of it) on a cha file at cha_path and outputs the results to a csv_path
+    :param cha_path: Path
+    :param output_dir: Path to folder that will contain the _processed.csv and _errors.csv files. If None, output is
+    saved to the save folder where cha_path is.
+    :return:
+    """
+    # Parser parses implicitly
+    Parser(input_path=cha_path, output=output_folder)
