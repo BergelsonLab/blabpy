@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from ..paths import get_pn_opus_path
 
 AUDIO = 'Audio'
@@ -96,9 +98,11 @@ def _get_all_annotation_paths(modality):
     return paths
 
 
+@lru_cache(maxsize=None)  # do this just once
 def get_all_opf_paths():
     return _get_all_annotation_paths(modality=VIDEO)
 
 
+@lru_cache(maxsize=None)  # do this just once
 def get_all_cha_paths():
     return _get_all_annotation_paths(modality=AUDIO)
