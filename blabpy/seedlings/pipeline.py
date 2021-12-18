@@ -3,7 +3,7 @@ from pathlib import Path
 
 from .opf import OPFFile, OPFDataFrame
 from.cha import Parser
-from .paths import get_all_opf_paths
+from .paths import get_all_opf_paths, get_all_cha_paths
 
 
 def export_opf_to_csv(opf_path, csv_path):
@@ -74,7 +74,59 @@ def export_cha_to_csv(cha_path, output_folder):
     :param cha_path: Path
     :param output_dir: Path to folder that will contain the _processed.csv and _errors.csv files. If None, output is
     saved to the save folder where cha_path is.
-    :return:
+    :return: Path|None, if there were known errors, return the error file path. If the file could not be parsed, return
+    cha_path
     """
-    # Parser parses implicitly
-    Parser(input_path=cha_path, output=output_folder)
+    try:
+        # Parser parses implicitly
+        parser = Parser(input_path=cha_path, output=output_folder)
+        error_file_path = Path(parser.error_file)
+        if error_file_path.exists():
+            return error_file_path
+    except Exception:
+        return cha_path
+
+
+def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_errors_log.txt')):
+    """
+    Exports all cha files to output_folder
+    :param output_folder: Path
+    :param log_path: Path, file where errors are logged if any
+    :return: Path|None, if there were any errors, returns path to the error log file
+    """
+    assert not (output_folder.exists() and any(output_folder.iterdir())), \
+            'The output folder should be empty or not yet exist'
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    # These will hold paths to files with problems if any
+    could_not_be_parsed = list()
+    parsed_with_errors = list()
+
+    cha_paths = get_all_cha_paths()
+    for cha_path in cha_paths:
+        problems = export_cha_to_csv(cha_path=cha_path, output_folder=output_folder)
+        if not problems:
+            continue
+
+        # If there were any problems, take note
+        if problems == cha_path:
+            could_not_be_parsed.append(problems)
+        else:
+            parsed_with_errors.append((cha_path, problems))
+
+    # Write errors to the log file
+    if could_not_be_parsed or parsed_with_errors:
+        with log_path.open('w', encoding='utf-8') as f:
+
+            if could_not_be_parsed:
+                f.write('The following files could not be parsed:\n\n')
+                for path in could_not_be_parsed:
+                    f.write(str(path) + '\n')
+
+            if parsed_with_errors:
+                f.write('The following files were parsed with errors:\n\n')
+                for cha_path, error_path in parsed_with_errors:
+                    f.write(f'Cha file: {str(cha_path.absolute())}\n')
+                    f.write(f'Error log: {str(error_path.absolute())}\n')
+
+        return log_path
