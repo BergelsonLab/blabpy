@@ -130,3 +130,10 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
                     f.write(f'Error log: {str(error_path.absolute())}\n')
 
         return log_path
+
+    if parsed_with_errors:
+        warning.warn(f'Some cha files were parsed with errors. For details, see:\n {str(log_path.absolute())}')
+
+    if could_not_be_parsed:
+        raise Exception(f'Some cha files could not parsed at all. Try exportint them individually. For details, see:\n'
+                        f' {str(log_path.absolute())}')
