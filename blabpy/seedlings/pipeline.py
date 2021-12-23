@@ -1,6 +1,8 @@
 import csv
 from pathlib import Path
 
+import pandas as pd
+
 from .opf import OPFFile, OPFDataFrame
 from.cha import Parser
 from .paths import get_all_opf_paths, get_all_cha_paths
@@ -137,3 +139,100 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     if could_not_be_parsed:
         raise Exception(f'Some cha files could not parsed at all. Try exportint them individually. For details, see:\n'
                         f' {str(log_path.absolute())}')
+
+
+def create_merged(file_new, file_old, file_merged, mode):
+    """
+    Merges annotations exported with export_opf_to_csv/export_cha_to_csv with the previously exported file that has
+    the basic level of all words already added. Merging is done based on annotation ids (annotid) that each word in both
+    files should have. For new or changed words, the basiclevel column will have ***FIX ME***
+    :param file_new: path to a csv with exported annotations without basic level data
+    :param file_old: path to a previous version of exported annotation with basic level data already added
+    :param mode: 'audio'|'video' - which modality these files came from
+    :return: (old_error, edit_word, new_word) - tuple of boolean values:
+        old_error - were there duplicate annotids in the file with basic level data?
+        edit_word - were there any changes to any of the words?
+        new_word - are there new words in the exported annotations?
+    """
+    # print(mode)
+    # print(file_old)
+    bl_value = "***FIX ME***"
+    # """
+    if mode == "audio":
+        annotid_col = "annotid"
+        word_col = "word"
+        basic_level_col = "basic_level"
+    elif mode == "video":
+        annotid_col = "labeled_object.id"
+        word_col = "labeled_object.object"
+        basic_level_col = "labeled_object.basic_level"  # or just basic_level?
+    else:
+        print("Wrong mode value")
+        return [], [], []
+    # """
+
+    # annotid_col = "annotid"
+    # word_col = "word"
+    # basic_level_col = "basic_level"
+
+    old_error = False
+    edit_word = False
+    new_word = False
+
+    old_df = pd.read_csv(file_old, keep_default_na=False, engine='python')
+    new_df = pd.read_csv(file_new, keep_default_na=False, engine='python')
+
+    merged_df = pd.DataFrame(columns=old_df.columns.values)
+
+    # df = df.rename(columns={'oldName1': 'newName1'})
+    for index, new_row in new_df.iterrows():
+
+        # word = ''
+        to_add = new_row
+        id = new_row[annotid_col]
+        tmp = old_df[old_df[annotid_col] == id]
+        # print(len(tmp.index))
+
+        word = new_row[word_col]
+        # tier = new_row['tier']
+        # spk = new_row['speaker']
+        # utt_type = new_row['utterance_type']
+        # obj_pres = new_row['object_present']
+        # ts = new_row['timestamp']
+
+        while len(tmp.index) != 0:  # if the id already exists in the old df, check that the words/ts? do match
+
+            if len(tmp.index) > 1:
+                print("ERROR: annotid not unique in old version : ", id)  # raise exception
+                to_add[basic_level_col] = bl_value
+                merged_df = merged_df.append(to_add)
+                old_error = True
+                break
+            old_row = tmp.iloc[0]
+
+            # if new_row[:, new_row.columns != "basic_level"].equals(old_row[:, old_row.columns != "basic_level"]):
+            if word == old_row[word_col]:
+                # print("old", word)
+                # check codes as well to know if something changed?
+                to_add[basic_level_col] = old_row[basic_level_col]
+                merged_df = merged_df.append(to_add)
+                break
+            else:
+                # print("old but different", word)
+                to_add[basic_level_col] = bl_value
+                merged_df = merged_df.append(to_add)
+                edit_word = True
+                break
+
+        else:  # if the id is new: no info to retrieve, add row from new
+            # print(word)
+            if word != '':
+                # print("new", word)
+                to_add[basic_level_col] = bl_value
+                merged_df = merged_df.append(to_add)
+                new_word = True
+    # print(merged_df)
+    merged_df = merged_df.loc[:, ~merged_df.columns.str.contains('^Unnamed')]
+    merged_df.to_csv(file_merged, index=False)
+
+    return old_error, edit_word, new_word
