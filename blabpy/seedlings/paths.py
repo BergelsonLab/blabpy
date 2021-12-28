@@ -38,7 +38,7 @@ def _get_home_visit_folder(child, month):
 
 
 def _get_coding_folder(child, month):
-     return _get_home_visit_folder() / 'Coding'
+    return _get_home_visit_folder(child=child, month=month) / 'Coding'
 
 
 def _get_analysis_folder(child, month):
