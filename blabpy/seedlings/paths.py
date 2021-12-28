@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from ..paths import get_pn_opus_path
 
@@ -29,11 +30,19 @@ def _normalize_child_month(child, month):
     return child_str, month_str
 
 
-def _get_coding_folder(child, month):
+def _get_home_visit_folder(child, month):
     seedlings_path = get_seedlings_path()
     child, month = _normalize_child_month(child=child, month=month)
     child_month_dir = seedlings_path / 'Subject_Files' / child / f'{child}_{month}'
-    return child_month_dir / 'Home_Visit' / 'Coding'
+    return child_month_dir / 'Home_Visit'
+
+
+def _get_coding_folder(child, month):
+    return _get_home_visit_folder(child=child, month=month) / 'Coding'
+
+
+def _get_analysis_folder(child, month):
+    return _get_home_visit_folder(child=child, month=month) / 'Analysis'
 
 
 def _check_modality(modality):
@@ -106,3 +115,21 @@ def get_all_opf_paths():
 @lru_cache(maxsize=None)  # do this just once
 def get_all_cha_paths():
     return _get_all_annotation_paths(modality=AUDIO)
+
+
+def get_basic_level_path(child, month, modality):
+    _check_modality(modality)
+    analysis_folder = _get_analysis_folder(child=child, month=month)
+    child, month = _normalize_child_month(child=child, month=month)
+    path = analysis_folder / f'{modality}_Analysis' / f'{child}_{month}_{modality.lower()}_sparse_code.csv'
+
+    if not path.exists():
+        raise FileNotFoundError(path.absolute())
+
+    return path
+
+
+def _parse_out_child_and_month(file_path_or_name):
+    file_name = Path(file_path_or_name).name
+    child, month, *_ = file_name.split('_')
+    return dict(child=int(child), month=int(month))
