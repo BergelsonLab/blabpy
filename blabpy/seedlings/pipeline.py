@@ -1,4 +1,5 @@
 import csv
+import warnings
 from pathlib import Path
 
 import pandas as pd
@@ -57,7 +58,7 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
     :return:
     """
     assert not (output_folder.exists() and any(output_folder.iterdir())), \
-            'The output folder should be empty or not yet exist'
+        'The output folder should be empty or not yet exist'
     output_folder.mkdir(parents=True, exist_ok=True)
 
     opf_paths = get_all_opf_paths()
@@ -74,7 +75,7 @@ def export_cha_to_csv(cha_path, output_folder):
     """
     Runs parse_clan2 (a version of it) on a cha file at cha_path and outputs the results to a csv_path
     :param cha_path: Path
-    :param output_dir: Path to folder that will contain the _processed.csv and _errors.csv files. If None, output is
+    :param output_folder: Path to folder that will contain the _processed.csv and _errors.csv files. If None, output is
     saved to the save folder where cha_path is.
     :return: Path|None, if there were known errors, return the error file path. If the file could not be parsed, return
     cha_path
@@ -96,8 +97,8 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     :param log_path: Path, file where errors are logged if any
     :return: Path|None, if there were any errors, returns path to the error log file
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())), \
-            'The output folder should be empty or not yet exist'
+    assert not (output_folder.exists() and any(output_folder.iterdir())),\
+        'The output folder should be empty or not yet exist'
     output_folder.mkdir(parents=True, exist_ok=True)
 
     # These will hold paths to files with problems if any
@@ -134,7 +135,7 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
         return log_path
 
     if parsed_with_errors:
-        warning.warn(f'Some cha files were parsed with errors. For details, see:\n {str(log_path.absolute())}')
+        warnings.warn(f'Some cha files were parsed with errors. For details, see:\n {str(log_path.absolute())}')
 
     if could_not_be_parsed:
         raise Exception(f'Some cha files could not parsed at all. Try exportint them individually. For details, see:\n'
@@ -148,6 +149,7 @@ def create_merged(file_new, file_old, file_merged, mode):
     files should have. For new or changed words, the basiclevel column will have ***FIX ME***
     :param file_new: path to a csv with exported annotations without basic level data
     :param file_old: path to a previous version of exported annotation with basic level data already added
+    :param file_merged: path to the output file
     :param mode: 'audio'|'video' - which modality these files came from
     :return: (old_error, edit_word, new_word) - tuple of boolean values:
         old_error - were there duplicate annotids in the file with basic level data?
@@ -191,8 +193,8 @@ def create_merged(file_new, file_old, file_merged, mode):
 
         # word = ''
         to_add = new_row
-        id = new_row[annotid_col]
-        tmp = old_df[old_df[annotid_col] == id]
+        annot_id = new_row[annotid_col]
+        tmp = old_df[old_df[annotid_col] == annot_id]
         # print(len(tmp.index))
 
         word = new_row[word_col]
@@ -205,7 +207,7 @@ def create_merged(file_new, file_old, file_merged, mode):
         while len(tmp.index) != 0:  # if the id already exists in the old df, check that the words/ts? do match
 
             if len(tmp.index) > 1:
-                print("ERROR: annotid not unique in old version : ", id)  # raise exception
+                print("ERROR: annotid not unique in old version : ", annot_id)  # raise exception
                 to_add[basic_level_col] = bl_value
                 merged_df = merged_df.append(to_add)
                 old_error = True
@@ -255,7 +257,7 @@ def merge_all_annotations_with_basic_level(exported_annotations_folder, output_f
     output_folder.mkdir(parents=True, exist_ok=True)
 
     # Find/assemble all necessary paths
-    annotation_files = list(exported_annotations_folder.glob('*_processed.csv'))
+    annotation_files = list(exported_annotations_folder.glob(f'*{exported_suffix}'))
     basic_level_files = [get_basic_level_path(**_parse_out_child_and_month(annotation_file), modality=mode.capitalize())
                          for annotation_file in annotation_files]
     output_files = [output_folder / basic_level_file.name for basic_level_file in basic_level_files]
