@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from .cha import Parser
 from .opf import OPFFile, OPFDataFrame
-from.cha import Parser
-from .paths import get_all_opf_paths, get_all_cha_paths
+from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month
 
 
 def export_opf_to_csv(opf_path, csv_path):
@@ -236,3 +236,45 @@ def create_merged(file_new, file_old, file_merged, mode):
     merged_df.to_csv(file_merged, index=False)
 
     return old_error, edit_word, new_word
+
+
+def merge_all_annotations_with_basic_level(exported_annotations_folder, output_folder, mode,
+                                           exported_suffix='_processed.csv'):
+    """
+    Merges all exported annotation files in output_folder and saves them to output_folder which must be empty.
+    :param exported_annotations_folder: the input folder
+    :param output_folder: the output folder
+    :param mode: 'audio'|'video' - which modality these files came from
+    :param exported_suffix: the ending of the exported annotation file names
+    :return: 
+    """
+    assert not (output_folder.exists() and any(output_folder.iterdir())), \
+        'The output folder should be empty or not yet exist'
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    # Find/assemble all necessary paths
+    annotation_files = list(exported_annotations_folder.glob('*_processed.csv'))
+    basic_level_files = [get_basic_level_path(**_parse_out_child_and_month(annotation_file), modality=mode.capitalize())
+                         for annotation_file in annotation_files]
+    output_files = [output_folder / basic_level_file.name for basic_level_file in basic_level_files]
+
+    # Merge and save
+    results = [create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
+               for annotation_file, basic_level_file, output_file
+               in zip(annotation_files, basic_level_files, output_files)]
+
+    # Output merging log to a csv file
+    columns = ['duplicates_in_old_file', 'words_were_edited', 'words_were_added']
+    results_df = pd.DataFrame(columns=columns,
+                              data=results)
+    results_df['exported_annotations_path'] = [annotation_file.absolute() for annotation_file in annotation_files]
+    log = Path(f'merging_{mode}_log.csv')
+    results_df.to_csv(path_or_buf=log, index=False)
+
+    # Print numbers of files with duplicates, edited words and edited words
+    duplicate_count, edited_count, added_count = results_df[columns].sum()
+    print(f'There were:\n'
+          f'{duplicate_count} basic level files with duplicate annotation ids.\n',
+          f'{edited_count} merged files with words that have been edited.\n'
+          f'{added_count} merged files with new words.\n\n'
+          f'For details, see {log.absolute()}')
