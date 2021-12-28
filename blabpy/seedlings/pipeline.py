@@ -161,11 +161,9 @@ def create_merged(file_new, file_old, file_merged, mode):
     if mode == "audio":
         annotid_col = "annotid"
         word_col = "word"
-        basic_level_col = "basic_level"
     elif mode == "video":
         annotid_col = "labeled_object.id"
         word_col = "labeled_object.object"
-        basic_level_col = "labeled_object.basic_level"  # or just basic_level?
     else:
         print("Wrong mode value")
         return [], [], []
@@ -181,6 +179,10 @@ def create_merged(file_new, file_old, file_merged, mode):
 
     old_df = pd.read_csv(file_old, keep_default_na=False, engine='python')
     new_df = pd.read_csv(file_new, keep_default_na=False, engine='python')
+
+    # The basic level column in some video files is called basic_level, in others - labeled_object.basic_level.
+    # The code below will implicitly break if there are multiple columns whose name contains "basic_level"
+    [basic_level_col] = old_df.columns[old_df.columns.str.contains('basic_level')]
 
     merged_df = pd.DataFrame(columns=old_df.columns.values)
 
