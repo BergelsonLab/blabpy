@@ -98,6 +98,8 @@ class Parser:
         if not self.check_intervals():
             return
 
+        self.phonetic_transcriptions = None
+
         self.parse()
         self.filter_comments()
         self.export()
@@ -555,11 +557,27 @@ class Parser:
 
                     multi_line = "" # empty the mutiple line buffer
 
+        self.phonetic_transcriptions = extract_chi_phonetic_transcriptions(self.input_file)
+
         if self.problems:
             # showwarning("Mistakes Found",
             #             "Fix the mistakes listed in the {} file"
             #             .format(os.path.split(self.error_file)[1]))
             self.output_problems()
+
+    def _get_transcription(self, word):
+        """
+        Get phonetic transcription for a word entry in self.words
+        :param word: a list from self.words
+        :return: transcription if there is one, empty string otherwise
+        """
+        annotids, transcriptions = self.phonetic_transcriptions
+        annotid = word[5]
+        try:
+            annotid_index = annotids.index(annotid)
+            return transcriptions[annotid_index]
+        except ValueError:
+            return ""
 
     def export(self):
 
@@ -571,8 +589,9 @@ class Parser:
             curr_comment = ("no comment", 0, 0)
         with open(self.output_file, "w") as output:
             writer = csv.writer(output)
-            writer.writerow(["tier","word","utterance_type","object_present","speaker","annotid","timestamp","basic_level","comment"])
+            writer.writerow(["tier","word","utterance_type","object_present","speaker","annotid","timestamp","basic_level","comment","pho"])
             for entry in self.words:
+                transcription = self._get_transcription(word=entry)
                 # print(entry)
 
                 # check to make sure there are comments left on the queue
@@ -592,7 +611,8 @@ class Parser:
                                     entry[5],
                                     "{}_{}".format(entry[6], entry[7]),
                                     " ",
-                                    curr_comment[0]])
+                                    curr_comment[0],
+                                     transcription])
 
                 else:
                     writer.writerow([entry[0],
@@ -603,7 +623,8 @@ class Parser:
                                     entry[5],
                                     "{}_{}".format(entry[6], entry[7]),
                                     " ",
-                                    "NA"])
+                                    "NA",
+                                     transcription])
 
         print("\n\nTotal # of words: {}\n".format(len(self.words)))
 
