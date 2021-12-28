@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from ..paths import get_pn_opus_path
 
@@ -106,3 +107,9 @@ def get_all_opf_paths():
 @lru_cache(maxsize=None)  # do this just once
 def get_all_cha_paths():
     return _get_all_annotation_paths(modality=AUDIO)
+
+
+def _parse_out_child_and_month(file_path_or_name):
+    file_name = Path(file_path_or_name).name
+    child, month, *_ = file_name.split('_')
+    return dict(child=int(child), month=int(month))
