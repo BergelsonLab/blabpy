@@ -108,7 +108,7 @@ class OPFDataFrame(object):
         # assert self._can_be_reversed()
 
     def _opf_to_pandas_df(self):
-        db_lines = self.opf_file.db.rstrip().split('\n')
+        db_lines = self.opf_file.db.splitlines()
         # Sometimes the last line is empty - delete it
         if not db_lines[-1]:
             del db_lines[-1]
