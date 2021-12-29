@@ -9,6 +9,10 @@ from .opf import OPFFile, OPFDataFrame
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month
 
 
+# Placeholder value for words without the basic level information
+FIXME = '***FIX ME***'
+
+
 def export_opf_to_csv(opf_path, csv_path):
     """
     Emulate datavyu export
@@ -159,7 +163,6 @@ def create_merged(file_new, file_old, file_merged, mode):
     """
     # print(mode)
     # print(file_old)
-    bl_value = "***FIX ME***"
     # """
     if mode == "audio":
         annotid_col = "annotid"
@@ -209,7 +212,7 @@ def create_merged(file_new, file_old, file_merged, mode):
 
             if len(tmp.index) > 1:
                 print("ERROR: annotid not unique in old version : ", annot_id)  # raise exception
-                to_add[basic_level_col] = bl_value
+                to_add[basic_level_col] = FIXME
                 merged_df = merged_df.append(to_add)
                 old_error = True
                 break
@@ -224,7 +227,7 @@ def create_merged(file_new, file_old, file_merged, mode):
                 break
             else:
                 # print("old but different", word)
-                to_add[basic_level_col] = bl_value
+                to_add[basic_level_col] = FIXME
                 merged_df = merged_df.append(to_add)
                 edit_word = True
                 break
@@ -233,7 +236,7 @@ def create_merged(file_new, file_old, file_merged, mode):
             # print(word)
             if word != '':
                 # print("new", word)
-                to_add[basic_level_col] = bl_value
+                to_add[basic_level_col] = FIXME
                 merged_df = merged_df.append(to_add)
                 new_word = True
     # print(merged_df)
@@ -283,3 +286,19 @@ def merge_all_annotations_with_basic_level(exported_annotations_folder, output_f
           f'{edited_count} merged files with words that have been edited.\n'
           f'{added_count} merged files with new words.\n\n'
           f'For details, see {log.absolute()}')
+
+
+def make_incomplete_basic_level_list(merged_folder: Path):
+    """
+    Looks through all the files in the folder with annotations merged with previous basic level data and counts the
+    number of rows that have to be manually updated
+    :param merged_folder:
+    :return: a pandas dataframe with two columns: filename, fixme_count
+    """
+    all_fixmes_df = None
+    for csv_file in merged_folder.glob('*.csv'):
+        fixmes_df = pd.read_csv(csv_file)
+        fixmes_df = fixmes_df[fixmes_df.basic_level == FIXME]
+        fixmes_df['filename'] = str(csv_file)
+        all_fixmes_df = pd.concat([all_fixmes_df, fixmes_df])
+    return all_fixmes_df
