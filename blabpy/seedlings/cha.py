@@ -3,6 +3,7 @@ import csv
 import re
 import os
 import collections
+from pathlib import Path
 
 
 class Parser:
@@ -96,6 +97,8 @@ class Parser:
         # so we'll break from parsing and not go any further
         if not self.check_intervals():
             return
+
+        self.phonetic_transcriptions = None
 
         self.parse()
         self.filter_comments()
@@ -554,11 +557,27 @@ class Parser:
 
                     multi_line = "" # empty the mutiple line buffer
 
+        self.phonetic_transcriptions = extract_chi_phonetic_transcriptions(self.input_file)
+
         if self.problems:
             # showwarning("Mistakes Found",
             #             "Fix the mistakes listed in the {} file"
             #             .format(os.path.split(self.error_file)[1]))
             self.output_problems()
+
+    def _get_transcription(self, word):
+        """
+        Get phonetic transcription for a word entry in self.words
+        :param word: a list from self.words
+        :return: transcription if there is one, empty string otherwise
+        """
+        annotids, transcriptions = self.phonetic_transcriptions
+        annotid = word[5]
+        try:
+            annotid_index = annotids.index(annotid)
+            return transcriptions[annotid_index]
+        except ValueError:
+            return ""
 
     def export(self):
 
@@ -570,8 +589,9 @@ class Parser:
             curr_comment = ("no comment", 0, 0)
         with open(self.output_file, "w") as output:
             writer = csv.writer(output)
-            writer.writerow(["tier","word","utterance_type","object_present","speaker","annotid","timestamp","basic_level","comment"])
+            writer.writerow(["tier","word","utterance_type","object_present","speaker","annotid","timestamp","basic_level","comment","pho"])
             for entry in self.words:
+                transcription = self._get_transcription(word=entry)
                 # print(entry)
 
                 # check to make sure there are comments left on the queue
@@ -591,7 +611,8 @@ class Parser:
                                     entry[5],
                                     "{}_{}".format(entry[6], entry[7]),
                                     " ",
-                                    curr_comment[0]])
+                                    curr_comment[0],
+                                     transcription])
 
                 else:
                     writer.writerow([entry[0],
@@ -602,7 +623,8 @@ class Parser:
                                     entry[5],
                                     "{}_{}".format(entry[6], entry[7]),
                                     " ",
-                                    "NA"])
+                                    "NA",
+                                     transcription])
 
         print("\n\nTotal # of words: {}\n".format(len(self.words)))
 
@@ -681,3 +703,65 @@ class PersonalInfoGroup:
 
         self.start_comment = ""
         self.end_comment = ""
+
+
+def _extract_chi_annotation_ids_from_cha_line(cha_line: str):
+    """
+    Extract annotations ids from a line from a CHA file. Only the annotations uttered by CHI are extracted. We'll assume
+    that an annotation id is never split over multiple lines.
+    :param cha_line: a line from a cha file
+    :return: list of annotation ids
+    """
+    return re.findall(r'_CHI_(?P<annotid>0x[a-z0-9]{6})', cha_line)
+
+
+# TODO: this can be done while parsing CHA but incorporating this into the Parser class above is rather complicated and
+#  so should be done after cleaning the Parser code first
+def extract_chi_phonetic_transcriptions(cha_path: Path):
+    """
+    Extracts all phonetic transcriptions from a CHA file and the corresponding annotation ids. If a word is missing a
+    transcription, it will not be included in the output. If the number of transcriptions is not equal to the number of
+    CHI-uttered words in the same main tier, a ValueError will be raised. If there is a phonetic transcription, but no
+    CHI-uttered words, we let it go.
+    :param cha_path: path to the Cha file
+    :return: annotids, transcriptions - lists of annotation ids and transcriptions
+    """
+    with cha_path.open('r') as f:
+        lines = f.readlines()
+
+    annotids, transcriptions = list(), list()
+    # The main tier can be spread over multiple lines, the first one starting with "*XXX:\t" and the other ones - just
+    # with "\t". main_tier_lines will contain all the lines in the last main tier - one or more. in_main_tier flag will
+    # let us tell whether we can expect lines starting with a '\t'
+    main_tier_lines = list()
+    in_main_tier = False
+    for line in lines:
+        # First line of a main tier
+        if line.startswith('*'):
+            main_tier_lines = [line]
+            in_main_tier = True
+
+        # A continuation line of a main tier
+        elif in_main_tier and line.startswith('\t'):
+            main_tier_lines.append(line)
+
+        # Not a main tier line
+        else:
+            in_main_tier = False
+            if line.startswith('%pho:\t'):
+                annotids_ = [annotid
+                             for cha_line in main_tier_lines
+                             for annotid in _extract_chi_annotation_ids_from_cha_line(cha_line)]
+                # Remove tier type and then tab on the left and a line end on the right
+                content = line.replace('%pho:', '').rstrip()
+                transcriptions_ = content.split()
+
+                # The numbers of words and transcriptions should be equal. But if there are no annotated words but there
+                # are still some transcription, we will ignore it.
+                if len(annotids_) != len(transcriptions_) and not (len(annotids_) == 0):
+                    raise ValueError('The numbers of annotation ids and the phonetic transcriptions do not match')
+
+                annotids.extend(annotids_)
+                transcriptions.extend(transcriptions_)
+
+    return annotids, transcriptions
