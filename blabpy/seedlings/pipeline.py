@@ -186,9 +186,14 @@ def create_merged(file_new, file_old, file_merged, mode):
     old_df = pd.read_csv(file_old, keep_default_na=False, engine='python')
     new_df = pd.read_csv(file_new, keep_default_na=False, engine='python')
 
-    # The basic level column in some video files is called basic_level, in others - labeled_object.basic_level.
+    # The basic level column in some video files is called basic_level, in others - labeled_object.basic_level. Let's
+    # find which it is.
     # The code below will implicitly break if there are multiple columns whose name contains "basic_level"
-    [basic_level_col] = old_df.columns[old_df.columns.str.contains('basic_level')]
+    [old_basic_level_col] = old_df.columns[old_df.columns.str.contains('basic_level')]
+
+    # For consistent naming, let's change it to 'basic_level'.
+    basic_level_col = 'basic_level'
+    old_df.rename(columns={old_basic_level_col: basic_level_col}, inplace=True)
 
     merged_df = pd.DataFrame(columns=old_df.columns.values)
 
