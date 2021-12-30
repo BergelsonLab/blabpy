@@ -32,13 +32,14 @@ def backup_to_old_files(file_path: Path):
     copy2(file_path, backup_path)
 
 
-def copy_basic_level_to_subject_files(file_path: Path, modality):
+def copy_basic_level_to_subject_files(file_path: Path, modality, remove_after=False):
     """
     Copies the basic level file at file_path to the corresponding folder in the Seedlings folder. The correspondence is
     established based on the child and month number in the filename and the modality argument. The older version is
     backed up first.
     :param file_path: path to the newer basic level file
     :param modality: Auido/Video
+    :param remove_after: should the file be deleted after making a copy?
     :return: None
     """
     # Check that the file looks like an actual basic level file of the right modlaity
@@ -54,3 +55,21 @@ def copy_basic_level_to_subject_files(file_path: Path, modality):
     basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
     backup_to_old_files(basic_level_path)
     copy2(file_path, basic_level_path)
+
+    # Delete the file
+    if remove_after:
+        file_path.unlink()
+
+
+def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path, modality, remove_after=True):
+    """
+    Runs copy_basic_level_to_subject_files on all csv files in a folder. Deletes files after they are successfully
+    copied, so that they are not attempted to be copied again. Override using remove_after=False.
+    :param updated_basic_level_folder: folder with the basic level files
+    :param modality: Audio/Video
+    :param remove_after: should the files be deleted after making a copy. True by default, so that files that have been
+    successfully copied would not be attempted to copy again leading to error beacuse a backup file already exists.
+    :return: None
+    """
+    for basic_level_path in updated_basic_level_folder.glob('*.csv'):
+        copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality, remove_after=remove_after)
