@@ -2,6 +2,8 @@ from datetime import date
 from pathlib import Path
 from shutil import copy2
 
+from .paths import _parse_out_child_and_month, get_basic_level_path
+
 
 def backup_to_old_files(file_path: Path):
     """
@@ -28,3 +30,27 @@ def backup_to_old_files(file_path: Path):
                               '\tbecause the second path already exists.')
 
     copy2(file_path, backup_path)
+
+
+def copy_basic_level_to_subject_files(file_path: Path, modality):
+    """
+    Copies the basic level file at file_path to the corresponding folder in the Seedlings folder. The correspondence is
+    established based on the child and month number in the filename and the modality argument. The older version is
+    backed up first.
+    :param file_path: path to the newer basic level file
+    :param modality: Auido/Video
+    :return: None
+    """
+    # Check that the file looks like an actual basic level file of the right modlaity
+    # It is an existing csv file
+    assert file_path.exists() and file_path.is_file() and file_path.name.endswith('.csv')
+    # With 'basic_level' in the column definitions
+    with file_path.open() as f:
+        assert 'basic_level' in f.readline()
+    # And modality in its name (something like '01_06_audio_sparse_code.csv')
+    assert modality.lower() in file_path.name.lower()
+
+    # Backup, then copy
+    basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
+    backup_to_old_files(basic_level_path)
+    copy2(file_path, basic_level_path)
