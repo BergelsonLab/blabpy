@@ -78,22 +78,17 @@ def get_cha_path(child, month):
     return _get_annotation_path(child=child, month=month, modality=AUDIO)
 
 
-def _get_all_annotation_paths(modality):
+def _get_all_paths(get_single_file_function, **kwargs):
     """
-    Finds all the annotation files for given modality
+    Runs get_single_file_function on all child-month combinations skipping files that do not exist and checking the
+    total number at the end.
     :return: list of Path objects
     """
-    _check_modality(modality)
-    if modality == AUDIO:
-        get_path_function = get_cha_path
-    elif modality == VIDEO:
-        get_path_function = get_opf_path
-
     # Not all child-month combinations actually exist, so we want to catch any errors that this may cause and return
     # None instead.
     def try_to_get_path(child, month):
         try:
-            return get_path_function(child=child, month=month)
+            return get_single_file_function(child=child, month=month, **kwargs)
         except FileNotFoundError:
             return None
 
@@ -109,12 +104,12 @@ def _get_all_annotation_paths(modality):
 
 @lru_cache(maxsize=None)  # do this just once
 def get_all_opf_paths():
-    return _get_all_annotation_paths(modality=VIDEO)
+    return _get_all_paths(get_single_file_function=get_opf_path)
 
 
 @lru_cache(maxsize=None)  # do this just once
 def get_all_cha_paths():
-    return _get_all_annotation_paths(modality=AUDIO)
+    return _get_all_paths(get_single_file_function=get_cha_path)
 
 
 def get_basic_level_path(child, month, modality):
@@ -133,3 +128,8 @@ def _parse_out_child_and_month(file_path_or_name):
     file_name = Path(file_path_or_name).name
     child, month, *_ = file_name.split('_')
     return dict(child=int(child), month=int(month))
+
+
+@lru_cache(maxsize=None)  # do this just once
+def get_all_basic_level_paths(modality):
+    return _get_all_paths(get_single_file_function=get_basic_level_path, modality=modality)
