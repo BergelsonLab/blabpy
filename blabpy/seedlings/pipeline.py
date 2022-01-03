@@ -133,8 +133,8 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
                 for cha_path, error_path in parsed_with_errors:
                     f.write(f'Cha file: {str(cha_path.absolute())}\n')
                     f.write(f'Error log: {str(error_path.absolute())}\n')
-
-        return log_path
+    else:
+        log_path = None
 
     if parsed_with_errors:
         warnings.warn(f'Some cha files were parsed with errors. For details, see:\n {str(log_path.absolute())}')
@@ -142,6 +142,8 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     if could_not_be_parsed:
         raise Exception(f'Some cha files could not parsed at all. Try exportint them individually. For details, see:\n'
                         f' {str(log_path.absolute())}')
+
+    return log_path
 
 
 def create_merged(file_new, file_old, file_merged, mode):
