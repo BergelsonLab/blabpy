@@ -388,6 +388,31 @@ def scatter_all_basic_level_if_complete(merged_folder_audio, merged_folder_video
         copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO)
 
 
+def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_problems=False):
+    """
+    Exports audio and video annotations to csv files in subfolders of working_folder.
+    :param working_folder: the parent folder of the output folders
+    :param ignore_audio_annotation_problems: if False, will raise an exception if there were some problems when
+    exporting audio annotations
+    :return: tuple of paths to exported audio and video annotations respectively
+    """
+    working_folder = working_folder or Path('.')
+
+    # Video annotations
+    exported_video_annotations_folder = working_folder / 'exported_video_annotations'
+    export_all_opfs_to_csv(exported_video_annotations_folder)
+
+    # Audio annotations
+    exported_audio_annotations_folder = working_folder / 'exported_audio_annotations'
+    log = export_all_chas_to_csv(exported_audio_annotations_folder)
+    if log and not ignore_audio_annotation_problems:
+        raise Exception('There were problems during the export of audio annotations.'
+                        ' See the following file for details:\n'
+                        f'{log.absolute()}')
+
+    return exported_audio_annotations_folder, exported_video_annotations_folder
+
+
 def make_updated_all_basic_level_here():
     all_basic_level_df = gather_all_basic_level_annotations()
     output_stem = Path('all_basiclevel')
