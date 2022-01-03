@@ -8,9 +8,11 @@ from .cha import Parser
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
 from .opf import OPFFile, OPFDataFrame
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
-    ensure_folder_exists_and_empty
+    ensure_folder_exists_and_empty, AUDIO, VIDEO
 
 # Placeholder value for words without the basic level information
+from .scatter import copy_all_basic_level_files_to_subject_files
+
 FIXME = '***FIX ME***'
 
 
@@ -373,6 +375,17 @@ def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, 
             return True
     else:
         return False
+
+
+def scatter_all_basic_level_if_complete(merged_folder_audio, merged_folder_video, working_folder,
+                                        ignore_missing_basic_level=False):
+    anything_missing = check_all_basic_level_for_missing(
+        merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
+        working_folder=working_folder, raise_error_if_any_missing=(not ignore_missing_basic_level))
+
+    if (not anything_missing) or ignore_missing_basic_level:
+        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO)
+        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO)
 
 
 def make_updated_all_basic_level_here():
