@@ -7,10 +7,12 @@ import pandas as pd
 from .cha import Parser
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
 from .opf import OPFFile, OPFDataFrame
-from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month
-
+from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
+    ensure_folder_exists_and_empty, AUDIO, VIDEO
 
 # Placeholder value for words without the basic level information
+from .scatter import copy_all_basic_level_files_to_subject_files
+
 FIXME = '***FIX ME***'
 
 
@@ -63,9 +65,7 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
     :param suffix: str
     :return:
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())), \
-        'The output folder should be empty or not yet exist'
-    output_folder.mkdir(parents=True, exist_ok=True)
+    ensure_folder_exists_and_empty(output_folder)
 
     opf_paths = get_all_opf_paths()
 
@@ -103,9 +103,7 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     :param log_path: Path, file where errors are logged if any
     :return: Path|None, if there were any errors, returns path to the error log file
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())),\
-        'The output folder should be empty or not yet exist'
-    output_folder.mkdir(parents=True, exist_ok=True)
+    ensure_folder_exists_and_empty(output_folder)
 
     # These will hold paths to files with problems if any
     could_not_be_parsed = list()
@@ -137,8 +135,8 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
                 for cha_path, error_path in parsed_with_errors:
                     f.write(f'Cha file: {str(cha_path.absolute())}\n')
                     f.write(f'Error log: {str(error_path.absolute())}\n')
-
-        return log_path
+    else:
+        log_path = None
 
     if parsed_with_errors:
         warnings.warn(f'Some cha files were parsed with errors. For details, see:\n {str(log_path.absolute())}')
@@ -146,6 +144,8 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     if could_not_be_parsed:
         raise Exception(f'Some cha files could not parsed at all. Try exportint them individually. For details, see:\n'
                         f' {str(log_path.absolute())}')
+
+    return log_path
 
 
 def create_merged(file_new, file_old, file_merged, mode):
@@ -252,19 +252,18 @@ def create_merged(file_new, file_old, file_merged, mode):
     return old_error, edit_word, new_word
 
 
-def merge_all_annotations_with_basic_level(exported_annotations_folder, output_folder, mode,
-                                           exported_suffix='_processed.csv'):
+def merge_annotations_with_basic_level(exported_annotations_folder, output_folder, mode,
+                                       exported_suffix='_processed.csv'):
     """
     Merges all exported annotation files in output_folder and saves them to output_folder which must be empty.
     :param exported_annotations_folder: the input folder
     :param output_folder: the output folder
     :param mode: 'audio'|'video' - which modality these files came from
-    :param exported_suffix: the ending of the exported annotation file names
+    :param exported_suffix: the ending of the exported annotation file names, needed because export_cha_to_csv exports
+    two files: the actual csv and the errors file
     :return: 
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())), \
-        'The output folder should be empty or not yet exist'
-    output_folder.mkdir(parents=True, exist_ok=True)
+    ensure_folder_exists_and_empty(output_folder)
 
     # Find/assemble all necessary paths
     annotation_files = list(exported_annotations_folder.glob(f'*{exported_suffix}'))
@@ -294,6 +293,33 @@ def merge_all_annotations_with_basic_level(exported_annotations_folder, output_f
           f'For details, see {log.absolute()}')
 
 
+def merge_all_annotations_with_basic_level(
+        exported_audio_annotations_folder, exported_video_annotations_folder,
+        working_folder, exported_suffix='_processed.csv'):
+    """
+    Runs merge_annotations_with_basic_level on both audio and video annotations and puts the results to csv files in
+    subfolders of working_folder.
+    :param exported_audio_annotations_folder: folder to look for exported audio annotations in
+    :param exported_video_annotations_folder: folder to look for exported video annotations in
+    :param working_folder: the parent folder of the two output folders.
+    :param exported_suffix: see merge_annotations_with_basic_level docstring
+    :return:
+    """
+    # Audio
+    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
+    merge_annotations_with_basic_level(exported_annotations_folder=exported_audio_annotations_folder,
+                                       output_folder=with_basic_level_audio_folder,
+                                       mode='audio', exported_suffix=exported_suffix)
+
+    # Video
+    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+    merge_annotations_with_basic_level(exported_annotations_folder=exported_video_annotations_folder,
+                                       output_folder=with_basic_level_video_folder,
+                                       mode='video', exported_suffix=exported_suffix)
+
+    return with_basic_level_audio_folder, with_basic_level_video_folder
+
+
 def make_incomplete_basic_level_list(merged_folder: Path):
     """
     Looks through all the files in the folder with annotations merged with previous basic level data and counts the
@@ -308,6 +334,113 @@ def make_incomplete_basic_level_list(merged_folder: Path):
         fixmes_df['filename'] = str(csv_file)
         all_fixmes_df = pd.concat([all_fixmes_df, fixmes_df])
     return all_fixmes_df
+
+
+def is_any_missing_basic_level_data(merged_folder: Path, list_path: Path):
+    """
+    Runs make_incomplete_basic_level_list, saves it to a file and return whether there were any missing basic levels.
+    :param merged_folder:
+    :param list_path: where to output a list of rows missing basic level data
+    :return: whether there were any rows with missing basic level data
+    """
+    df = make_incomplete_basic_level_list(merged_folder=merged_folder)
+    df.to_csv(list_path, index=False)
+    return df.size > 0
+
+
+def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, working_folder,
+                                      raise_error_if_any_missing=True):
+    """
+    Runs is_any_missing_basic_level_data on both the audio and video folder with annotations merged with existing basic
+    level data.
+    :param merged_folder_audio:
+    :param merged_folder_video:
+    :param working_folder: the folder where list of missing basic level data will be saved if any
+    :param raise_error_if_any_missing: should an error be raise if there are any missing?
+    :return: were there any rows with missing basic levels?
+    """
+    missing_audio_df = working_folder / 'missing_basic_level_audio.csv'
+    is_missing_audio = is_any_missing_basic_level_data(merged_folder=merged_folder_audio, list_path=missing_audio_df)
+
+    missing_video_df = working_folder / 'missing_basic_level_video.csv'
+    is_missing_video = is_any_missing_basic_level_data(merged_folder=merged_folder_video, list_path=missing_video_df)
+
+    anything_missing = is_missing_audio or is_missing_video
+    if anything_missing:
+        if raise_error_if_any_missing:
+            raise Exception('Some rows have missing basic level data. For details, see:\n'
+                            f'{missing_audio_df}\n'
+                            f'{missing_video_df}\n')
+        else:
+            return True
+    else:
+        return False
+
+
+def scatter_all_basic_level_if_complete(merged_folder_audio, merged_folder_video, working_folder,
+                                        ignore_missing_basic_level=False):
+    anything_missing = check_all_basic_level_for_missing(
+        merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
+        working_folder=working_folder, raise_error_if_any_missing=(not ignore_missing_basic_level))
+
+    if (not anything_missing) or ignore_missing_basic_level:
+        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO)
+        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO)
+
+
+def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_problems=False):
+    """
+    Exports audio and video annotations to csv files in subfolders of working_folder.
+    :param working_folder: the parent folder of the output folders
+    :param ignore_audio_annotation_problems: if False, will raise an exception if there were some problems when
+    exporting audio annotations
+    :return: tuple of paths to exported audio and video annotations respectively
+    """
+    working_folder = working_folder or Path('.')
+
+    # Video annotations
+    exported_video_annotations_folder = working_folder / 'exported_video_annotations'
+    export_all_opfs_to_csv(exported_video_annotations_folder)
+
+    # Audio annotations
+    exported_audio_annotations_folder = working_folder / 'exported_audio_annotations'
+    log = export_all_chas_to_csv(exported_audio_annotations_folder)
+    if log and not ignore_audio_annotation_problems:
+        raise Exception('There were problems during the export of audio annotations.'
+                        ' See the following file for details:\n'
+                        f'{log.absolute()}')
+
+    return exported_audio_annotations_folder, exported_video_annotations_folder
+
+
+def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_annotation_problems=False,
+                                          ignore_missing_basic_level=False):
+    """
+    Updates all individual basic level files in the Seedlings folder:
+     - exports all annotations from cha and opf files, checks for exporting errors,
+     - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added,
+     - if all basic level data is already present, backs up and updates the inividual basic level files
+    :return:
+    """
+    working_folder = working_folder or Path('.')
+
+    # Export
+    exported_audio, exported_video = export_all_annotations_to_csv(
+        working_folder=working_folder,
+        ignore_audio_annotation_problems=ignore_audio_annotation_problems)
+
+    # Merge with current basic level data
+    with_basic_level_audio, with_basic_level_video = merge_all_annotations_with_basic_level(
+        exported_audio_annotations_folder=exported_audio,
+        exported_video_annotations_folder=exported_video,
+        working_folder=working_folder
+    )
+
+    # Scatter if basic level column is complete everywhere
+    scatter_all_basic_level_if_complete(merged_folder_audio=with_basic_level_audio,
+                                        merged_folder_video=with_basic_level_video,
+                                        working_folder=working_folder,
+                                        ignore_missing_basic_level=ignore_missing_basic_level)
 
 
 def make_updated_all_basic_level_here():
