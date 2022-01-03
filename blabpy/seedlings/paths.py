@@ -128,3 +128,8 @@ def _parse_out_child_and_month(file_path_or_name):
     file_name = Path(file_path_or_name).name
     child, month, *_ = file_name.split('_')
     return dict(child=int(child), month=int(month))
+
+
+@lru_cache(maxsize=None)  # do this just once
+def get_all_basic_level_paths(modality):
+    return _get_all_paths(get_single_file_function=get_basic_level_path, modality=modality)
