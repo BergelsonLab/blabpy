@@ -54,11 +54,13 @@ def load_and_normalize_column_names(basic_level_path, modality):
           [COLUMNS_BY_MODALITY[modality]]
           .assign(id=basic_level_path.name))
 
-    # Audio requires additional manipulation
+    # Each modality requires a bit of additional manipulation
     if modality == AUDIO:
         # split timestamp (single string separated by "_", e.g. 4567_4589) into onset and offset (4567, 4589)
         df[['onset', 'offset']] = df.timestamp.str.split('_', expand=True).astype(int)
         df.drop(columns='timestamp', inplace=True)
+
+    if modality == VIDEO:
         # set "ordinal" to a type that support missing integer values (by default, pandas can't handle int and NAs in
         # one coumn
         df['ordinal'] = df.ordinal.astype(pd.Int64Dtype())
