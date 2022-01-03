@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from .cha import Parser
+from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
 from .opf import OPFFile, OPFDataFrame
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month
 
@@ -307,3 +308,12 @@ def make_incomplete_basic_level_list(merged_folder: Path):
         fixmes_df['filename'] = str(csv_file)
         all_fixmes_df = pd.concat([all_fixmes_df, fixmes_df])
     return all_fixmes_df
+
+
+def make_updated_all_basic_level_here():
+    all_basic_level_df = gather_all_basic_level_annotations()
+    output_stem = Path('all_basiclevel')
+    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
+                                 csv_path=output_stem.with_suffix('.csv'))
+    write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
+                                     feather_path=output_stem.with_suffix('.feather'))
