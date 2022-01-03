@@ -413,6 +413,36 @@ def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_p
     return exported_audio_annotations_folder, exported_video_annotations_folder
 
 
+def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_annotation_problems=False,
+                                          ignore_missing_basic_level=False):
+    """
+    Updates all individual basic level files in the Seedlings folder:
+     - exports all annotations from cha and opf files, checks for exporting errors,
+     - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added,
+     - if all basic level data is already present, backs up and updates the inividual basic level files
+    :return:
+    """
+    working_folder = working_folder or Path('.')
+
+    # Export
+    exported_audio, exported_video = export_all_annotations_to_csv(
+        working_folder=working_folder,
+        ignore_audio_annotation_problems=ignore_audio_annotation_problems)
+
+    # Merge with current basic level data
+    with_basic_level_audio, with_basic_level_video = merge_all_annotations_with_basic_level(
+        exported_audio_annotations_folder=exported_audio,
+        exported_video_annotations_folder=exported_video,
+        working_folder=working_folder
+    )
+
+    # Scatter if basic level column is complete everywhere
+    scatter_all_basic_level_if_complete(merged_folder_audio=with_basic_level_audio,
+                                        merged_folder_video=with_basic_level_video,
+                                        working_folder=working_folder,
+                                        ignore_missing_basic_level=ignore_missing_basic_level)
+
+
 def make_updated_all_basic_level_here():
     all_basic_level_df = gather_all_basic_level_annotations()
     output_stem = Path('all_basiclevel')
