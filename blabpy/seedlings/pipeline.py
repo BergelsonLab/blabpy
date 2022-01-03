@@ -334,6 +334,47 @@ def make_incomplete_basic_level_list(merged_folder: Path):
     return all_fixmes_df
 
 
+def is_any_missing_basic_level_data(merged_folder: Path, list_path: Path):
+    """
+    Runs make_incomplete_basic_level_list, saves it to a file and return whether there were any missing basic levels.
+    :param merged_folder:
+    :param list_path: where to output a list of rows missing basic level data
+    :return: whether there were any rows with missing basic level data
+    """
+    df = make_incomplete_basic_level_list(merged_folder=merged_folder)
+    df.to_csv(list_path, index=False)
+    return df.size > 0
+
+
+def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, working_folder,
+                                      raise_error_if_any_missing=True):
+    """
+    Runs is_any_missing_basic_level_data on both the audio and video folder with annotations merged with existing basic
+    level data.
+    :param merged_folder_audio:
+    :param merged_folder_video:
+    :param working_folder: the folder where list of missing basic level data will be saved if any
+    :param raise_error_if_any_missing: should an error be raise if there are any missing?
+    :return: were there any rows with missing basic levels?
+    """
+    missing_audio_df = working_folder / 'missing_basic_level_audio.csv'
+    is_missing_audio = is_any_missing_basic_level_data(merged_folder=merged_folder_audio, list_path=missing_audio_df)
+
+    missing_video_df = working_folder / 'missing_basic_level_video.csv'
+    is_missing_video = is_any_missing_basic_level_data(merged_folder=merged_folder_video, list_path=missing_video_df)
+
+    anything_missing = is_missing_audio or is_missing_video
+    if anything_missing:
+        if raise_error_if_any_missing:
+            raise Exception('Some rows have missing basic level data. For details, see:\n'
+                            f'{missing_audio_df}\n'
+                            f'{missing_video_df}\n')
+        else:
+            return True
+    else:
+        return False
+
+
 def make_updated_all_basic_level_here():
     all_basic_level_df = gather_all_basic_level_annotations()
     output_stem = Path('all_basiclevel')
