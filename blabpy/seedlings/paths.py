@@ -10,6 +10,17 @@ ALL_MONTHS = range(6, 17 + 1)
 ANNOTATION_FILE_COUNT = 527
 
 
+def ensure_folder_exists_and_empty(folder_path):
+    """
+    Check that folder is either empty or does not yet exist. In the latter case, creates it.
+    :param folder_path:
+    :return:
+    """
+    assert not (folder_path.exists() and any(folder_path.iterdir())), \
+        'The folder should be empty or not yet exist'
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+
 def get_seedlings_path():
     """
     Finds the path to the Seedlings folder on PN-OPUS

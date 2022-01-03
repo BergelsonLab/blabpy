@@ -7,8 +7,8 @@ import pandas as pd
 from .cha import Parser
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
 from .opf import OPFFile, OPFDataFrame
-from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month
-
+from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
+    ensure_folder_exists_and_empty
 
 # Placeholder value for words without the basic level information
 FIXME = '***FIX ME***'
@@ -63,9 +63,7 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
     :param suffix: str
     :return:
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())), \
-        'The output folder should be empty or not yet exist'
-    output_folder.mkdir(parents=True, exist_ok=True)
+    ensure_folder_exists_and_empty(output_folder)
 
     opf_paths = get_all_opf_paths()
 
@@ -103,9 +101,7 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     :param log_path: Path, file where errors are logged if any
     :return: Path|None, if there were any errors, returns path to the error log file
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())),\
-        'The output folder should be empty or not yet exist'
-    output_folder.mkdir(parents=True, exist_ok=True)
+    ensure_folder_exists_and_empty(output_folder)
 
     # These will hold paths to files with problems if any
     could_not_be_parsed = list()
@@ -262,9 +258,7 @@ def merge_all_annotations_with_basic_level(exported_annotations_folder, output_f
     :param exported_suffix: the ending of the exported annotation file names
     :return: 
     """
-    assert not (output_folder.exists() and any(output_folder.iterdir())), \
-        'The output folder should be empty or not yet exist'
-    output_folder.mkdir(parents=True, exist_ok=True)
+    ensure_folder_exists_and_empty(output_folder)
 
     # Find/assemble all necessary paths
     annotation_files = list(exported_annotations_folder.glob(f'*{exported_suffix}'))
