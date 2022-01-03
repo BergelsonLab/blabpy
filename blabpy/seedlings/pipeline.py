@@ -250,14 +250,15 @@ def create_merged(file_new, file_old, file_merged, mode):
     return old_error, edit_word, new_word
 
 
-def merge_all_annotations_with_basic_level(exported_annotations_folder, output_folder, mode,
-                                           exported_suffix='_processed.csv'):
+def merge_annotations_with_basic_level(exported_annotations_folder, output_folder, mode,
+                                       exported_suffix='_processed.csv'):
     """
     Merges all exported annotation files in output_folder and saves them to output_folder which must be empty.
     :param exported_annotations_folder: the input folder
     :param output_folder: the output folder
     :param mode: 'audio'|'video' - which modality these files came from
-    :param exported_suffix: the ending of the exported annotation file names
+    :param exported_suffix: the ending of the exported annotation file names, needed because export_cha_to_csv exports
+    two files: the actual csv and the errors file
     :return: 
     """
     ensure_folder_exists_and_empty(output_folder)
@@ -288,6 +289,33 @@ def merge_all_annotations_with_basic_level(exported_annotations_folder, output_f
           f'{edited_count} merged files with words that have been edited.\n'
           f'{added_count} merged files with new words.\n\n'
           f'For details, see {log.absolute()}')
+
+
+def merge_all_annotations_with_basic_level(
+        exported_audio_annotations_folder, exported_video_annotations_folder,
+        working_folder, exported_suffix='_processed.csv'):
+    """
+    Runs merge_annotations_with_basic_level on both audio and video annotations and puts the results to csv files in
+    subfolders of working_folder.
+    :param exported_audio_annotations_folder: folder to look for exported audio annotations in
+    :param exported_video_annotations_folder: folder to look for exported video annotations in
+    :param working_folder: the parent folder of the two output folders.
+    :param exported_suffix: see merge_annotations_with_basic_level docstring
+    :return:
+    """
+    # Audio
+    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
+    merge_annotations_with_basic_level(exported_annotations_folder=exported_audio_annotations_folder,
+                                       output_folder=with_basic_level_audio_folder,
+                                       mode='audio', exported_suffix=exported_suffix)
+
+    # Video
+    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+    merge_annotations_with_basic_level(exported_annotations_folder=exported_video_annotations_folder,
+                                       output_folder=with_basic_level_video_folder,
+                                       mode='video', exported_suffix=exported_suffix)
+
+    return with_basic_level_audio_folder, with_basic_level_video_folder
 
 
 def make_incomplete_basic_level_list(merged_folder: Path):
