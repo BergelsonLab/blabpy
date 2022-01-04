@@ -765,3 +765,22 @@ def extract_chi_phonetic_transcriptions(cha_path: Path):
                 transcriptions.extend(transcriptions_)
 
     return annotids, transcriptions
+
+
+def export_cha_to_csv(cha_path, output_folder):
+    """
+    Runs parse_clan2 (a version of it) on a cha file at cha_path and outputs the results to a csv_path
+    :param cha_path: Path
+    :param output_folder: Path to folder that will contain the _processed.csv and _errors.csv files. If None, output is
+    saved to the save folder where cha_path is.
+    :return: Path|None, if there were known errors, return the error file path. If the file could not be parsed, return
+    cha_path
+    """
+    try:
+        # Parser parses implicitly
+        parser = Parser(input_path=cha_path, output=output_folder)
+        error_file_path = Path(parser.error_file)
+        if error_file_path.exists():
+            return error_file_path
+    except Exception:
+        return cha_path

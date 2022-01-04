@@ -1,61 +1,17 @@
-import csv
 import warnings
 from pathlib import Path
 
 import pandas as pd
 
-from .cha import Parser
+from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
-from .opf import OPFFile, OPFDataFrame
+from .merge import create_merged, FIXME
+from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, AUDIO, VIDEO
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
-
-FIXME = '***FIX ME***'
-
-
-def export_opf_to_csv(opf_path, csv_path):
-    """
-    Emulate datavyu export
-    :param opf_path: Path to the opf
-    :param csv_path: Path to the output csv
-    :return:
-    """
-    # Load the data
-    df = OPFDataFrame(OPFFile(opf_path)).df
-
-    # Make sure the index is 0, 1, 2 and make it a column
-    df = df.reset_index(drop=True).reset_index()
-
-    # Rename columns
-    df.rename(columns={
-        'index': 'ordinal',
-        'time_start': 'onset',
-        'time_end': 'offset'
-    }, inplace=True)
-
-    # Convert time to milliseconds
-    df['onset'] = OPFDataFrame.time_column_to_milliseconds(df.onset).astype(int)
-    df['offset'] = OPFDataFrame.time_column_to_milliseconds(df.offset).astype(int)
-
-    # Prepend "labeled_object." to column names
-    df.columns = 'labeled_object.' + df.columns
-
-    # Write the output manually. Specifics of the datavyu export function (adding a comma to the end of each line) make
-    # it harder to use df.to_csv directly.
-    with csv_path.open('w') as f:
-        columns, *rows = df.to_csv(index=False, quoting=csv.QUOTE_NONNUMERIC).splitlines()
-        # There is an extra comma in the datavyu export for some reason.
-        suffix = ',\n'
-
-        # Write the column names which are not quoted in datavyu output
-        f.write(columns.replace('"', '') + suffix)
-
-        # And then the lines, in which non-numeric data *are* quoted
-        for row in rows:
-            f.write(row + suffix)
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -75,25 +31,6 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
         output_name = opf_path.name.replace(extensions, suffix + '.csv')
 
         export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
-
-
-def export_cha_to_csv(cha_path, output_folder):
-    """
-    Runs parse_clan2 (a version of it) on a cha file at cha_path and outputs the results to a csv_path
-    :param cha_path: Path
-    :param output_folder: Path to folder that will contain the _processed.csv and _errors.csv files. If None, output is
-    saved to the save folder where cha_path is.
-    :return: Path|None, if there were known errors, return the error file path. If the file could not be parsed, return
-    cha_path
-    """
-    try:
-        # Parser parses implicitly
-        parser = Parser(input_path=cha_path, output=output_folder)
-        error_file_path = Path(parser.error_file)
-        if error_file_path.exists():
-            return error_file_path
-    except Exception:
-        return cha_path
 
 
 def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_errors_log.txt')):
@@ -146,110 +83,6 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
                         f' {str(log_path.absolute())}')
 
     return log_path
-
-
-def create_merged(file_new, file_old, file_merged, mode):
-    """
-    Merges annotations exported with export_opf_to_csv/export_cha_to_csv with the previously exported file that has
-    the basic level of all words already added. Merging is done based on annotation ids (annotid) that each word in both
-    files should have. For new or changed words, the basiclevel column will have ***FIX ME***
-    :param file_new: path to a csv with exported annotations without basic level data
-    :param file_old: path to a previous version of exported annotation with basic level data already added
-    :param file_merged: path to the output file
-    :param mode: 'audio'|'video' - which modality these files came from
-    :return: (old_error, edit_word, new_word) - tuple of boolean values:
-        old_error - were there duplicate annotids in the file with basic level data?
-        edit_word - were there any changes to any of the words?
-        new_word - are there new words in the exported annotations?
-    """
-    # print(mode)
-    # print(file_old)
-    # """
-    if mode == "audio":
-        annotid_col = "annotid"
-        word_col = "word"
-    elif mode == "video":
-        annotid_col = "labeled_object.id"
-        word_col = "labeled_object.object"
-    else:
-        print("Wrong mode value")
-        return [], [], []
-    # """
-
-    # annotid_col = "annotid"
-    # word_col = "word"
-    # basic_level_col = "basic_level"
-
-    old_error = False
-    edit_word = False
-    new_word = False
-
-    old_df = pd.read_csv(file_old, keep_default_na=False, engine='python')
-    new_df = pd.read_csv(file_new, keep_default_na=False, engine='python')
-
-    # The basic level column in some video files is called basic_level, in others - labeled_object.basic_level. Let's
-    # find which it is.
-    # The code below will implicitly break if there are multiple columns whose name contains "basic_level"
-    [old_basic_level_col] = old_df.columns[old_df.columns.str.contains('basic_level')]
-
-    # For consistent naming, let's change it to 'basic_level'.
-    basic_level_col = 'basic_level'
-    old_df.rename(columns={old_basic_level_col: basic_level_col}, inplace=True)
-
-    merged_df = pd.DataFrame(columns=old_df.columns.values)
-
-    # df = df.rename(columns={'oldName1': 'newName1'})
-    for index, new_row in new_df.iterrows():
-
-        # word = ''
-        to_add = new_row
-        annot_id = new_row[annotid_col]
-        tmp = old_df[old_df[annotid_col] == annot_id]
-        # print(len(tmp.index))
-
-        word = new_row[word_col]
-        # tier = new_row['tier']
-        # spk = new_row['speaker']
-        # utt_type = new_row['utterance_type']
-        # obj_pres = new_row['object_present']
-        # ts = new_row['timestamp']
-
-        while len(tmp.index) != 0:  # if the id already exists in the old df, check that the words/ts? do match
-
-            if len(tmp.index) > 1:
-                print("ERROR: annotid not unique in old version : ", annot_id)  # raise exception
-                to_add[basic_level_col] = FIXME
-                merged_df = merged_df.append(to_add)
-                old_error = True
-                break
-            old_row = tmp.iloc[0]
-
-            # if new_row[:, new_row.columns != "basic_level"].equals(old_row[:, old_row.columns != "basic_level"]):
-            if word == old_row[word_col]:
-                # print("old", word)
-                # check codes as well to know if something changed?
-                to_add[basic_level_col] = old_row[basic_level_col]
-                merged_df = merged_df.append(to_add)
-                break
-            else:
-                # print("old but different", word)
-                to_add[basic_level_col] = FIXME
-                merged_df = merged_df.append(to_add)
-                edit_word = True
-                break
-
-        else:  # if the id is new: no info to retrieve, add row from new
-            # print(word)
-            if word != '':
-                # print("new", word)
-                to_add[basic_level_col] = FIXME
-                merged_df = merged_df.append(to_add)
-                new_word = True
-    # print(merged_df)
-    merged_df = merged_df.loc[:, ~merged_df.columns.str.contains('^Unnamed')]
-    merged_df.to_csv(file_merged, index=False)
-
-    return old_error, edit_word, new_word
 
 
 def merge_annotations_with_basic_level(exported_annotations_folder, output_folder, mode,

@@ -1,3 +1,4 @@
+import csv
 import re
 import os
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -176,3 +177,45 @@ class OPFDataFrame(object):
     def time_column_to_milliseconds(time_str: pd.Series):
         dt = pd.to_datetime(time_str, format=DATETIME_FORMAT)
         return ((dt.dt.hour * 60 + dt.dt.minute) * 60 + dt.dt.second) * 1000 + dt.dt.microsecond / 1000
+
+
+def export_opf_to_csv(opf_path, csv_path):
+    """
+    Emulate datavyu export
+    :param opf_path: Path to the opf
+    :param csv_path: Path to the output csv
+    :return:
+    """
+    # Load the data
+    df = OPFDataFrame(OPFFile(opf_path)).df
+
+    # Make sure the index is 0, 1, 2 and make it a column
+    df = df.reset_index(drop=True).reset_index()
+
+    # Rename columns
+    df.rename(columns={
+        'index': 'ordinal',
+        'time_start': 'onset',
+        'time_end': 'offset'
+    }, inplace=True)
+
+    # Convert time to milliseconds
+    df['onset'] = OPFDataFrame.time_column_to_milliseconds(df.onset).astype(int)
+    df['offset'] = OPFDataFrame.time_column_to_milliseconds(df.offset).astype(int)
+
+    # Prepend "labeled_object." to column names
+    df.columns = 'labeled_object.' + df.columns
+
+    # Write the output manually. Specifics of the datavyu export function (adding a comma to the end of each line) make
+    # it harder to use df.to_csv directly.
+    with csv_path.open('w') as f:
+        columns, *rows = df.to_csv(index=False, quoting=csv.QUOTE_NONNUMERIC).splitlines()
+        # There is an extra comma in the datavyu export for some reason.
+        suffix = ',\n'
+
+        # Write the column names which are not quoted in datavyu output
+        f.write(columns.replace('"', '') + suffix)
+
+        # And then the lines, in which non-numeric data *are* quoted
+        for row in rows:
+            f.write(row + suffix)
