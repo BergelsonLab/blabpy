@@ -228,8 +228,10 @@ def scatter_all_basic_level(merged_folder_audio, merged_folder_video, working_fo
         working_folder=working_folder, raise_error_if_any_missing=(not ignore_missing_basic_level))
 
     if (not anything_missing) or ignore_missing_basic_level:
-        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO)
-        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO)
+        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO,
+                                                    backup=True)
+        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO,
+                                                    backup=True)
 
 
 def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_problems=False):

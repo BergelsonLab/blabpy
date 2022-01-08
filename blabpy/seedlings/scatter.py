@@ -32,7 +32,7 @@ def backup_to_old_files(file_path: Path):
     copy2(file_path, backup_path)
 
 
-def copy_basic_level_to_subject_files(file_path: Path, modality):
+def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True):
     """
     Copies the basic level file at file_path to the corresponding folder in the Seedlings folder. The correspondence is
     established based on the child and month number in the filename and the modality argument. The older version is
@@ -52,17 +52,19 @@ def copy_basic_level_to_subject_files(file_path: Path, modality):
 
     # Backup, then copy
     basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
-    backup_to_old_files(basic_level_path)
+    if backup:
+        backup_to_old_files(basic_level_path)
     copy2(file_path, basic_level_path)
 
 
-def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path, modality):
+def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path, modality, backup=True):
     """
     Runs copy_basic_level_to_subject_files on all csv files in a folder.
     :param updated_basic_level_folder: folder with the basic level files
     :param modality: Audio/Video
+    :param backup: should csv files be backed up to "Old_Files" first?
     successfully copied would not be attempted to copy again leading to error beacuse a backup file already exists.
     :return: None
     """
     for basic_level_path in updated_basic_level_folder.glob('*.csv'):
-        copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality)
+        copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality, backup=backup)
