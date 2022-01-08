@@ -213,25 +213,42 @@ def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, 
 
 
 def scatter_all_basic_level(merged_folder_audio, merged_folder_video, working_folder,
-                            ignore_missing_basic_level=False):
+                            check_for_missing_basic_levels=True):
     """
     Checks annotations files, freshly exported and merged with basic level data, for any missing basic level. If there
     aren't any, copies the files to their individual child-month locations in Subject_Files.
     :param merged_folder_audio: folder where merge_[all_]annotations_with_basic_level put the outputs
     :param merged_folder_video: ditto for video
     :param working_folder: where to put the list of missing basic level data (FIXMEs)
-    :param ignore_missing_basic_level: should we scatter even when there are still some FIXMEs?
+    :param check_for_missing_basic_levels: should we scatter only when there are no FIXMEs? Mostly, will only make sense
+    when restoring from a backup.
     :return:
     """
-    anything_missing = check_all_basic_level_for_missing(
-        merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
-        working_folder=working_folder, raise_error_if_any_missing=(not ignore_missing_basic_level))
+    if check_for_missing_basic_levels:
+        anything_missing = check_all_basic_level_for_missing(
+            merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
+            working_folder=working_folder, raise_error_if_any_missing=False)
 
-    if (not anything_missing) or ignore_missing_basic_level:
-        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO,
-                                                    backup=True)
-        copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO,
-                                                    backup=True)
+        if anything_missing:
+            print('\n'.join([
+                'There were rows with missing basic level data. Check the csv logs.',
+                '- Update the corresponding rows in the individual sparse_code csvs in the following folders:',
+                f'  {merged_folder_audio}',
+                f'  {merged_folder_video}',
+                '\n',
+                '- Run',
+                f'  scatter_all_basic_level(',
+                f'      merged_folder_audio={merged_folder_audio},',
+                f'      merged_folder_video={merged_folder_video},',
+                f'      working_folder={working_folder}',
+                f'      check_for_missing_basic_levels={check_for_missing_basic_levels})'
+            ]))
+            return
+
+    copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO,
+                                                backup=True)
+    copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO,
+                                                backup=True)
 
 
 def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_problems=False):
@@ -286,7 +303,7 @@ def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_anno
     scatter_all_basic_level(merged_folder_audio=with_basic_level_audio,
                             merged_folder_video=with_basic_level_video,
                             working_folder=working_folder,
-                            ignore_missing_basic_level=ignore_missing_basic_level)
+                            check_for_missing_basic_levels=(not ignore_missing_basic_level))
 
 
 def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_missing_basic_level=False):
@@ -304,7 +321,7 @@ def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_m
     scatter_all_basic_level(merged_folder_audio=with_basic_level_audio_folder,
                             merged_folder_video=with_basic_level_video_folder,
                             working_folder=working_folder,
-                            ignore_missing_basic_level=ignore_missing_basic_level)
+                            check_for_missing_basic_levels=(not ignore_missing_basic_level))
 
 
 def make_updated_all_basic_level_here():
