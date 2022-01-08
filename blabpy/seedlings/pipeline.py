@@ -192,26 +192,37 @@ def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, 
     :param raise_error_if_any_missing: should an error be raise if there are any missing?
     :return: were there any rows with missing basic levels?
     """
-    missing_audio_df = working_folder / 'missing_basic_level_audio.csv'
-    is_missing_audio = is_any_missing_basic_level_data(merged_folder=merged_folder_audio, list_path=missing_audio_df)
+    missing_audio_basic_level_path = working_folder / 'missing_basic_level_audio.csv'
+    is_missing_audio = is_any_missing_basic_level_data(merged_folder=merged_folder_audio,
+                                                       list_path=missing_audio_basic_level_path)
 
-    missing_video_df = working_folder / 'missing_basic_level_video.csv'
-    is_missing_video = is_any_missing_basic_level_data(merged_folder=merged_folder_video, list_path=missing_video_df)
+    missing_video_basic_level_path = working_folder / 'missing_basic_level_video.csv'
+    is_missing_video = is_any_missing_basic_level_data(merged_folder=merged_folder_video,
+                                                       list_path=missing_video_basic_level_path)
 
     anything_missing = is_missing_audio or is_missing_video
     if anything_missing:
         if raise_error_if_any_missing:
             raise Exception('Some rows have missing basic level data. For details, see:\n'
-                            f'{missing_audio_df}\n'
-                            f'{missing_video_df}\n')
+                            f'{missing_audio_basic_level_path}\n'
+                            f'{missing_video_basic_level_path}\n')
         else:
             return True
     else:
         return False
 
 
-def scatter_all_basic_level_if_complete(merged_folder_audio, merged_folder_video, working_folder,
-                                        ignore_missing_basic_level=False):
+def scatter_all_basic_level(merged_folder_audio, merged_folder_video, working_folder,
+                            ignore_missing_basic_level=False):
+    """
+    Checks annotations files, freshly exported and merged with basic level data, for any missing basic level. If there
+    aren't any, copies the files to their individual child-month locations in Subject_Files.
+    :param merged_folder_audio: folder where merge_[all_]annotations_with_basic_level put the outputs
+    :param merged_folder_video: ditto for video
+    :param working_folder: where to put the list of missing basic level data (FIXMEs)
+    :param ignore_missing_basic_level: should we scatter even when there are still some FIXMEs?
+    :return:
+    """
     anything_missing = check_all_basic_level_for_missing(
         merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
         working_folder=working_folder, raise_error_if_any_missing=(not ignore_missing_basic_level))
@@ -270,10 +281,28 @@ def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_anno
     )
 
     # Scatter if basic level column is complete everywhere
-    scatter_all_basic_level_if_complete(merged_folder_audio=with_basic_level_audio,
-                                        merged_folder_video=with_basic_level_video,
-                                        working_folder=working_folder,
-                                        ignore_missing_basic_level=ignore_missing_basic_level)
+    scatter_all_basic_level(merged_folder_audio=with_basic_level_audio,
+                            merged_folder_video=with_basic_level_video,
+                            working_folder=working_folder,
+                            ignore_missing_basic_level=ignore_missing_basic_level)
+
+
+def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_missing_basic_level=False):
+    """
+    Most of the time update_basic_level_files_in_seedlings will tell you that there are still some files with missing
+    data in tha basic_level column. Run this function once you are done fixing those. It will upodate the lists of
+    missing files and
+    :return:
+    """
+    working_folder = working_folder or Path('.')
+
+    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
+    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+
+    scatter_all_basic_level(merged_folder_audio=with_basic_level_audio_folder,
+                            merged_folder_video=with_basic_level_video_folder,
+                            working_folder=working_folder,
+                            ignore_missing_basic_level=ignore_missing_basic_level)
 
 
 def make_updated_all_basic_level_here():
