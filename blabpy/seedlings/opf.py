@@ -189,8 +189,9 @@ def export_opf_to_csv(opf_path, csv_path):
     # Load the data
     df = OPFDataFrame(OPFFile(opf_path)).df
 
-    # Make sure the index is 0, 1, 2 and make it a column
+    # Make sure the index is 1, 2, 3 and make it a column
     df = df.reset_index(drop=True).reset_index()
+    df['index'] += 1
 
     # Rename columns
     df.rename(columns={

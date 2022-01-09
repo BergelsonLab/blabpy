@@ -17,10 +17,10 @@ COLUMN_NAME_MAPPER = {
 
 COLUMNS_BY_MODALITY = {
     AUDIO: ["tier", "object", "utterance_type", "object_present",
-            "speaker", "timestamp", "basic_level", "annotid"],
+            "speaker", "timestamp", "basic_level", "annotid", 'pho'],
     VIDEO: ["ordinal", "onset", "offset",
             "object", "utterance_type", "object_present",
-            "speaker", "basic_level", "annotid"],
+            "speaker", "basic_level", "annotid", 'pho'],
     'combined': ['ordinal',
                  'onset',
                  'offset',
@@ -35,7 +35,8 @@ COLUMNS_BY_MODALITY = {
                  'month',
                  'SubjectNumber',
                  'audio_video',
-                 'tier']
+                 'tier',
+                 'pho']
 }
 
 
