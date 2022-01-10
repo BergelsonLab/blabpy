@@ -20,7 +20,7 @@ Recordings for months 6 and 7 do not have the subregion information and are alre
 so we do not work with them here.
 
 For each subregion, we calculate the amount of time listened to within that subregion accounting for skips and silences.
-Starting from the subregion ranked the first on talkativeness, we then assign markup and extra regions to each subregion
+Starting from the subregion ranked the first on talkativeness, we then assign makeup and extra regions to each subregion
 until the total listened time is not at least an hour.
 """
 import pandas as pd
@@ -99,11 +99,11 @@ def _remove_silences_and_skips(regions):
     return
 
 
-def _remove_subregions_with_markup_and_extra(regions):
+def _remove_subregions_with_makeup_and_extra(regions):
     return
 
 
-def _assign_markup_and_extra_to_subregions(regions):
+def _assign_makeup_and_extra_to_subregions(regions):
     return
 
 
@@ -114,6 +114,6 @@ def _aggregate_listen_time(regions, subregion_ranks):
 def calculate_listened_time(cha_structure_path):
     regions, subregion_ranks = _read_cha_structure(cha_structure_path)
     regions = _remove_silences_and_skips(regions)
-    regions = _remove_subregions_with_markup_and_extra(regions)
-    regions = _assign_markup_and_extra_to_subregions(regions, subregion_ranks)
+    regions = _remove_subregions_with_makeup_and_extra(regions)
+    regions = _assign_makeup_and_extra_to_subregions(regions, subregion_ranks)
     return _aggregate_listen_time(regions)
