@@ -23,7 +23,18 @@ For each subregion, we calculate the amount of time listened to within that subr
 Starting from the subregion ranked the first on talkativeness, we then assign makeup and extra regions to each subregion
 until the total listened time is not at least an hour.
 """
+from enum import Enum
+
 import pandas as pd
+
+
+class RegionType(Enum):
+    SUBREGION = 'subregion'
+    SILENCE = 'silence'
+    SKIP = 'skip'
+    MAKEUP = 'makeup'
+    EXTRA = 'extra'
+    SURPLUS = 'surplus'
 
 
 def _region_boundaries_to_dataframe(region_lines):
