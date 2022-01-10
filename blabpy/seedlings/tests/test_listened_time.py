@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
-from blabpy.seedlings.listened_time import _read_cha_structure
+from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals
 
 
 def test__read_cha_structure():
@@ -67,3 +68,33 @@ def test__read_cha_structure():
 
     assert regions.equals(regions_correct)
     assert subregion_ranks.equals(subregion_ranks_correct)
+
+
+def test__set_difference_of_intervals():
+    # Invalid inputs should raise an error
+    with pytest.raises(AssertionError):
+        _set_difference_of_intervals((0, 1), (3, 2))
+    with pytest.raises(AssertionError):
+        _set_difference_of_intervals((1, 0), (2, 3))
+    with pytest.raises(AssertionError):
+        _set_difference_of_intervals((1, 0), (3, 2))
+
+    # Check that the output is correct
+    minuend = (-1, 1)
+    subtrahends, correct_differences = zip(*(
+        ((-3, -2), [(-1, 1)]),
+        ((-3, -1), [(-1, 1)]),
+        ((-3,  0), [(0,  1)]),
+        ((-3,  1), []),
+        ((-3,  2), []),
+        ((-1,  0), [(0, 1)]),
+        ((-1,  1), []),
+        ((-1,  2), []),
+        ((0, 0.5), [(-1, 0), (0.5, 1)]),
+        ((0,   1), [(-1, 0)]),
+        ((0,   2), [(-1, 0)]),
+        ((1,   2), [(-1, 1)]),
+        ((2,   3), [(-1, 1)])
+    ))
+    for subtrahend, correct_difference in zip(subtrahends, correct_differences):
+        assert _set_difference_of_intervals(minuend, subtrahend) == correct_difference

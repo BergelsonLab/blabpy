@@ -106,6 +106,27 @@ def _read_cha_structure(cha_structure_path):
     return _region_boundaries_to_dataframe(region_lines), _subregion_ranks_to_dataframe(subregion_rank_lines)
 
 
+def _set_difference_of_intervals(minuend, subtrahend):
+    """
+    Set-subtracts a closed interval from an open interval. The result is (a possibly empty) list of open intervals.
+    :param minuend: (x1, x2) tuple representing the interval to be subtracted from
+    :param subtrahend: (y1, y2) tuple representing the interval to be subtracted
+    :return: list of 0, 1, or 2 paris of numbers in the natural order
+    """
+    x1, x2 = minuend
+    y1, y2 = subtrahend
+    assert x1 < x2 and y1 < y2
+    # Subtraction of (y1, y2) is equivalent to the union of subtracting (-Inf, y2] and [y1, Inf):
+    # A \ (B1 ∧ B2) = (A \ B1) ∪ (A \ B2)
+    # Further, if A = (x1, x2) and B1 = [y1, Inf), A \ B = (x1, min(x2, y1)) := (z1, z2) as long as z1 < z2
+    result = [(z1, z2)
+              for (z1, z2) in [(x1, min(x2, y1)),  # (x1, x2) \ [y1, Inf)
+                               (max(x1, y2), x2)]   # (x1, x2) \ (-Inf, y2]
+              if z1 < z2]
+
+    return result
+
+
 def _remove_silences_and_skips(regions):
     return
 
