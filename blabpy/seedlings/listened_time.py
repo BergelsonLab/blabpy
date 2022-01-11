@@ -106,6 +106,10 @@ def _read_cha_structure(cha_structure_path):
     return _region_boundaries_to_dataframe(region_lines), _subregion_ranks_to_dataframe(subregion_rank_lines)
 
 
+def assert_numbers(*numbers):
+    assert all((isinstance(number, int) or isinstance(number, float) for number in numbers))
+
+
 def _set_difference_of_intervals(minuend, subtrahend):
     """
     Set-subtracts a closed interval from an open interval. The result is (a possibly empty) list of open intervals.
@@ -115,7 +119,7 @@ def _set_difference_of_intervals(minuend, subtrahend):
     """
     x1, x2 = minuend
     y1, y2 = subtrahend
-    assert all((isinstance(number, int) or isinstance(number, float) for number in (x1, x2, y1, y2)))
+    assert_numbers(x1, x2, y1, y2)
     assert x1 < x2 and y1 < y2
 
     # Subtraction of (y1, y2) is equivalent to the union of subtracting (-Inf, y2] and [y1, Inf):
