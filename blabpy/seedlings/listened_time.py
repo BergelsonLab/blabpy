@@ -133,6 +133,39 @@ def _set_difference_of_intervals(minuend, subtrahend):
     return result
 
 
+def _remove_interval_from_regions(regions, start, end):
+    """
+    Removes a time interval from each region in regions. As a results, each region can:
+    - disappear totally if it contained within the removed interval,
+    - get shortened on one side if only of it ends is within the remove interval,
+    - become two shorter regions if the removed interval is fully contained within the region.
+    :param regions: a regions dataframe (region_type, start, end columns)
+    :param start: int/float, start of the interval to be removed
+    :param end: int/float, end of the interval to be removed
+    :return: a modified dataframe
+    """
+    assert_numbers(start, end)
+    with_interval_removed = regions.copy()
+
+    # For each region, get a list of starts and ends of its subregions after the removal
+    new_starts_and_ends = 'new_starts_and_ends'
+    with_interval_removed[new_starts_and_ends] = with_interval_removed.apply(
+        lambda row: _set_difference_of_intervals(minuend=(int(row.start), int(row.end)), subtrahend=(start, end)),
+        axis='columns')
+    # Now, each element in that list should get its own row.
+    with_interval_removed = (with_interval_removed
+                             .explode(new_starts_and_ends)
+                             .dropna(subset=[new_starts_and_ends])  # Empty lists result in an NA row
+                             .drop(columns=['start', 'end'])  # The original start and end can be dropped now
+                             )
+    # Split 'new_start_and_ends' column that contains (start, end) tuples into two columns - start and end.
+    with_interval_removed[['start', 'end']] = with_interval_removed.new_starts_and_ends.values.tolist()
+    with_interval_removed.drop(columns=[new_starts_and_ends], inplace=True)
+
+    # Finally, restore the original column order, reset index, and return
+    return with_interval_removed[regions.columns].reset_index(drop=True)
+
+
 def _remove_silences_and_skips(regions):
     return
 

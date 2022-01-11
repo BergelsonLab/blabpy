@@ -3,7 +3,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals
+from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals, \
+    _remove_interval_from_regions
 
 
 def test__read_cha_structure():
@@ -106,3 +107,27 @@ def test__set_difference_of_intervals():
     ))
     for subtrahend, correct_difference in zip(subtrahends, correct_differences):
         assert _set_difference_of_intervals(minuend, subtrahend) == correct_difference
+
+
+def test__remove_interval_from_regions():
+    regions_list = [pd.DataFrame.from_dict({'start': [0, 4, 8],
+                                            'end': [2, 6, 10],
+                                            'arbitrary_column': ['a', 'b', 'c']}),
+                    pd.DataFrame.from_dict({'start': [0],
+                                            'end': [10],
+                                            'arbitrary_column': ['a']})]
+    # Interval to be removed
+    start, end = 1, 9
+
+    correct_results = [pd.DataFrame.from_dict({'start': [0, 9],
+                                               'end': [1, 10],
+                                               'arbitrary_column': ['a', 'c']}),
+                       pd.DataFrame.from_dict({'start': [0, 9],
+                                               'end': [1, 10],
+                                               'arbitrary_column': ['a', 'a']})]
+
+    for regions, correct_result in zip(regions_list, correct_results):
+        regions_copy = regions.copy()
+        assert _remove_interval_from_regions(regions=regions_copy, start=start, end=end).equals(correct_result)
+        # Check that the input has not been modified
+        assert regions.equals(regions_copy)
