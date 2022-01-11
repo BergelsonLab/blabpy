@@ -79,6 +79,14 @@ def test__set_difference_of_intervals():
     with pytest.raises(AssertionError):
         _set_difference_of_intervals((1, 0), (3, 2))
 
+    # All inputs should be integers
+    for minuend, subtrahend in ((('1', 12), (2, 21)),
+                                ((1, '12'), (2, 21)),
+                                ((1, 12), ('2', 21)),
+                                ((1, 12), (2, '21'))):
+        with pytest.raises(AssertionError):
+            _set_difference_of_intervals(minuend, subtrahend)
+
     # Check that the output is correct
     minuend = (-1, 1)
     subtrahends, correct_differences = zip(*(
