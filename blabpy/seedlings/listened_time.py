@@ -37,6 +37,10 @@ class RegionType(Enum):
     SURPLUS = 'surplus'
 
 
+# List of values to check with `in`
+REGION_TYPES = [rt.value for rt in RegionType]
+
+
 def _region_boundaries_to_dataframe(region_lines):
     """
     Converts the region lines from a cha_structure file into a dataframe with three columns: region_type, start, end
@@ -46,9 +50,11 @@ def _region_boundaries_to_dataframe(region_lines):
     boundaries_df = pd.DataFrame(columns=('region_type', 'which_boundary', 'time'),
                                  # Each line is "<region_type> <starts|ends> <timestamp>"
                                  data=[line.split() for line in region_lines])
+
+    assert boundaries_df.region_type.isin(REGION_TYPES).all()
+
     # For each type, count all starts 1, 2, 3 and count all ends 1, 2, 3 so that we can then match starts to ends.
     boundaries_df['position'] = boundaries_df.groupby(['region_type', 'which_boundary']).cumcount() + 1
-
     # Match starts to ends and combine
     starts = boundaries_df[boundaries_df.which_boundary == 'starts'].drop(columns='which_boundary')
     ends = boundaries_df[boundaries_df.which_boundary == 'ends'].drop(columns='which_boundary')
