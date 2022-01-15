@@ -173,7 +173,18 @@ def _remove_interval_from_regions(regions, start, end):
 
 
 def _remove_silences_and_skips(regions):
-    return
+    """
+    Takes a regions dataframe, remove skips and silence from it and then removes parts of any regions that overlap with
+    any of the skips/silences. See _remove_interval_from_regions for details of how the removing works.
+    :param regions: a pandas dataframe output by _read_cha_structure
+    :return: a dataframe with skips and silence removed as regions and the corresponding interval removed from other
+    regions
+    """
+    is_silence_or_skip = regions.region_type.isin([RegionType.SILENCE.value, RegionType.SKIP.value])
+    remaining_regions, silences_and_skips = regions[~is_silence_or_skip], regions[is_silence_or_skip]
+    for row in silences_and_skips.itertuples():
+        remaining_regions = _remove_interval_from_regions(remaining_regions, int(row.start), int(row.end))
+    return remaining_regions
 
 
 def _remove_subregions_with_makeup_and_extra(regions):

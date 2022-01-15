@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals, \
-    _remove_interval_from_regions
+    _remove_interval_from_regions, _remove_silences_and_skips
 
 
 def test__read_cha_structure():
@@ -131,3 +131,23 @@ def test__remove_interval_from_regions():
         assert _remove_interval_from_regions(regions=regions_copy, start=start, end=end).equals(correct_result)
         # Check that the input has not been modified
         assert regions.equals(regions_copy)
+
+
+def test__remove_silences_and_skips():
+    regions = pd.DataFrame(
+        columns=['region_type', 'start', 'end', 'position'],
+        data=[('subregion', '1', '10', 1),
+              ('subregion', '11', '20', 2),
+              ('subregion', '22', '30', 3),
+              ('silence', '5', '21', 1),
+              ('skip', '24', '27', 1),
+              ('skip', '32', '37', 2)])
+
+    correct_result = pd.DataFrame(
+        columns=['region_type', 'start', 'end', 'position'],
+        # Removing intervals impolicitly converts boundaries to int
+        data=[('subregion', 1, 5, 1),
+              ('subregion', 22, 24, 3),
+              ('subregion', 27, 30, 3)])
+
+    assert _remove_silences_and_skips(regions).equals(correct_result)
