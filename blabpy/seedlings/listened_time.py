@@ -206,3 +206,11 @@ def calculate_listened_time(cha_structure_path):
     regions = _remove_subregions_with_makeup_and_extra(regions)
     regions = _assign_makeup_and_extra_to_subregions(regions, subregion_ranks)
     return _aggregate_listen_time(regions)
+
+
+def _total_time_per_region_type(regions_df):
+    return (regions_df
+            .assign(duration=(regions_df.end - regions_df.start))
+            .groupby('region_type')
+            .aggregate(total_time=('duration', 'sum'))
+            .reset_index())

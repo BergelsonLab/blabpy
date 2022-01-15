@@ -4,63 +4,28 @@ import pandas as pd
 import pytest
 
 from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals, \
-    _remove_interval_from_regions, _remove_silences_and_skips
+    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_per_region_type
+
+# Regions dataframe corresponding to 'data/test_cha_structure.txt'
+test_regions_df = pd.DataFrame(
+    columns=['region_type', 'start', 'end', 'position'],
+    data=[['surplus', 3600710, 6301520, 1],
+          ['subregion', 6300000, 9900000, 1],
+          ['extra', 9900230, 10200470, 1],
+          ['surplus', 10516250, 10800010, 2],
+          ['silence', 11183120, 15599480, 1],
+          ['subregion', 15300000, 18900000, 2],
+          ['surplus', 15793420, 18900930, 3],
+          ['subregion', 18900000, 22500000, 3],
+          ['silence', 26255960, 26733920, 2],
+          ['silence', 27019130, 27504220, 3],
+          ['subregion', 27600000, 31200000, 4],
+          ['subregion', 33600000, 37200000, 5],
+          ['silence', 44867230, 57599990, 4]])
 
 
 def test__read_cha_structure():
-    regions_correct = pd.DataFrame.from_dict({
-        'region_type': {0: 'surplus',
-                        1: 'subregion',
-                        2: 'extra',
-                        3: 'surplus',
-                        4: 'silence',
-                        5: 'subregion',
-                        6: 'surplus',
-                        7: 'subregion',
-                        8: 'silence',
-                        9: 'silence',
-                        10: 'subregion',
-                        11: 'subregion',
-                        12: 'silence'},
-        'start': {0: 3600710,
-                  1: 6300000,
-                  2: 9900230,
-                  3: 10516250,
-                  4: 11183120,
-                  5: 15300000,
-                  6: 15793420,
-                  7: 18900000,
-                  8: 26255960,
-                  9: 27019130,
-                  10: 27600000,
-                  11: 33600000,
-                  12: 44867230},
-        'end': {0: 6301520,
-                1: 9900000,
-                2: 10200470,
-                3: 10800010,
-                4: 15599480,
-                5: 18900000,
-                6: 18900930,
-                7: 22500000,
-                8: 26733920,
-                9: 27504220,
-                10: 31200000,
-                11: 37200000,
-                12: 57599990},
-        'position': {0: 1,
-                     1: 1,
-                     2: 1,
-                     3: 2,
-                     4: 1,
-                     5: 2,
-                     6: 3,
-                     7: 3,
-                     8: 2,
-                     9: 3,
-                     10: 4,
-                     11: 5,
-                     12: 4}})
+    regions_correct = test_regions_df
     subregion_ranks_correct = pd.DataFrame.from_dict({
         'position': {0: '1', 1: '2', 2: '3', 3: '4', 4: '5'},
         'rank': {0: '1', 1: '5', 2: '2', 3: '4', 4: '3'}})
@@ -151,3 +116,13 @@ def test__remove_silences_and_skips():
               ('subregion', 27, 30, 3)])
 
     assert _remove_silences_and_skips(regions).equals(correct_result)
+
+
+def test__total_time_per_region_type():
+    correct_result = pd.DataFrame(
+        columns=['region_type', 'total_time'],
+        data=[['extra', 300240],
+              ['silence', 18112170],
+              ['subregion', 18000000],
+              ['surplus', 6092080]])
+    assert _total_time_per_region_type(test_regions_df).equals(correct_result)
