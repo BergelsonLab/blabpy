@@ -63,6 +63,7 @@ def _region_boundaries_to_dataframe(region_lines):
 
     # Rename and reorder columns
     regions = regions.rename(columns=dict(time_x='start', time_y='end'))[['region_type', 'start', 'end', 'position']]
+    regions[['start', 'end']] = regions[['start', 'end']].astype(int)
 
     return regions
 
