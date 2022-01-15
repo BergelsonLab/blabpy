@@ -30,10 +30,14 @@ def test__read_cha_structure():
         'position': {0: '1', 1: '2', 2: '3', 3: '4', 4: '5'},
         'rank': {0: '1', 1: '5', 2: '2', 3: '4', 4: '3'}})
 
-    regions, subregion_ranks = _read_cha_structure('data/test_cha_structure.txt')
+    test_cha_structure_path = 'data/test_cha_structure.txt'
+    regions, subregion_ranks = _read_cha_structure(test_cha_structure_path)
 
     assert regions.equals(regions_correct)
     assert subregion_ranks.equals(subregion_ranks_correct)
+
+    with pytest.raises(AssertionError):
+        _read_cha_structure(test_cha_structure_path, subregion_count=4)
 
 
 def test__set_difference_of_intervals():

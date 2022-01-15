@@ -40,9 +40,11 @@ class RegionType(Enum):
 # List of values to check with `in`
 REGION_TYPES = [rt.value for rt in RegionType]
 
-
 # Number of decimal places used when converting milliseconds to hours
 PRECISION = 2
+
+# Two recordings have four subregions, not five
+RECORDINGS_WITH_FOUR_SUBREGIONS = ((21, 14), (45, 10))
 
 
 def _region_boundaries_to_dataframe(region_lines):
@@ -72,10 +74,11 @@ def _region_boundaries_to_dataframe(region_lines):
     return regions
 
 
-def _subregion_ranks_to_dataframe(subregion_rank_lines):
+def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=5):
     """
     Converts the subregion lines from a cha_structure file into a dataframe with two columns: position, rank
     :param subregion_rank_lines: a list of strings read from the second part of a cha structure file
+    :param subregion_count: for known recordings with four subregions
     :return:
     """
     # Each row looks like "Position: 1, Rank: 1", so we can just extract position and rank using a regular expression
@@ -86,16 +89,17 @@ def _subregion_ranks_to_dataframe(subregion_rank_lines):
     # There should always be exactly five subregions and five ranks: 1 to 5
     positions = sorted(subregion_ranks.position.tolist())
     ranks = sorted(subregion_ranks['rank'].tolist())
-    assert positions == ranks == ['1', '2', '3', '4', '5']
+    assert positions == ranks == [str(i + 1) for i in range(subregion_count)]
 
     return subregion_ranks
 
 
-def _read_cha_structure(cha_structure_path):
+def _read_cha_structure(cha_structure_path, subregion_count=5):
     """
     Reads the files at cha_structure_path and converts it into two dataframes: one with all the regions and one with the
     subregion ranks.
     :param cha_structure_path: a string path to the file
+    :param subregion_count: passed to _subregion_ranks_to_dataframe
     :return: (regions, subregion_ranks) - a tuple of pandas dataframes
     """
     region_lines, subregion_rank_lines = list(), list()
@@ -114,7 +118,8 @@ def _read_cha_structure(cha_structure_path):
             if line:
                 subregion_rank_lines.append(line.rstrip())
 
-    return _region_boundaries_to_dataframe(region_lines), _subregion_ranks_to_dataframe(subregion_rank_lines)
+    return (_region_boundaries_to_dataframe(region_lines),
+            _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=subregion_count))
 
 
 def assert_numbers(*numbers):
