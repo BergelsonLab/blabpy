@@ -41,6 +41,10 @@ class RegionType(Enum):
 REGION_TYPES = [rt.value for rt in RegionType]
 
 
+# Number of decimal places used when converting milliseconds to hours
+PRECISION = 2
+
+
 def _region_boundaries_to_dataframe(region_lines):
     """
     Converts the region lines from a cha_structure file into a dataframe with three columns: region_type, start, end
@@ -214,3 +218,7 @@ def _total_time_per_region_type(regions_df):
             .groupby('region_type')
             .aggregate(total_time=('duration', 'sum'))
             .reset_index())
+
+
+def milliseconds_to_hours(ms):
+    return round(ms / (60 * 60 * 1000), PRECISION)
