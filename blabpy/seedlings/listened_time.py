@@ -24,6 +24,8 @@ Starting from the subregion ranked the first on talkativeness, we then assign ma
 until the total listened time is not at least an hour.
 """
 from enum import Enum
+from pathlib import Path
+import re
 
 import pandas as pd
 
@@ -45,6 +47,13 @@ PRECISION = 2
 
 # Two recordings have four subregions, not five
 RECORDINGS_WITH_FOUR_SUBREGIONS = ((21, 14), (45, 10))
+
+
+# This is a very permissive regex copied from annot_distr,
+ANNOTATION_REGEX = re.compile(
+    r'([a-zA-Z][a-z+]*)( +)(&=)([A-Za-z]{1})(_)([A-Za-z]{1})(_)([A-Z]{1}[A-Z0-9]{2})(_)?(0x[a-z0-9]{6})?',
+    re.IGNORECASE | re.DOTALL)
+TIMESTAMP_REGEX = re.compile("\\x15(\d+)_(\d+)\\x15")
 
 
 def _region_boundaries_to_dataframe(region_lines):
@@ -223,6 +232,57 @@ def _total_time_per_region_type(regions_df):
             .groupby('region_type')
             .aggregate(total_time=('duration', 'sum'))
             .reset_index())
+
+
+def _extract_annotation_timestamps(clan_file_path):
+    """
+    Find all annotation timestamps in a clan/cha file
+    :param clan_file_path: path to the file
+    :return: a pandas dataframe with two columns: 'onset' and 'offset'; and one row per each annotation found
+    """
+    all_contents = Path(clan_file_path).read_text()
+    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(all_contents)],
+                                             name='position_in_text')
+    timestamps = pd.DataFrame(
+        columns=['onset', 'offset', 'position_in_text'],
+        data=[(int(match.group(1)), int(match.group(2)), match.start())
+              for match in TIMESTAMP_REGEX.finditer(all_contents)])
+    # Timestamps come after annotations - we just need to find the first one (that is what direction='forward' does)
+    annotation_timestamps = pd.merge_asof(annotation_positions_in_text, timestamps,
+                                          on='position_in_text', direction='forward')
+
+    # Here, we are only interested in unique timestamps, not unique annotations, so we should remove the duplicates
+    annotation_timestamps = annotation_timestamps.drop_duplicates(keep='first').reset_index(drop=True)
+
+    return annotation_timestamps[['onset', 'offset']]
+
+
+def _per_region_annotation_count(regions_df, annotation_timestamps):
+    """
+    Count annotations that start and end within each subregions
+    :param regions_df: a dataframe with 'start' and 'end' numeric columns
+    :param annotation_timestamps: a dataframe created by _extract_annotation_timestamps
+    :return: regions_df with an addition column 'annotation_count'
+    """
+    regions_df_columns = regions_df.columns.tolist()
+    # Brute-force solution: take a cross-product of regions and annotations and filter out rows where annotation is not
+    # within region boundaries
+    annotation_counts = (
+        regions_df
+        # There is no cross join in pandas AFAIK, so we'll have to join on a dummy constant column
+        .assign(cross_join=0)
+        .merge(annotation_timestamps.assign(cross_join=0), on='cross_join')
+        # The onset should within region boundaries
+        .query('start <= onset and onset <= end')
+        .groupby(regions_df_columns)
+        .size()
+        .rename('annotation_count')
+        .reset_index()
+        # Above, we lost regions that do not have any annotations in them, let's put them back with the count of 0
+        .merge(regions_df, on=regions_df_columns, how='right')
+        .fillna(dict(annotation_count=0)))
+
+    return annotation_counts
 
 
 def milliseconds_to_hours(ms):

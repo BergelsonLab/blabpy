@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 
 from blabpy.seedlings.listened_time import _read_cha_structure, _total_time_per_region_type, RegionType, \
-    milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS
-from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS
+    milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, _per_region_annotation_count
+from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
 
 CHA_STRUCTURE_FILENAME_PATTERN = '{child:02}_{month:02}_sparse_code.cha.txt'
@@ -28,6 +28,9 @@ def test_the_whole_thing(total_listen_time_summary_df, cha_structures_folder, ch
     subregion_count = 5 if (child, month) not in RECORDINGS_WITH_FOUR_SUBREGIONS else 4
     regions_df, _ = _read_cha_structure(cha_structure_path, subregion_count=subregion_count)
 
+    total_listen_time_values = total_listen_time_summary_df.set_index('filename').loc[cha_structure_path.stem]
+
+    # Compare the total duration of subregions and silences before processing
     total_times = (_total_time_per_region_type(regions_df)
         .set_index('region_type')
         ['total_time'])
@@ -35,7 +38,23 @@ def test_the_whole_thing(total_listen_time_summary_df, cha_structures_folder, ch
     # It is perfectly ok to not have silence regions at all
     total_silence_time_hour = milliseconds_to_hours(total_times.get(RegionType.SILENCE.value, 0))
 
-    # Compare the total duration of subregions and silences before processing
-    correct_total_times = total_listen_time_summary_df.set_index('filename').loc[cha_structure_path.stem]
-    assert total_subregion_time_hour == correct_total_times['subregion_raw_hour']
-    assert total_silence_time_hour == correct_total_times['silence_raw_hour']
+    assert total_subregion_time_hour == total_listen_time_values['subregion_raw_hour']
+    assert total_silence_time_hour == total_listen_time_values['silence_raw_hour']
+
+    # Compare the number of annotations within subregions
+    cha_path = get_cha_path(child=child, month=month)
+    annotation_timestamps = _extract_annotation_timestamps(cha_path)
+    per_region_counts = _per_region_annotation_count(regions_df=regions_df,
+                                                     annotation_timestamps=annotation_timestamps)
+    subregion_counts = (per_region_counts
+                        [per_region_counts.region_type == RegionType.SUBREGION.value]
+                        .sort_values(by='position')
+                        .annotation_count
+                        .astype(int)
+                        .to_list())
+    # Add a 0 for files with four subregions
+    if (child, month) in RECORDINGS_WITH_FOUR_SUBREGIONS:
+        subregion_counts += [0]
+
+    # The 'counts' column contains a string representation of the count list
+    assert str(subregion_counts) == total_listen_time_values['counts']
