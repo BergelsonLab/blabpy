@@ -206,6 +206,36 @@ def _remove_silences_and_skips(regions):
     return remaining_regions
 
 
+def _overlaps_with_interval(regions, start, end):
+    return ~((regions.start >= end) | (regions.end <= start))
+
+
+def _remove_subregions(regions, condition_function, other_region_types):
+    """
+    Remove all subregions that satisfy a given condition depending on overlap with another region, e.g., have at least
+    some overlap with silences or skips.
+    :param regions: a full regions dataframe
+    :param condition_function: a function that takes in regions, start, and end and returns a boolean Series that tells
+    us whether each region in regions satisfies a given condition (e.g., partially overlaps, fully nested in, etc.)
+    :param other_region_types: which regions should be tested against the condition? A list of RegionType properties.
+    :return:
+    """
+    # Get necessary subsets of regions
+    is_subregion = regions.region_type == RegionType.SUBREGION.value
+    subregions, not_subregions = regions[is_subregion], regions[~is_subregion]
+    # Convert other_region_types to a list of string to test against
+    other_region_types_str = [other_region_type.value for other_region_type in other_region_types]
+    other_regions = regions[regions.region_type.isin(other_region_types_str)]
+
+    # Do the removal
+    for other_region in other_regions.itertuples():
+        condition_satisfied = condition_function(subregions, other_region.start, other_region.end)
+        subregions = subregions[~condition_satisfied]
+
+    # Combine with the other regions, restore order, return
+    return pd.concat([subregions, not_subregions]).sort_index().reset_index(drop=True)
+
+
 def _remove_subregions_with_makeup_and_extra(regions):
     return
 

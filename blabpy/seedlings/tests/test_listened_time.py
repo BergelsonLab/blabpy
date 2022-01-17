@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals, \
-    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_per_region_type
+    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_per_region_type, _remove_subregions, \
+    _overlaps_with_interval, RegionType
 
 # Regions dataframe corresponding to 'data/test_cha_structure.txt'
 test_regions_df = pd.DataFrame(
@@ -130,3 +131,22 @@ def test__total_time_per_region_type():
               ['subregion', 18000000],
               ['surplus', 6092080]])
     assert _total_time_per_region_type(test_regions_df).equals(correct_result)
+
+
+def test__remove_subregions():
+    correct_result = pd.DataFrame(**{
+        'columns': ['region_type', 'start', 'end', 'position'],
+        'data': [['surplus', 3600710, 6301520, 1],
+                 ['extra', 9900230, 10200470, 1],
+                 ['surplus', 10516250, 10800010, 2],
+                 ['silence', 11183120, 15599480, 1],
+                 ['surplus', 15793420, 18900930, 3],
+                 ['silence', 26255960, 26733920, 2],
+                 ['silence', 27019130, 27504220, 3],
+                 ['subregion', 27600000, 31200000, 4],
+                 ['subregion', 33600000, 37200000, 5],
+                 ['silence', 44867230, 57599990, 4]]})
+    result = _remove_subregions(test_regions_df,
+                                condition_function=_overlaps_with_interval,
+                                other_region_types=[RegionType.SURPLUS])
+    assert result.equals(correct_result)
