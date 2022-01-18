@@ -322,7 +322,7 @@ def _per_region_annotation_count(regions_df, annotation_timestamps):
         .assign(cross_join=0)
         .merge(annotation_timestamps.assign(cross_join=0), on='cross_join')
         # The onset should within region boundaries
-        .query('start <= onset and onset <= end')
+        .query('start <= onset and onset < end')
         .groupby(regions_df_columns)
         .size()
         .rename('annotation_count')
