@@ -298,9 +298,12 @@ def _extract_annotation_timestamps(clan_file_path):
                                           on='position_in_text', direction='forward')
 
     # Here, we are only interested in unique timestamps, not unique annotations, so we should remove the duplicates
-    annotation_timestamps = annotation_timestamps.drop_duplicates(keep='first').reset_index(drop=True)
+    annotation_timestamps = (annotation_timestamps
+                             [['onset', 'offset']]
+                             .drop_duplicates(keep='first')
+                             .reset_index(drop=True))
 
-    return annotation_timestamps[['onset', 'offset']]
+    return annotation_timestamps
 
 
 def _per_region_annotation_count(regions_df, annotation_timestamps):
