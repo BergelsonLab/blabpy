@@ -4,7 +4,8 @@ from pathlib import Path
 import pandas as pd
 
 from blabpy.seedlings.listened_time import _read_cha_structure, _total_time_per_region_type, RegionType, \
-    milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, _per_region_annotation_count
+    milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, \
+    _add_per_region_annotation_count, calculate_total_listened_time
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
 
@@ -44,8 +45,8 @@ def test_the_whole_thing(total_listen_time_summary_df, cha_structures_folder, ch
     # Compare the number of annotations within subregions
     cha_path = get_cha_path(child=child, month=month)
     annotation_timestamps = _extract_annotation_timestamps(cha_path)
-    per_region_counts = _per_region_annotation_count(regions_df=regions_df,
-                                                     annotation_timestamps=annotation_timestamps)
+    per_region_counts = _add_per_region_annotation_count(regions_df=regions_df,
+                                                         annotation_timestamps=annotation_timestamps)
     subregion_counts = (per_region_counts
                         [per_region_counts.region_type == RegionType.SUBREGION.value]
                         .sort_values(by='position')

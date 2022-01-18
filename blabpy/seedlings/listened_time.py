@@ -306,17 +306,17 @@ def _extract_annotation_timestamps(clan_file_path):
     return annotation_timestamps
 
 
-def _per_region_annotation_count(regions_df, annotation_timestamps):
+def _add_per_region_annotation_count(regions_df, annotation_timestamps):
     """
     Count annotations that start and end within each subregions
     :param regions_df: a dataframe with 'start' and 'end' numeric columns
     :param annotation_timestamps: a dataframe created by _extract_annotation_timestamps
-    :return: regions_df with an addition column 'annotation_count'
+    :return: regions_df with an additional column 'annotation_count'
     """
     regions_df_columns = regions_df.columns.tolist()
     # Brute-force solution: take a cross-product of regions and annotations and filter out rows where annotation is not
     # within region boundaries
-    annotation_counts = (
+    with_annotation_counts = (
         regions_df
         # There is no cross join in pandas AFAIK, so we'll have to join on a dummy constant column
         .assign(cross_join=0)
@@ -331,7 +331,7 @@ def _per_region_annotation_count(regions_df, annotation_timestamps):
         .merge(regions_df, on=regions_df_columns, how='right')
         .fillna(dict(annotation_count=0)))
 
-    return annotation_counts
+    return with_annotation_counts
 
 
 def milliseconds_to_hours(ms):
