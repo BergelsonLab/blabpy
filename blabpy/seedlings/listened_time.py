@@ -191,19 +191,35 @@ def _remove_interval_from_regions(regions, start, end):
     return with_interval_removed[regions.columns].reset_index(drop=True)
 
 
+def _remove_overlaps_from_other_regions(regions, dominant_region_type):
+    """
+    Takes regions of a single kind (e.g., silences) and removes from all other regions all overlapping parts (e.g., from
+    each non-silence region removes any part that overlaps with any of the silence regions).
+    :param regions: a dataframe with at least region_type, start, and end columns
+    :param dominant_region_type: the region type overlaps with which will be removed from other regions.
+    :return: copy of the regions dataframe with some of the non-dominant regions modified
+    """
+    is_dominant = regions.region_type == dominant_region_type
+    dominant, nondominant = regions[is_dominant], regions[~is_dominant]
+    for row in dominant.itertuples():
+        nondominant = _remove_interval_from_regions(nondominant, int(row.start), int(row.end))
+
+    # Combine with the dominant regions and return
+    return pd.concat([dominant, nondominant]).reset_index(drop=True)
+
+
 def _remove_silences_and_skips(regions):
     """
-    Takes a regions dataframe, remove skips and silence from it and then removes parts of any regions that overlap with
-    any of the skips/silences. See _remove_interval_from_regions for details of how the removing works.
-    :param regions: a pandas dataframe output by _read_cha_structure
+    From each region removes any parts that overlap with silences, then with skips.
+    See _remove_interval_from_regions for details of how the removing works.
+    :param regions: a pandas dataframe output by _read_cha_structure, for example
     :return: a dataframe with skips and silence removed as regions and the corresponding interval removed from other
     regions
     """
-    is_silence_or_skip = regions.region_type.isin([RegionType.SILENCE.value, RegionType.SKIP.value])
-    remaining_regions, silences_and_skips = regions[~is_silence_or_skip], regions[is_silence_or_skip]
-    for row in silences_and_skips.itertuples():
-        remaining_regions = _remove_interval_from_regions(remaining_regions, int(row.start), int(row.end))
-    return remaining_regions
+    for region_type in (RegionType.SILENCE.value, RegionType.SKIP.value):
+        regions = _remove_overlaps_from_other_regions(regions=regions, dominant_region_type=region_type)
+
+    return regions
 
 
 def _overlaps_with_interval(regions, start, end):

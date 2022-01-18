@@ -113,12 +113,14 @@ def test__remove_silences_and_skips():
               ('skip', 24, 27, 1),
               ('skip', 32, 37, 2)])
 
-    correct_result = pd.DataFrame(
-        columns=['region_type', 'start', 'end', 'position'],
-        # Removing intervals impolicitly converts boundaries to int
-        data=[('subregion', 1, 5, 1),
-              ('subregion', 22, 24, 3),
-              ('subregion', 27, 30, 3)])
+    correct_result = pd.DataFrame(**{
+        'columns': ['region_type', 'start', 'end', 'position'],
+        'data': [['skip', 24, 27, 1],
+                 ['skip', 32, 37, 2],
+                 ['silence', 5, 21, 1],
+                 ['subregion', 1, 5, 1],
+                 ['subregion', 22, 24, 3],
+                 ['subregion', 27, 30, 3]]})
 
     assert _remove_silences_and_skips(regions).equals(correct_result)
 
