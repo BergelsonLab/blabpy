@@ -29,6 +29,8 @@ import re
 
 import pandas as pd
 
+from blabpy.seedlings.paths import get_cha_path, _parse_out_child_and_month
+
 
 class RegionType(Enum):
     SUBREGION = 'subregion'
@@ -226,6 +228,10 @@ def _overlaps_with_interval(regions, start, end):
     return ~((regions.start >= end) | (regions.end <= start))
 
 
+def _contains_nested(regions, start, end):
+    return (regions.start <= start) & (end <= regions.end)
+
+
 def _remove_subregions(regions, condition_function, other_region_types):
     """
     Remove all subregions that satisfy a given condition depending on overlap with another region, e.g., have at least
@@ -252,10 +258,6 @@ def _remove_subregions(regions, condition_function, other_region_types):
     return pd.concat([subregions, not_subregions]).sort_index().reset_index(drop=True)
 
 
-def _remove_subregions_with_makeup_and_extra(regions):
-    return
-
-
 def _assign_makeup_and_extra_to_subregions(regions):
     return
 
@@ -264,12 +266,76 @@ def _aggregate_listen_time(regions, subregion_ranks):
     return
 
 
-def calculate_listened_time(cha_structure_path):
+def _account_for_region_overlaps(regions):
+    """
+    Removes some subregions, modifies some other regions so that the resulting regions do not overlap and can be counted
+    towards total listened time.
+    1. Removes any subregions that overlap with any surplus region.
+    2. Removes any subregions that contain in them nested makeup/surplus regions.
+    3. Removes overlaps starting by removing overlaps with silences, then with skips, etc.
+    :param regions: a regions dataframe such as the one output by _read_cha_structure
+    :return:
+    """
+    # Some subregions need to be removed completely
+    regions = _remove_subregions(regions, condition_function=_overlaps_with_interval,
+                                 other_region_types=[RegionType.SURPLUS])
+    regions = _remove_subregions(regions, condition_function=_contains_nested,
+                                 other_region_types=[RegionType.MAKEUP, RegionType.SURPLUS])
+
+    # All other regions need to have parts of them remove where they overlap with other regions.
+    # The order matters, e.g. if you remove silences first, the silence will remain in their original form.
+    dominant_region_types = [RegionType.SILENCE, RegionType.SKIP, RegionType.SURPLUS, RegionType.MAKEUP,
+                             RegionType.EXTRA]
+    # The list above should contain everything but subregions
+    assert(len(dominant_region_types) == len(REGION_TYPES) - 1)
+    for dominant_region_type in dominant_region_types:
+        regions = _remove_overlaps_from_other_regions(regions, dominant_region_type.value)
+
+    return regions
+
+
+def _remove_subregions_without_annotations(regions, annotation_timestamps):
+    """
+    This function has to be run before any region adjustments because it does not account for possible splits resulting
+    from having, for example, a skip in the middle.
+    :param regions: a regions dataframe
+    :param annotation_timestamps: dataframe with unique annotation timestamps
+    :return:
+    """
+    regions = _add_per_region_annotation_count(regions, annotation_timestamps)
+    regions = regions[(regions.annotation_count > 0) | (regions.region_type != RegionType.SUBREGION.value)]
+    return regions.drop(columns='annotation_count')
+
+
+def _total_eligible_time(regions):
+    """
+    Sums up duration of all regions except for silences, skips and surpluses. Assumes that the regions have been
+    de-overlapped.
+    :param regions: a regions dataframe that has already been de-overlapped
+    :return: total duration as an integer
+    """
+    region_types_to_exclude = [RegionType.SURPLUS.value, RegionType.SILENCE.value, RegionType.SKIP.value]
+    total_time_per_region = _total_time_per_region_type(regions_df=regions[
+        ~regions.region_type.isin(region_types_to_exclude)])
+    return total_time_per_region.total_time.sum()
+
+
+def calculate_total_listened_time(cha_structure_path):
+    # Load the data
     regions, subregion_ranks = _read_cha_structure(cha_structure_path)
-    regions = _remove_silences_and_skips(regions)
-    regions = _remove_subregions_with_makeup_and_extra(regions)
-    regions = _assign_makeup_and_extra_to_subregions(regions, subregion_ranks)
-    return _aggregate_listen_time(regions)
+    clan_file_path = get_cha_path(**_parse_out_child_and_month(cha_structure_path))
+    annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
+
+    # This is done here to emulate the calculation done in annot_distr, see _remove_subregions_without_annotations
+    regions = _remove_subregions_without_annotations(regions, annotation_timestamps)
+
+    # Account for region overlaps
+    regions = _account_for_region_overlaps(regions)
+
+    # Add up durations of all eligible regions
+    total_listen_time = _total_eligible_time(regions)
+
+    return total_listen_time
 
 
 def _total_time_per_region_type(regions_df):
