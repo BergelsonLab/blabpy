@@ -82,6 +82,9 @@ def _region_boundaries_to_dataframe(region_lines):
     regions = regions.rename(columns=dict(time_x='start', time_y='end'))[['region_type', 'start', 'end', 'position']]
     regions[['start', 'end']] = regions[['start', 'end']].astype(int)
 
+    # Remove regions that have zero duration
+    regions = regions[regions.start != regions.end]
+
     return regions
 
 
