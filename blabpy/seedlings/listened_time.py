@@ -323,9 +323,9 @@ def _total_eligible_time(regions):
     return total_time_per_region.total_time.sum()
 
 
-def calculate_total_listened_time(cha_structure_path):
+def calculate_total_listened_time(cha_structure_path, subregion_count=5):
     # Load the data
-    regions, subregion_ranks = _read_cha_structure(cha_structure_path)
+    regions, subregion_ranks = _read_cha_structure(cha_structure_path, subregion_count=subregion_count)
     clan_file_path = get_cha_path(**_parse_out_child_and_month(cha_structure_path))
     annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
 

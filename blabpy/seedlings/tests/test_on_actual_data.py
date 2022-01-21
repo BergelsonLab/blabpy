@@ -61,7 +61,7 @@ def test_the_whole_thing(total_listen_time_summary_df, cha_structures_folder, ch
     assert str(subregion_counts) == total_listen_time_values['annotation_counts_raw']
 
     # Compare the total listened time
-    total_listen_time = calculate_total_listened_time(cha_structure_path)
+    total_listen_time = calculate_total_listened_time(cha_structure_path, subregion_count=subregion_count)
     total_listen_time_correct = (total_listen_time_values['total_listen_time']
                                  - total_listen_time_values['surplus_time'])
     assert total_listen_time == total_listen_time_correct
