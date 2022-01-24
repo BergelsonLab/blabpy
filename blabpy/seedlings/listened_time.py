@@ -353,22 +353,73 @@ def _total_time_per_region_type(regions_df):
             .reset_index())
 
 
+def _extract_timestamps(clan_file_content: str):
+    """
+    Extract all timestamps from a clan file remembering their positions in text. Raises a ValueError if the onsets or
+    offsets are not monotinc increasing.
+    :param clan_file_content: clan file as one long string
+    :return: a dataframe with one row per timestamp and three columns: onset, offset, 'position_in_text'
+    """
+    timestamps = pd.DataFrame(
+        columns=['onset', 'offset', 'position_in_text'],
+        data=[(int(match.group(1)), int(match.group(2)), match.start())
+              for match in TIMESTAMP_REGEX.finditer(clan_file_content)],
+        dtype=int)
+
+    if not timestamps.onset.is_monotonic:
+        # TODO: uncomment or delete once timestamp inconsistencies have been dealt with
+        # not (timestamps.onset.is_monotonic and timestamps.offset.is_monotonic and
+        # (timestamps.onset <= timestamps.offset).all()):
+        raise ValueError('Timestamps are not in the right order.')
+
+    return timestamps
+
+
+def _match_with_timestamps(positions_in_text, timestamps_df, above=None, below=None):
+    """
+    For each row in a DataFrame/Series that has a 'position_in_text' integer column finds the last timestamp before that
+    position (if before is True) or the first one after (if after is True).
+    :param positions_in_text: an arbitrary dataframe with a 'position_in_text' integer column which must be monotonic
+    increasing
+    :param timestamps_df: same, but normally it is a dataframe as output by _extract_timestamps
+    :param above: if True, look for the last timestamp above
+    :param below: if True, look for the first timestamp below
+    :return: a copy of df_with_position_in_text with two additional columns: onset and offset
+    """
+    if below and not above:
+        direction = 'forward'
+    elif above and not below:
+        direction = 'backward'
+    else:
+        raise ValueError('Exactly one of `above` and `below` arguments must evaluate to True')
+
+    # Check that the positions are monotonic increasing
+    if isinstance(positions_in_text, pd.Series):
+        assert positions_in_text.name == 'position_in_text'
+        assert positions_in_text.is_monotonic
+    elif isinstance(positions_in_text, pd.DataFrame):
+        assert positions_in_text.position_in_text.is_monotonic
+    assert timestamps_df.position_in_text.is_monotonic
+
+    return pd.merge_asof(positions_in_text, timestamps_df,
+                         on='position_in_text', direction=direction)
+
+
 def _extract_annotation_timestamps(clan_file_path):
     """
     Find all annotation timestamps in a clan/cha file
     :param clan_file_path: path to the file
     :return: a pandas dataframe with two columns: 'onset' and 'offset'; and one row per each annotation found
     """
-    all_contents = Path(clan_file_path).read_text()
-    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(all_contents)],
+    clan_file_content = Path(clan_file_path).read_text()
+    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(clan_file_content)],
                                              name='position_in_text')
-    timestamps = pd.DataFrame(
-        columns=['onset', 'offset', 'position_in_text'],
-        data=[(int(match.group(1)), int(match.group(2)), match.start())
-              for match in TIMESTAMP_REGEX.finditer(all_contents)])
-    # Timestamps come after annotations - we just need to find the first one (that is what direction='forward' does)
-    annotation_timestamps = pd.merge_asof(annotation_positions_in_text, timestamps,
-                                          on='position_in_text', direction='forward')
+
+    # Add the first timestamps below the annotations in the file
+    annotation_timestamps = _match_with_timestamps(
+        positions_in_text=annotation_positions_in_text,
+        timestamps_df=_extract_timestamps(clan_file_content),
+        below=True)
 
     # Here, we are only interested in unique timestamps, not unique annotations, so we should remove the duplicates
     annotation_timestamps = (annotation_timestamps
