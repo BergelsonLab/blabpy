@@ -460,3 +460,99 @@ def _add_per_region_annotation_count(regions_df, annotation_timestamps):
 
 def milliseconds_to_hours(ms):
     return round(ms / (60 * 60 * 1000), PRECISION)
+
+
+def _extract_subregion_info(comment):
+    """
+    Extracts subregion position, rank, offset from a comment line from a clan (cha) file.
+    :param comment: a string from the subregion boundary comment in a cha file
+    :return: position, rank, offset
+    """
+    subregion_position_regex = re.compile(r'subregion (\d+) of (\d+)')
+    subregion_rank_regex = re.compile(r'ranked (\d+) of (\d+)')
+    subregion_time_regex = re.compile(r'at (\d+)')
+    position = subregion_position_regex.search(comment).group(1)
+    rank = subregion_rank_regex.search(comment).group(1)
+    offset = int(subregion_time_regex.findall(comment)[0])
+
+    return position, rank, offset
+
+
+def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT):
+    """
+    Extracts region boundaries, subregions ranks, and info about "listened to, nothing to annotate" from a clan file.
+    :param clan_file_path:
+    :return:
+    """
+    # Find all the comments
+    clan_file_text = Path(clan_file_path).read_text()
+    comment_line_regex = r'^%x?com:.*?(?=^[^\t])'
+    comments_df = pd.DataFrame(
+        columns=('text', 'position_in_text'),
+        data=[(match.group(), match.start())
+              for match in re.finditer(comment_line_regex, clan_file_text, flags=re.MULTILINE + re.DOTALL)])
+    # Remove LENA comments, counting '|' solution comes from pyclan
+    comments_df = comments_df[comments_df.text.str.count('\|') <= 3]
+    # Add timestamp info
+    comments_df = _match_with_timestamps(
+        positions_in_text=comments_df,
+        timestamps_df=_extract_timestamps(clan_file_text),
+        above=True)
+    # Some files have the first subregion comment before the first tier so they don't get a timestamp, so it will have
+    # NaN as offset, which will force pandas to convert the whole column to 'float64' which will cause problems down the
+    # line. So, here, we will convert offset to a special integer datatype that supports NaN at the same time.
+    comments_df['offset'] = comments_df.offset.astype(pd.Int64Dtype())
+
+    subregions = []  # List of strings of the format 'Position: {}, Rank: {}'
+    region_boundaries = []  # List of strings of the format
+    listened_but_empty = []  # List of integers - offsets of the corresponding comments
+
+    # Code below is copied from annot_distr
+    for comment_row in comments_df.itertuples():
+        comment = comment_row.text
+        row_offset = comment_row.offset
+        if 'subregion' in comment:
+            if 'subregion has been listened to but contains no codeable words' in comment:
+                listened_but_empty.append(row_offset)
+            else:
+                sub_pos, sub_rank, offset = _extract_subregion_info(comment)
+                if 'starts' in comment:
+                    region_boundaries.append(('subregion starts', offset))
+                # Only adding after ends in order to not add the position and rank info twice to the subregions list.
+                elif 'ends' in comment:
+                    region_boundaries.append(('subregion ends', offset))
+                    subregions.append('Position: {}, Rank: {}'.format(sub_pos, sub_rank))
+
+            continue
+
+        if 'extra' in comment:
+            if 'begin' in comment:
+                region_boundaries.append(('extra starts', row_offset))
+            elif 'end' in comment:
+                region_boundaries.append(('extra ends', row_offset))
+        elif 'silence' in comment:
+            if 'start' in comment:
+                region_boundaries.append(('silence starts', row_offset))
+            elif 'end' in comment:
+                region_boundaries.append(('silence ends', row_offset))
+        elif 'skip' in comment:
+            if 'begin' in comment:
+                region_boundaries.append(('skip starts', row_offset))
+            elif 'end' in comment:
+                region_boundaries.append(('skip ends', row_offset))
+        elif 'makeup' in comment or 'make-up' in comment or 'make up' in comment:
+            if 'begin' in comment:
+                region_boundaries.append(('makeup starts', row_offset))
+            elif 'end' in comment:
+                region_boundaries.append(('makeup ends', row_offset))
+        elif 'surplus' in comment:
+            if 'begin' in comment:
+                region_boundaries.append(('surplus starts', row_offset))
+            elif 'end' in comment:
+                region_boundaries.append(('surplus ends', row_offset))
+
+    # The code below emulates reading from cha_structures files that annot_distr creates
+    region_boundaries_df = _region_boundaries_to_dataframe([' '.join(map(str, rb)) for rb in region_boundaries])
+    subregion_ranks_df = _subregion_ranks_to_dataframe(subregions, subregion_count=subregion_count)
+
+    return region_boundaries_df, subregion_ranks_df, listened_but_empty

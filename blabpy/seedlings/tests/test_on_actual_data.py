@@ -5,7 +5,7 @@ import pandas as pd
 
 from blabpy.seedlings.listened_time import _read_cha_structure, _total_time_per_region_type, RegionType, \
     milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, \
-    _add_per_region_annotation_count, calculate_total_listened_time
+    _add_per_region_annotation_count, calculate_total_listened_time, _extract_region_info
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
 
@@ -27,7 +27,14 @@ def test_the_whole_thing(total_listen_time_summary_df, cha_structures_folder, ch
     assert cha_structure_path.exists()
 
     subregion_count = 5 if (child, month) not in RECORDINGS_WITH_FOUR_SUBREGIONS else 4
-    regions_df, _ = _read_cha_structure(cha_structure_path, subregion_count=subregion_count)
+    regions_df_correct, subregion_ranks_correct = _read_cha_structure(cha_structure_path,
+                                                                      subregion_count=subregion_count)
+
+    cha_path = get_cha_path(child=child, month=month)
+    regions_df, subregion_ranks, _ = _extract_region_info(clan_file_path=cha_path, subregion_count=subregion_count)
+    # Check that info we get from the cha_stuctures files that annot_distr created is the same we get ourselves
+    assert regions_df_correct.equals(regions_df)
+    assert subregion_ranks_correct.equals(subregion_ranks)
 
     total_listen_time_values = total_listen_time_summary_df.set_index('filename').loc[cha_structure_path.stem]
 
@@ -43,7 +50,6 @@ def test_the_whole_thing(total_listen_time_summary_df, cha_structures_folder, ch
     assert total_silence_time_hour == total_listen_time_values['silence_raw_hour']
 
     # Compare the number of annotations within subregions
-    cha_path = get_cha_path(child=child, month=month)
     annotation_timestamps = _extract_annotation_timestamps(cha_path)
     per_region_counts = _add_per_region_annotation_count(regions_df=regions_df,
                                                          annotation_timestamps=annotation_timestamps)
