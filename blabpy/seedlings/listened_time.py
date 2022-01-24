@@ -31,6 +31,10 @@ import pandas as pd
 
 from blabpy.seedlings.paths import get_cha_path, _parse_out_child_and_month
 
+# Two recordings have four subregions, all the other one have five
+DEFAULT_SUBREGION_COUNT = 5
+RECORDINGS_WITH_FOUR_SUBREGIONS = ((21, 14), (45, 10))
+
 
 class RegionType(Enum):
     SUBREGION = 'subregion'
@@ -46,10 +50,6 @@ REGION_TYPES = [rt.value for rt in RegionType]
 
 # Number of decimal places used when converting milliseconds to hours
 PRECISION = 2
-
-# Two recordings have four subregions, not five
-RECORDINGS_WITH_FOUR_SUBREGIONS = ((21, 14), (45, 10))
-
 
 # This is a very permissive regex copied from annot_distr,
 ANNOTATION_REGEX = re.compile(
@@ -92,7 +92,7 @@ def _region_boundaries_to_dataframe(region_lines):
     return regions
 
 
-def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=5):
+def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=DEFAULT_SUBREGION_COUNT):
     """
     Converts the subregion lines from a cha_structure file into a dataframe with two columns: position, rank
     :param subregion_rank_lines: a list of strings read from the second part of a cha structure file
@@ -112,7 +112,7 @@ def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=5):
     return subregion_ranks
 
 
-def _read_cha_structure(cha_structure_path, subregion_count=5):
+def _read_cha_structure(cha_structure_path, subregion_count=DEFAULT_SUBREGION_COUNT):
     """
     Reads the files at cha_structure_path and converts it into two dataframes: one with all the regions and one with the
     subregion ranks.
@@ -327,7 +327,7 @@ def _total_eligible_time(regions):
     return total_time_per_region.total_time.sum()
 
 
-def calculate_total_listened_time(cha_structure_path, subregion_count=5):
+def calculate_total_listened_time(cha_structure_path, subregion_count=DEFAULT_SUBREGION_COUNT):
     # Load the data
     regions, subregion_ranks = _read_cha_structure(cha_structure_path, subregion_count=subregion_count)
     clan_file_path = get_cha_path(**_parse_out_child_and_month(cha_structure_path))
