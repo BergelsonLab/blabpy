@@ -85,6 +85,10 @@ def _region_boundaries_to_dataframe(region_lines):
     # Remove regions that have zero duration
     regions = regions[regions.start != regions.end]
 
+    # Order by onset ascending, then offset descending, then region_type in alphabetical order
+    regions = regions.sort_values(by=['start', 'end', 'region_type'],
+                                  ascending=[True, False, True]).reset_index(drop=True)
+
     return regions
 
 
