@@ -130,4 +130,3 @@ dmypy.json
 
 # Pycharm files
 .idea/
-/blabpy/seedlings/tests/pytest.ini

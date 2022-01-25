@@ -1,13 +1,11 @@
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
-from blabpy.seedlings.listened_time import _read_cha_structure, _set_difference_of_intervals, \
+from blabpy.seedlings.listened_time import _set_difference_of_intervals, \
     _remove_interval_from_regions, _remove_silences_and_skips, _total_time_per_region_type, _remove_subregions, \
     _overlaps_with_interval, RegionType
 
-# Regions dataframe corresponding to 'data/test_cha_structure.txt'
+
 test_regions_df = pd.DataFrame(
     columns=['region_type', 'start', 'end', 'position'],
     data=[['surplus', 3600710, 6301520, 1],
@@ -23,22 +21,6 @@ test_regions_df = pd.DataFrame(
           ['subregion', 27600000, 31200000, 4],
           ['subregion', 33600000, 37200000, 5],
           ['silence', 44867230, 57599990, 4]])
-
-
-def test__read_cha_structure():
-    regions_correct = test_regions_df
-    subregion_ranks_correct = pd.DataFrame.from_dict({
-        'position': {0: '1', 1: '2', 2: '3', 3: '4', 4: '5'},
-        'rank': {0: '1', 1: '5', 2: '2', 3: '4', 4: '3'}})
-
-    test_cha_structure_path = 'data/test_cha_structure.txt'
-    regions, subregion_ranks = _read_cha_structure(test_cha_structure_path)
-
-    assert regions.equals(regions_correct)
-    assert subregion_ranks.equals(subregion_ranks_correct)
-
-    with pytest.raises(AssertionError):
-        _read_cha_structure(test_cha_structure_path, subregion_count=4)
 
 
 def test__set_difference_of_intervals():

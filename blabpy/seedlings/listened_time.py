@@ -112,34 +112,6 @@ def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=DEFAULT_
     return subregion_ranks
 
 
-def _read_cha_structure(cha_structure_path, subregion_count=DEFAULT_SUBREGION_COUNT):
-    """
-    Reads the files at cha_structure_path and converts it into two dataframes: one with all the regions and one with the
-    subregion ranks.
-    :param cha_structure_path: a string path to the file
-    :param subregion_count: passed to _subregion_ranks_to_dataframe
-    :return: (regions, subregion_ranks) - a tuple of pandas dataframes
-    """
-    region_lines, subregion_rank_lines = list(), list()
-    with open(cha_structure_path, 'r') as f:
-        # read region boundaries
-        for line in f:
-            line = line.rstrip()
-            if line:
-                region_lines.append(line)
-            else:  # we reached the empty lines between region boundaries and subregion ranks
-                break
-
-        # read subregion ranks
-        for line in f:
-            line = line.rstrip()
-            if line:
-                subregion_rank_lines.append(line.rstrip())
-
-    return (_region_boundaries_to_dataframe(region_lines),
-            _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=subregion_count))
-
-
 def assert_numbers(*numbers):
     assert all((isinstance(number, int) or isinstance(number, float) for number in numbers))
 
