@@ -59,12 +59,4 @@ def test_the_whole_thing(listen_time_stats_df, child, month):
     # Compare the total listened time
     total_listen_time = calculate_total_listened_time(regions=regions_df, child=child, month=month)
     total_listen_time_correct = this_file_listen_time_stats['total_listen_time']
-    # We will ignore differences on a couple of files, we do not need to have exactly the same results as annot_distr
-    # But we will check that our calculation has not changed since the last time.
-    KNOWN_TOTAL_TIME_DIFFERENCES = {
-        (22, 13): 15410310,
-        (42, 17): 10800750,
-        (40, 11): 12424570,
-        (41, 17): 10802430}
-    total_listen_time_correct = KNOWN_TOTAL_TIME_DIFFERENCES.get((child, month)) or total_listen_time_correct
-    assert abs(total_listen_time - total_listen_time_correct) < 5000
+    assert total_listen_time == total_listen_time_correct
