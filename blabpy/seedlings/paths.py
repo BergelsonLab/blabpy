@@ -5,9 +5,12 @@ from ..paths import get_pn_opus_path
 
 AUDIO = 'Audio'
 VIDEO = 'Video'
-ALL_CHILDREN = range(1, 46 + 1)
+DROPPED_CHILDREN = (5, 24)
+ALL_CHILDREN = tuple(child for child in range(1, 46 + 1) if child not in DROPPED_CHILDREN)
 ALL_MONTHS = range(6, 17 + 1)
 ANNOTATION_FILE_COUNT = 527
+MISSING_AUDIO_RECORDINGS = ((22, 9),)
+MISSING_VIDEO_RECORDINGS = ((17, 6),)
 
 
 def ensure_folder_exists_and_empty(folder_path):
@@ -89,38 +92,30 @@ def get_cha_path(child, month):
     return _get_annotation_path(child=child, month=month, modality=AUDIO)
 
 
-def _get_all_paths(get_single_file_function, **kwargs):
+def _get_all_paths(get_single_file_function, missing_child_month_combinations, **kwargs):
     """
     Runs get_single_file_function on all child-month combinations skipping files that do not exist and checking the
     total number at the end.
     :return: list of Path objects
     """
-    # Not all child-month combinations actually exist, so we want to catch any errors that this may cause and return
-    # None instead.
-    def try_to_get_path(child, month):
-        try:
-            return get_single_file_function(child=child, month=month, **kwargs)
-        except FileNotFoundError:
-            return None
-
-    paths = [try_to_get_path(child=child, month=month)
-             for child in ALL_CHILDREN for month in ALL_MONTHS]
-    # Remove None's
-    paths = [path for path in paths if path]
-
-    # Check the count
+    paths = [get_single_file_function(child=child, month=month, **kwargs)
+             for child in ALL_CHILDREN for month in ALL_MONTHS
+             if (child, month) not in missing_child_month_combinations]
     assert len(paths) == ANNOTATION_FILE_COUNT
+
     return paths
 
 
 @lru_cache(maxsize=None)  # do this just once
 def get_all_opf_paths():
-    return _get_all_paths(get_single_file_function=get_opf_path)
+    return _get_all_paths(get_single_file_function=get_opf_path,
+                          missing_child_month_combinations=MISSING_VIDEO_RECORDINGS)
 
 
 @lru_cache(maxsize=None)  # do this just once
 def get_all_cha_paths():
-    return _get_all_paths(get_single_file_function=get_cha_path)
+    return _get_all_paths(get_single_file_function=get_cha_path,
+                          missing_child_month_combinations=MISSING_AUDIO_RECORDINGS)
 
 
 def get_basic_level_path(child, month, modality):
