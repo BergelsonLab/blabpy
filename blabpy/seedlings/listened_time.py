@@ -32,6 +32,7 @@ import pandas as pd
 from blabpy.seedlings.paths import get_cha_path, _parse_out_child_and_month
 
 # Two recordings have four subregions, all the other one have five
+NO_CODEABLE_WORDS_BUT_LISTENED_COMMENT = 'subregion has been listened to but contains no codeable words'
 DEFAULT_SUBREGION_COUNT = 5
 RECORDINGS_WITH_FOUR_SUBREGIONS = ((21, 14), (45, 10))
 
@@ -261,29 +262,56 @@ def _account_for_region_overlaps(regions):
     regions = _remove_subregions(regions, condition_function=_contains_nested,
                                  other_region_types=[RegionType.MAKEUP, RegionType.SURPLUS])
 
-    # All other regions need to have parts of them remove where they overlap with other regions.
+    # All other regions need to have parts of them remove dwhere they overlap with other regions.
     # The order matters, e.g. if you remove silences first, the silence will remain in their original form.
-    dominant_region_types = [RegionType.SILENCE, RegionType.SKIP, RegionType.SURPLUS, RegionType.MAKEUP,
-                             RegionType.EXTRA]
+    # Deliberately manually placed regions should always trump the automatic ones.
+    # Out of those, if a skip overlaps with any of the other ones, the skip should carry more weight and be left intact.
+    # Makeup, surplus, extras should not overlap at all so their order does not matter.
+    dominant_region_types = [RegionType.SKIP,
+                             RegionType.SURPLUS, RegionType.MAKEUP, RegionType.EXTRA,
+                             RegionType.SILENCE]
     # The list above should contain everything but subregions
-    assert(len(dominant_region_types) == len(REGION_TYPES) - 1)
+    assert len(dominant_region_types) == len(REGION_TYPES) - 1
+    # Check that surplus, makeup, and extra regions do not overlap
+    _assert_no_overlaps(regions[regions.region_type.isin(
+        [RegionType.SURPLUS.value, RegionType.MAKEUP.value, RegionType.EXTRA.value])])
+
     for dominant_region_type in dominant_region_types:
         regions = _remove_overlaps_from_other_regions(regions, dominant_region_type.value)
-
     return regions
 
 
-def _remove_subregions_without_annotations(regions, annotation_timestamps):
+def _remove_subregions_without_annotations(regions, annotation_timestamps, listened_but_empty):
     """
     This function has to be run before any region adjustments because it does not account for possible splits resulting
     from having, for example, a skip in the middle.
     :param regions: a regions dataframe
     :param annotation_timestamps: dataframe with unique annotation timestamps
-    :return:
+    :param listened_but_empty: list of additional timestamp offset corresponding to the special comments that mark
+    subregions that were listened to but did not have any codeable words
+    :return: regions with possibly a few rows removed
     """
-    regions = _add_per_region_annotation_count(regions, annotation_timestamps)
+    # Check that no subregions have been split yet
+    assert regions[regions.region_type == RegionType.SUBREGION.value].duplicated(subset=['position']).sum() == 0
+
+    # Merge annotation timestamps with the additional offsets (they will become both onsets and offsets)
+    listened_but_empty_df = pd.DataFrame(columns=('onset', 'offset'), data=zip(*([listened_but_empty] * 2)))
+    timestamps = pd.concat([annotation_timestamps, listened_but_empty_df], ignore_index=True)
+
+    regions = _add_per_region_timestamp_count(regions, timestamps)
     regions = regions[(regions.annotation_count > 0) | (regions.region_type != RegionType.SUBREGION.value)]
     return regions.drop(columns='annotation_count')
+
+
+def _assert_no_overlaps(regions):
+    """
+    Assert that none of the regions overlap, being back-to-back is fine.
+    :param regions: a pandas DataFrame with start and end columns
+    :return:
+    """
+    boundaries = regions.sort_values(by=['start', 'end'], ascending=[True, False])[['start', 'end']]
+    previous_end = boundaries.end.shift(fill_value=-1)
+    assert (boundaries.start >= previous_end).all()
 
 
 def _total_eligible_time(regions):
@@ -293,19 +321,30 @@ def _total_eligible_time(regions):
     :param regions: a regions dataframe that has already been de-overlapped
     :return: total duration as an integer
     """
+    _assert_no_overlaps(regions)
     region_types_to_exclude = [RegionType.SURPLUS.value, RegionType.SILENCE.value, RegionType.SKIP.value]
     total_time_per_region = _total_time_per_region_type(regions_df=regions[
         ~regions.region_type.isin(region_types_to_exclude)])
     return total_time_per_region.total_time.sum()
 
 
-def calculate_total_listened_time(regions, child, month):
-    # Load the data
+def calculate_total_listened_time(regions, listened_but_empty, child, month):
+    """
+    Calculates total listen time by:
+    - removing subregions without annotations (unless they contain a special comment instead),
+    - removing any overlaps between different regions in a certain order,
+    :param regions: a dataframe with region_type, start, end, position columns
+    :param listened_but_empty: a list of offsets of the special comments
+    :param child: child number
+    :param month: month number
+    :return:
+    """
+    # Extract timestamps
     clan_file_path = get_cha_path(child=child, month=month)
     annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
 
-    # This is done here to emulate the calculation done in annot_distr, see _remove_subregions_without_annotations
-    regions = _remove_subregions_without_annotations(regions, annotation_timestamps)
+    # Do not count subregions without annotations, unless they contain a special comment
+    regions = _remove_subregions_without_annotations(regions, annotation_timestamps, listened_but_empty)
 
     # Account for region overlaps
     regions = _account_for_region_overlaps(regions)
@@ -401,11 +440,11 @@ def _extract_annotation_timestamps(clan_file_path):
     return annotation_timestamps
 
 
-def _add_per_region_annotation_count(regions_df, annotation_timestamps):
+def _add_per_region_timestamp_count(regions_df, timestamps):
     """
     Count annotations that start and end within each subregions
     :param regions_df: a dataframe with 'start' and 'end' numeric columns
-    :param annotation_timestamps: a dataframe created by _extract_annotation_timestamps
+    :param timestamps: a dataframe with 'onset' column
     :return: regions_df with an additional column 'annotation_count'
     """
     regions_df_columns = regions_df.columns.tolist()
@@ -415,7 +454,7 @@ def _add_per_region_annotation_count(regions_df, annotation_timestamps):
         regions_df
         # There is no cross join in pandas AFAIK, so we'll have to join on a dummy constant column
         .assign(cross_join=0)
-        .merge(annotation_timestamps.assign(cross_join=0), on='cross_join')
+        .merge(timestamps.assign(cross_join=0), on='cross_join')
         # The onset should within region boundaries
         .query('start <= onset and onset < end')
         .groupby(regions_df_columns)
@@ -483,7 +522,7 @@ def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT
         comment = comment_row.text
         row_offset = comment_row.offset
         if 'subregion' in comment:
-            if 'subregion has been listened to but contains no codeable words' in comment:
+            if NO_CODEABLE_WORDS_BUT_LISTENED_COMMENT in comment:
                 listened_but_empty.append(row_offset)
             else:
                 sub_pos, sub_rank, offset = _extract_subregion_info(comment)

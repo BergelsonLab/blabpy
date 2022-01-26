@@ -4,7 +4,7 @@ import pandas as pd
 
 from blabpy.seedlings.listened_time import _total_time_per_region_type, RegionType, \
     milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, \
-    _add_per_region_annotation_count, calculate_total_listened_time, _extract_region_info
+    _add_per_region_timestamp_count, calculate_total_listened_time, _extract_region_info
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
 
@@ -24,7 +24,8 @@ def listen_time_stats_df():
 def test_the_whole_thing(listen_time_stats_df, child, month):
     subregion_count = 5 if (child, month) not in RECORDINGS_WITH_FOUR_SUBREGIONS else 4
     cha_path = get_cha_path(child=child, month=month)
-    regions_df, subregion_ranks, _ = _extract_region_info(clan_file_path=cha_path, subregion_count=subregion_count)
+    regions_df, subregion_ranks, listened_but_empty = _extract_region_info(clan_file_path=cha_path,
+                                                                           subregion_count=subregion_count)
 
     this_file_listen_time_stats = listen_time_stats_df.set_index('filename').loc[cha_path.name]
 
@@ -41,8 +42,8 @@ def test_the_whole_thing(listen_time_stats_df, child, month):
 
     # Compare the number of annotations within subregions
     annotation_timestamps = _extract_annotation_timestamps(cha_path)
-    per_region_counts = _add_per_region_annotation_count(regions_df=regions_df,
-                                                         annotation_timestamps=annotation_timestamps)
+    per_region_counts = _add_per_region_timestamp_count(regions_df=regions_df,
+                                                        timestamps=annotation_timestamps)
     subregion_counts = (per_region_counts
                         [per_region_counts.region_type == RegionType.SUBREGION.value]
                         .sort_values(by='position')
@@ -57,6 +58,7 @@ def test_the_whole_thing(listen_time_stats_df, child, month):
     assert str(subregion_counts) == this_file_listen_time_stats['annotation_counts_raw']
 
     # Compare the total listened time
-    total_listen_time = calculate_total_listened_time(regions=regions_df, child=child, month=month)
+    total_listen_time = calculate_total_listened_time(regions=regions_df, listened_but_empty=listened_but_empty,
+                                                      child=child, month=month)
     total_listen_time_correct = this_file_listen_time_stats['total_listen_time']
     assert total_listen_time == total_listen_time_correct

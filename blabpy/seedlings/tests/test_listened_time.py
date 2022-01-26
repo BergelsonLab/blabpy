@@ -3,8 +3,7 @@ import pytest
 
 from blabpy.seedlings.listened_time import _set_difference_of_intervals, \
     _remove_interval_from_regions, _remove_silences_and_skips, _total_time_per_region_type, _remove_subregions, \
-    _overlaps_with_interval, RegionType
-
+    _overlaps_with_interval, RegionType, _assert_no_overlaps
 
 test_regions_df = pd.DataFrame(
     columns=['region_type', 'start', 'end', 'position'],
@@ -45,17 +44,17 @@ def test__set_difference_of_intervals():
     subtrahends, correct_differences = zip(*(
         ((-3, -2), [(-1, 1)]),
         ((-3, -1), [(-1, 1)]),
-        ((-3,  0), [(0,  1)]),
-        ((-3,  1), []),
-        ((-3,  2), []),
-        ((-1,  0), [(0, 1)]),
-        ((-1,  1), []),
-        ((-1,  2), []),
+        ((-3, 0), [(0, 1)]),
+        ((-3, 1), []),
+        ((-3, 2), []),
+        ((-1, 0), [(0, 1)]),
+        ((-1, 1), []),
+        ((-1, 2), []),
         ((0, 0.5), [(-1, 0), (0.5, 1)]),
-        ((0,   1), [(-1, 0)]),
-        ((0,   2), [(-1, 0)]),
-        ((1,   2), [(-1, 1)]),
-        ((2,   3), [(-1, 1)])
+        ((0, 1), [(-1, 0)]),
+        ((0, 2), [(-1, 0)]),
+        ((1, 2), [(-1, 1)]),
+        ((2, 3), [(-1, 1)])
     ))
     for subtrahend, correct_difference in zip(subtrahends, correct_differences):
         assert _set_difference_of_intervals(minuend, subtrahend) == correct_difference
@@ -134,3 +133,11 @@ def test__remove_subregions():
                                 condition_function=_overlaps_with_interval,
                                 other_region_types=[RegionType.SURPLUS])
     assert result.equals(correct_result)
+
+
+def test__assert_no_overlaps():
+    overlapping = pd.DataFrame(columns=['start', 'end'], data=((0, 2), (1, 3)))
+    non_overlapping = pd.DataFrame(columns=['start', 'end'], data=((0, 1), (2, 3)))
+    with pytest.raises(AssertionError):
+        _assert_no_overlaps(overlapping)
+    _assert_no_overlaps(non_overlapping)
