@@ -262,10 +262,14 @@ def _account_for_region_overlaps(regions):
     regions = _remove_subregions(regions, condition_function=_contains_nested,
                                  other_region_types=[RegionType.MAKEUP, RegionType.SURPLUS])
 
-    # All other regions need to have parts of them remove where they overlap with other regions.
+    # All other regions need to have parts of them remove dwhere they overlap with other regions.
     # The order matters, e.g. if you remove silences first, the silence will remain in their original form.
-    dominant_region_types = [RegionType.SILENCE, RegionType.SKIP, RegionType.SURPLUS, RegionType.MAKEUP,
-                             RegionType.EXTRA]
+    # Deliberately manually placed regions should always trump the automatic ones.
+    # Out of those, if a skip overlaps with any of the other ones, the skip should carry more weight and be left intact.
+    # Makeup, surplus, extras should not overlap at all so their order does not matter.
+    dominant_region_types = [RegionType.SKIP,
+                             RegionType.SURPLUS, RegionType.MAKEUP, RegionType.EXTRA,
+                             RegionType.SILENCE]
     # The list above should contain everything but subregions
     assert(len(dominant_region_types) == len(REGION_TYPES) - 1)
     for dominant_region_type in dominant_region_types:
