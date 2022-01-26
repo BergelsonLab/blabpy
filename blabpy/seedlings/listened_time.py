@@ -328,11 +328,28 @@ def _total_eligible_time(regions):
     return total_time_per_region.total_time.sum()
 
 
+def _process_regions(regions, annotation_timestamps, listened_but_empty):
+    """
+    Processes regions:
+    - removes subregions without annotations (unless they contain a special comment instead),
+    - removes any overlaps between different regions in a certain order,
+    :param regions:
+    :param annotation_timestamps:
+    :param listened_but_empty:
+    :return:
+    """
+    # Do not count subregions without annotations, unless they contain a special comment
+    regions = _remove_subregions_without_annotations(regions, annotation_timestamps, listened_but_empty)
+
+    # Account for region overlaps
+    regions = _account_for_region_overlaps(regions)
+
+    return regions
+
+
 def calculate_total_listened_time(regions, listened_but_empty, child, month):
     """
-    Calculates total listen time by:
-    - removing subregions without annotations (unless they contain a special comment instead),
-    - removing any overlaps between different regions in a certain order,
+    Calculates total listen time by processing regions and the adding up duration of the eligible ones.
     :param regions: a dataframe with region_type, start, end, position columns
     :param listened_but_empty: a list of offsets of the special comments
     :param child: child number
@@ -343,11 +360,7 @@ def calculate_total_listened_time(regions, listened_but_empty, child, month):
     clan_file_path = get_cha_path(child=child, month=month)
     annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
 
-    # Do not count subregions without annotations, unless they contain a special comment
-    regions = _remove_subregions_without_annotations(regions, annotation_timestamps, listened_but_empty)
-
-    # Account for region overlaps
-    regions = _account_for_region_overlaps(regions)
+    regions = _process_regions(regions, annotation_timestamps, listened_but_empty)
 
     # Add up durations of all eligible regions
     total_listen_time = _total_eligible_time(regions)
