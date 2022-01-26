@@ -271,10 +271,13 @@ def _account_for_region_overlaps(regions):
                              RegionType.SURPLUS, RegionType.MAKEUP, RegionType.EXTRA,
                              RegionType.SILENCE]
     # The list above should contain everything but subregions
-    assert(len(dominant_region_types) == len(REGION_TYPES) - 1)
+    assert len(dominant_region_types) == len(REGION_TYPES) - 1
+    # Check that surplus, makeup, and extra regions do not overlap
+    _assert_no_overlaps(regions[regions.region_type.isin(
+        [RegionType.SURPLUS.value, RegionType.MAKEUP.value, RegionType.EXTRA.value])])
+
     for dominant_region_type in dominant_region_types:
         regions = _remove_overlaps_from_other_regions(regions, dominant_region_type.value)
-
     return regions
 
 
@@ -300,6 +303,17 @@ def _remove_subregions_without_annotations(regions, annotation_timestamps, liste
     return regions.drop(columns='annotation_count')
 
 
+def _assert_no_overlaps(regions):
+    """
+    Assert that none of the regions overlap, being back-to-back is fine.
+    :param regions: a pandas DataFrame with start and end columns
+    :return:
+    """
+    boundaries = regions.sort_values(by=['start', 'end'], ascending=[True, False])[['start', 'end']]
+    previous_end = boundaries.end.shift(fill_value=-1)
+    assert (boundaries.start >= previous_end).all()
+
+
 def _total_eligible_time(regions):
     """
     Sums up duration of all regions except for silences, skips and surpluses. Assumes that the regions have been
@@ -307,6 +321,7 @@ def _total_eligible_time(regions):
     :param regions: a regions dataframe that has already been de-overlapped
     :return: total duration as an integer
     """
+    _assert_no_overlaps(regions)
     region_types_to_exclude = [RegionType.SURPLUS.value, RegionType.SILENCE.value, RegionType.SKIP.value]
     total_time_per_region = _total_time_per_region_type(regions_df=regions[
         ~regions.region_type.isin(region_types_to_exclude)])
