@@ -284,10 +284,13 @@ def _remove_subregions_without_annotations(regions, annotation_timestamps, liste
     subregions that were listened to but did not have any codeable words
     :return: regions with possibly a few rows removed
     """
-    # TODO: check that no regions have been split yet
+    # Check that no subregions have been split yet
+    assert regions[regions.region_type == RegionType.SUBREGION.value].duplicated(subset=['position']).sum() == 0
+
     # Merge annotation timestamps with the additional offsets (they will become both onsets and offsets)
     listened_but_empty_df = pd.DataFrame(columns=('onset', 'offset'), data=zip(*([listened_but_empty] * 2)))
     timestamps = pd.concat([annotation_timestamps, listened_but_empty_df], ignore_index=True)
+
     regions = _add_per_region_timestamp_count(regions, timestamps)
     regions = regions[(regions.annotation_count > 0) | (regions.region_type != RegionType.SUBREGION.value)]
     return regions.drop(columns='annotation_count')
