@@ -2,7 +2,7 @@ import pytest
 
 import pandas as pd
 
-from blabpy.seedlings.listened_time import _total_time_per_region_type, RegionType, \
+from blabpy.seedlings.listened_time import _total_time_and_count_per_region_type, RegionType, \
     milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, \
     _add_per_region_timestamp_count, calculate_total_listened_time, _extract_region_info
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
@@ -30,9 +30,7 @@ def test_the_whole_thing(listen_time_stats_df, child, month):
     this_file_listen_time_stats = listen_time_stats_df.set_index('filename').loc[cha_path.name]
 
     # Compare the total duration of subregions and silences before processing
-    total_times = (_total_time_per_region_type(regions_df)
-        .set_index('region_type')
-        ['total_time'])
+    total_times = _total_time_and_count_per_region_type(regions_df).total_time
     total_subregion_time_hour = milliseconds_to_hours(total_times[RegionType.SUBREGION.value])
     # It is perfectly ok to not have silence regions at all
     total_silence_time_hour = milliseconds_to_hours(total_times.get(RegionType.SILENCE.value, 0))

@@ -323,7 +323,7 @@ def _total_eligible_time(regions):
     """
     _assert_no_overlaps(regions)
     region_types_to_exclude = [RegionType.SURPLUS.value, RegionType.SILENCE.value, RegionType.SKIP.value]
-    total_time_per_region = _total_time_per_region_type(regions_df=regions[
+    total_time_per_region = _total_time_and_count_per_region_type(regions_df=regions[
         ~regions.region_type.isin(region_types_to_exclude)])
     return total_time_per_region.total_time.sum()
 
@@ -355,12 +355,17 @@ def calculate_total_listened_time(regions, listened_but_empty, child, month):
     return total_listen_time
 
 
-def _total_time_per_region_type(regions_df):
+def _total_time_and_count_per_region_type(regions_df):
+    """
+    Calculates total duration and region count for each region type. Counts split regions only once.
+    :param regions_df: a regions dataframe with columns region_type, start, end, and position
+    :return:
+    """
     return (regions_df
-            .assign(duration=(regions_df.end - regions_df.start))
+            .assign(duration=(lambda df: df.end - df.start))
             .groupby('region_type')
-            .aggregate(total_time=('duration', 'sum'))
-            .reset_index())
+            .aggregate(total_time=('duration', 'sum'),
+                       count=('position', 'nunique')))
 
 
 def _extract_timestamps(clan_file_content: str):

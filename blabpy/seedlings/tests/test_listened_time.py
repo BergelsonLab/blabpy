@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from blabpy.seedlings.listened_time import _set_difference_of_intervals, \
-    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_per_region_type, _remove_subregions, \
+    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_and_count_per_region_type, _remove_subregions, \
     _overlaps_with_interval, RegionType, _assert_no_overlaps
 
 test_regions_df = pd.DataFrame(
@@ -108,12 +108,12 @@ def test__remove_silences_and_skips():
 
 def test__total_time_per_region_type():
     correct_result = pd.DataFrame(
-        columns=['region_type', 'total_time'],
-        data=[['extra', 300240],
-              ['silence', 18112170],
-              ['subregion', 18000000],
-              ['surplus', 6092080]])
-    assert _total_time_per_region_type(test_regions_df).equals(correct_result)
+        columns=['region_type', 'total_time', 'count'],
+        data=[['extra', 300240, 1],
+              ['silence', 18112170, 4],
+              ['subregion', 18000000, 5],
+              ['surplus', 6092080, 3]]).set_index('region_type')
+    assert _total_time_and_count_per_region_type(test_regions_df).equals(correct_result)
 
 
 def test__remove_subregions():
