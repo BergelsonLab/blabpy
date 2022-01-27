@@ -235,7 +235,7 @@ filename,silence_raw_hour,subregion_raw_hour,annotation_counts_raw,total_listen_
 21_11_sparse_code.cha,1.5,5.0,"[16, 34, 42, 0, 22]",14573420
 21_12_sparse_code.cha,1.59,5.0,"[76, 0, 86, 50, 57]",14400000
 21_13_sparse_code.cha,0.87,5.0,"[130, 68, 0, 91, 90]",14400000
-21_14_sparse_code.cha,0.0,4.0,"[93, 56, 84, 0, 0]",10796230
+21_14_sparse_code.cha,0.0,4.0,"[93, 56, 84, 0]",10796230
 21_15_sparse_code.cha,1.85,5.0,"[0, 53, 50, 0, 33]",10800000
 21_16_sparse_code.cha,2.38,5.0,"[0, 104, 0, 23, 41]",10800000
 21_17_sparse_code.cha,1.27,5.0,"[0, 111, 207, 50, 0]",10800000
@@ -506,7 +506,7 @@ filename,silence_raw_hour,subregion_raw_hour,annotation_counts_raw,total_listen_
 45_07_sparse_code.cha,2.69,0.0,"[0, 0, 0, 0, 0]",26777280
 45_08_sparse_code.cha,2.03,5.0,"[18, 2, 14, 48, 28]",14365470
 45_09_sparse_code.cha,6.13,5.0,"[29, 19, 17, 10, 23]",14202050
-45_10_sparse_code.cha,0.0,4.0,"[14, 21, 4, 10, 0]",14400000
+45_10_sparse_code.cha,0.0,4.0,"[14, 21, 4, 10]",14400000
 45_11_sparse_code.cha,7.32,5.0,"[11, 20, 16, 0, 22]",14170350
 45_12_sparse_code.cha,2.56,5.0,"[37, 0, 33, 24, 25]",13896150
 45_13_sparse_code.cha,1.75,5.0,"[47, 16, 42, 0, 42]",14399000

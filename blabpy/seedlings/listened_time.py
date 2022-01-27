@@ -102,12 +102,12 @@ def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=DEFAULT_
     """
     # Each row looks like "Position: 1, Rank: 1", so we can just extract position and rank using a regular expression
     subregion_ranks = (pd.Series(subregion_rank_lines)
-                       .str.extractall(r'Position: (?P<position>\d+), Rank: (?P<rank>\d+)')
+                       .str.extractall(r'Position: (?P<position>\d+), Rank: (?P<subregion_rank>\d+)')
                        .reset_index(drop=True))
 
     # There should always be exactly five subregions and five ranks: 1 to 5
     positions = sorted(subregion_ranks.position.tolist())
-    ranks = sorted(subregion_ranks['rank'].tolist())
+    ranks = sorted(subregion_ranks.subregion_rank.tolist())
     assert positions == ranks == [str(i + 1) for i in range(subregion_count)]
 
     return subregion_ranks
@@ -378,7 +378,7 @@ def _total_time_and_count_per_region_type(regions_df):
             .assign(duration=(lambda df: df.end - df.start))
             .groupby('region_type')
             .aggregate(total_time=('duration', 'sum'),
-                       count=('position', 'nunique')))
+                       region_count=('position', 'nunique')))
 
 
 def _extract_timestamps(clan_file_content: str):
@@ -584,3 +584,72 @@ def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT
     subregion_ranks_df = _subregion_ranks_to_dataframe(subregions, subregion_count=subregion_count)
 
     return region_boundaries_df, subregion_ranks_df, listened_but_empty
+
+
+def listen_time_stats_for_report(clan_file_path: Path, subregion_count=DEFAULT_SUBREGION_COUNT):
+    """
+    Caculates a number of listen time statistics for the rmd report in the annot_distr repository.
+    :param clan_file_path: path to the clan file
+    :param subregion_count: the number of subregions to expect, most have 5 but some have 4. Months 6 and 7 have zero.
+    :return:
+    """
+    # Extract the necessary information from the clan file
+    annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
+    regions_raw, subregion_ranks_df, listened_but_empty = _extract_region_info(
+        clan_file_path, subregion_count=subregion_count)
+
+    # Process the region structure and calculate basic stats before and after
+    totals_raw = _total_time_and_count_per_region_type(regions_raw)
+    per_region_timestamp_counts = _add_per_region_timestamp_count(regions_df=regions_raw,
+                                                                  timestamps=annotation_timestamps)
+    regions_processed = _process_regions(regions_raw, annotation_timestamps, listened_but_empty)
+    totals_processed = _total_time_and_count_per_region_type(regions_processed)
+
+    # Total time and count for regions that have been added manually. In case there is a makeup region from 0 to 10
+    # and there is a skip inside of it from 2 to 8, we want to count it as 1 region with the listened time of 2 + 2 = 4.
+    # Therefore, the adding up is based on processed regions, _total_time_and_count_per_region_type already accounts for
+    # the fact that this makeup region will have been split into two (0-2 and 8-10).
+    additional_regions = (RegionType.MAKEUP.value, RegionType.EXTRA.value, RegionType.SURPLUS.value)
+    stats = {f'num_{region_type}_region': totals_processed.region_count.get(region_type, 0)
+             for region_type in additional_regions}
+    stats.update({f'{region_type}_time': totals_processed.total_time.get(region_type, 0)
+                 for region_type in additional_regions})
+
+    # Total listen time is then calculated by adding the times above to the subregion total time (again, after the
+    # processing).
+    stats['subregion_time'] = totals_processed.total_time[RegionType.SUBREGION.value]
+    stats['num_subregion_with_annot'] = totals_processed.region_count[RegionType.SUBREGION.value]
+    stats['total_listen_time'] = _total_eligible_time(regions=regions_processed)
+
+    # Subregion positions and ranks
+    stats['positions'] = subregion_ranks_df.position.values
+    stats['ranks'] = subregion_ranks_df.subregion_rank.values
+
+    # Some stats are no longer of interest because they had any diagnostic value for the old algorithm only (see
+    # annot_distr repository history). That algorithm used a clever formula to calculate the total listen time that
+    # included the total skip and silence time and their overlap. The current algorithm cuts the regions first so this
+    # is not necessary.
+    stats.update(dict(skip_silence_overlap_hour=0,
+                      skip_time=totals_processed.total_time.get(RegionType.SKIP.value, 0),
+                      silence_time=totals_processed.total_time.get(RegionType.SILENCE.value),
+                      silence_raw_hour=milliseconds_to_hours(totals_raw.total_time.get(RegionType.SILENCE.value, 0))))
+
+    # Stats before processing
+    stats['subregion_raw_hour'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
+    stats['num_raw_subregion'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
+
+    # This can probably be optimized because we already extracted timesatmps once when we looked for annotation
+    # timestamps
+    last_timestamp_offset = _extract_timestamps(clan_file_path.read_text()).iloc[-1].offset
+    stats['end_time'] = last_timestamp_offset
+
+    # This is not exactly correct: annotations that share their timestamp are only counted once.
+    annotation_counts_raw = (per_region_timestamp_counts
+                             [per_region_timestamp_counts.region_type == RegionType.SUBREGION.value]
+                             .sort_values(by='position')
+                             .annotation_count
+                             .astype(int)
+                             .to_list())
+    stats['annotation_counts_raw'] = annotation_counts_raw
+
+    return stats

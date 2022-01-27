@@ -1,14 +1,22 @@
+import ast
+
 import pytest
 
 import pandas as pd
 
-from blabpy.seedlings.listened_time import _total_time_and_count_per_region_type, RegionType, \
-    milliseconds_to_hours, RECORDINGS_WITH_FOUR_SUBREGIONS, _extract_annotation_timestamps, \
-    _add_per_region_timestamp_count, calculate_total_listened_time, _extract_region_info
+from blabpy.seedlings.listened_time import RECORDINGS_WITH_FOUR_SUBREGIONS, listen_time_stats_for_report
+
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
 
 CHA_STRUCTURE_FILENAME_PATTERN = '{child:02}_{month:02}_sparse_code.cha.txt'
+
+
+def _possibly_interpret_as_list(possibly_list):
+    if isinstance(possibly_list, str) and possibly_list.startswith('[') and possibly_list.endswith(']'):
+        return ast.literal_eval(possibly_list)
+    else:
+        return possibly_list
 
 
 @pytest.fixture(scope='module')
@@ -24,39 +32,10 @@ def listen_time_stats_df():
 def test_the_whole_thing(listen_time_stats_df, child, month):
     subregion_count = 5 if (child, month) not in RECORDINGS_WITH_FOUR_SUBREGIONS else 4
     cha_path = get_cha_path(child=child, month=month)
-    regions_df, subregion_ranks, listened_but_empty = _extract_region_info(clan_file_path=cha_path,
-                                                                           subregion_count=subregion_count)
+    stats_correct = listen_time_stats_df.set_index('filename').loc[cha_path.name].to_dict()
 
-    this_file_listen_time_stats = listen_time_stats_df.set_index('filename').loc[cha_path.name]
+    stats = listen_time_stats_for_report(clan_file_path=cha_path, subregion_count=subregion_count)
 
-    # Compare the total duration of subregions and silences before processing
-    total_times = _total_time_and_count_per_region_type(regions_df).total_time
-    total_subregion_time_hour = milliseconds_to_hours(total_times[RegionType.SUBREGION.value])
-    # It is perfectly ok to not have silence regions at all
-    total_silence_time_hour = milliseconds_to_hours(total_times.get(RegionType.SILENCE.value, 0))
-
-    assert total_subregion_time_hour == this_file_listen_time_stats['subregion_raw_hour']
-    assert total_silence_time_hour == this_file_listen_time_stats['silence_raw_hour']
-
-    # Compare the number of annotations within subregions
-    annotation_timestamps = _extract_annotation_timestamps(cha_path)
-    per_region_counts = _add_per_region_timestamp_count(regions_df=regions_df,
-                                                        timestamps=annotation_timestamps)
-    subregion_counts = (per_region_counts
-                        [per_region_counts.region_type == RegionType.SUBREGION.value]
-                        .sort_values(by='position')
-                        .annotation_count
-                        .astype(int)
-                        .to_list())
-    # Add a 0 for files with four subregions
-    if (child, month) in RECORDINGS_WITH_FOUR_SUBREGIONS:
-        subregion_counts += [0]
-
-    # The 'counts' column contains a string representation of the count list
-    assert str(subregion_counts) == this_file_listen_time_stats['annotation_counts_raw']
-
-    # Compare the total listened time
-    total_listen_time = calculate_total_listened_time(regions=regions_df, listened_but_empty=listened_but_empty,
-                                                      child=child, month=month)
-    total_listen_time_correct = this_file_listen_time_stats['total_listen_time']
-    assert total_listen_time == total_listen_time_correct
+    for key, correct_value in stats_correct.items():
+        correct_value = _possibly_interpret_as_list(correct_value)
+        assert stats[key] == correct_value
