@@ -627,3 +627,13 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     stats['annotation_counts_raw'] = annotation_counts_raw
 
     return stats
+
+
+def _get_subregion_count(child, month):
+    if (child, month) in RECORDINGS_WITH_FOUR_SUBREGIONS:
+        return 4
+    elif month in (6, 7):
+        return 0
+    else:
+        # If it 5, of course but it used so often in this module that hard-coding it was a threat.
+        return DEFAULT_SUBREGION_COUNT

@@ -4,7 +4,8 @@ import pytest
 
 import pandas as pd
 
-from blabpy.seedlings.listened_time import RECORDINGS_WITH_FOUR_SUBREGIONS, listen_time_stats_for_report
+from blabpy.seedlings.listened_time import RECORDINGS_WITH_FOUR_SUBREGIONS, listen_time_stats_for_report, \
+    _get_subregion_count
 
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
@@ -30,7 +31,7 @@ def listen_time_stats_df():
                                     # TODO: test months 6 and 7 as well
                                     if (child, month) not in MISSING_AUDIO_RECORDINGS and month not in (6, 7)])
 def test_the_whole_thing(listen_time_stats_df, child, month):
-    subregion_count = 5 if (child, month) not in RECORDINGS_WITH_FOUR_SUBREGIONS else 4
+    subregion_count = _get_subregion_count(child=child, month=month)
     cha_path = get_cha_path(child=child, month=month)
     stats_correct = listen_time_stats_df.set_index('filename').loc[cha_path.name].to_dict()
 
