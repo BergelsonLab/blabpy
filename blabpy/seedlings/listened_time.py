@@ -24,12 +24,9 @@ Starting from the subregion ranked the first on talkativeness, we then assign ma
 until the total listened time is not at least an hour.
 """
 from enum import Enum
-from pathlib import Path
 import re
 
 import pandas as pd
-
-from blabpy.seedlings.paths import get_cha_path, _parse_out_child_and_month
 
 # Two recordings have four subregions, all the other one have five
 NO_CODEABLE_WORDS_BUT_LISTENED_COMMENT = 'subregion has been listened to but contains no codeable words'
@@ -347,27 +344,6 @@ def _process_regions(regions, annotation_timestamps, listened_but_empty):
     return regions
 
 
-def calculate_total_listened_time(regions, listened_but_empty, child, month):
-    """
-    Calculates total listen time by processing regions and the adding up duration of the eligible ones.
-    :param regions: a dataframe with region_type, start, end, position columns
-    :param listened_but_empty: a list of offsets of the special comments
-    :param child: child number
-    :param month: month number
-    :return:
-    """
-    # Extract timestamps
-    clan_file_path = get_cha_path(child=child, month=month)
-    annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
-
-    regions = _process_regions(regions, annotation_timestamps, listened_but_empty)
-
-    # Add up durations of all eligible regions
-    total_listen_time = _total_eligible_time(regions)
-
-    return total_listen_time
-
-
 def _total_time_and_count_per_region_type(regions_df):
     """
     Calculates total duration and region count for each region type. Counts split regions only once.
@@ -381,17 +357,17 @@ def _total_time_and_count_per_region_type(regions_df):
                        region_count=('position', 'nunique')))
 
 
-def _extract_timestamps(clan_file_content: str):
+def _extract_timestamps(clan_file_text: str):
     """
     Extract all timestamps from a clan file remembering their positions in text. Raises a ValueError if the onsets or
-    offsets are not monotinc increasing.
-    :param clan_file_content: clan file as one long string
+    offsets are not monotonic increasing.
+    :param clan_file_text: clan file as one long string
     :return: a dataframe with one row per timestamp and three columns: onset, offset, 'position_in_text'
     """
     timestamps = pd.DataFrame(
         columns=['onset', 'offset', 'position_in_text'],
         data=[(int(match.group(1)), int(match.group(2)), match.start())
-              for match in TIMESTAMP_REGEX.finditer(clan_file_content)],
+              for match in TIMESTAMP_REGEX.finditer(clan_file_text)],
         dtype=int)
 
     if not timestamps.onset.is_monotonic:
@@ -433,20 +409,19 @@ def _match_with_timestamps(positions_in_text, timestamps_df, above=None, below=N
                          on='position_in_text', direction=direction)
 
 
-def _extract_annotation_timestamps(clan_file_path):
+def _extract_annotation_timestamps(clan_file_text: str):
     """
     Find all annotation timestamps in a clan/cha file
-    :param clan_file_path: path to the file
+    :param clan_file_text: string with the clan file text
     :return: a pandas dataframe with two columns: 'onset' and 'offset'; and one row per each annotation found
     """
-    clan_file_content = Path(clan_file_path).read_text()
-    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(clan_file_content)],
+    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(clan_file_text)],
                                              name='position_in_text')
 
     # Add the first timestamps below the annotations in the file
     annotation_timestamps = _match_with_timestamps(
         positions_in_text=annotation_positions_in_text,
-        timestamps_df=_extract_timestamps(clan_file_content),
+        timestamps_df=_extract_timestamps(clan_file_text),
         below=True)
 
     # Here, we are only interested in unique timestamps, not unique annotations, so we should remove the duplicates
@@ -506,14 +481,13 @@ def _extract_subregion_info(comment):
     return position, rank, offset
 
 
-def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT):
+def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
     """
     Extracts region boundaries, subregions ranks, and info about "listened to, nothing to annotate" from a clan file.
-    :param clan_file_path:
+    :param clan_file_text: string with the clan file text
     :return:
     """
     # Find all the comments
-    clan_file_text = Path(clan_file_path).read_text()
     comment_line_regex = r'^%x?com:.*?(?=^[^\t])'
     comments_df = pd.DataFrame(
         columns=('text', 'position_in_text'),
@@ -586,17 +560,17 @@ def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT
     return region_boundaries_df, subregion_ranks_df, listened_but_empty
 
 
-def listen_time_stats_for_report(clan_file_path: Path, subregion_count=DEFAULT_SUBREGION_COUNT):
+def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
     """
     Caculates a number of listen time statistics for the rmd report in the annot_distr repository.
-    :param clan_file_path: path to the clan file
+    :param clan_file_text: string with the clan file text
     :param subregion_count: the number of subregions to expect, most have 5 but some have 4. Months 6 and 7 have zero.
     :return:
     """
     # Extract the necessary information from the clan file
-    annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
+    annotation_timestamps = _extract_annotation_timestamps(clan_file_text)
     regions_raw, subregion_ranks_df, listened_but_empty = _extract_region_info(
-        clan_file_path, subregion_count=subregion_count)
+        clan_file_text, subregion_count=subregion_count)
 
     # Process the region structure and calculate basic stats before and after
     totals_raw = _total_time_and_count_per_region_type(regions_raw)
@@ -640,7 +614,7 @@ def listen_time_stats_for_report(clan_file_path: Path, subregion_count=DEFAULT_S
 
     # This can probably be optimized because we already extracted timesatmps once when we looked for annotation
     # timestamps
-    last_timestamp_offset = _extract_timestamps(clan_file_path.read_text()).iloc[-1].offset
+    last_timestamp_offset = _extract_timestamps(clan_file_text).iloc[-1].offset
     stats['end_time'] = last_timestamp_offset
 
     # This is not exactly correct: annotations that share their timestamp are only counted once.

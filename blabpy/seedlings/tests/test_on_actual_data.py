@@ -34,7 +34,7 @@ def test_the_whole_thing(listen_time_stats_df, child, month):
     cha_path = get_cha_path(child=child, month=month)
     stats_correct = listen_time_stats_df.set_index('filename').loc[cha_path.name].to_dict()
 
-    stats = listen_time_stats_for_report(clan_file_path=cha_path, subregion_count=subregion_count)
+    stats = listen_time_stats_for_report(clan_file_text=cha_path.read_text(), subregion_count=subregion_count)
 
     for key, correct_value in stats_correct.items():
         correct_value = _possibly_interpret_as_list(correct_value)
