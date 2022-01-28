@@ -596,8 +596,8 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     stats['total_listen_time'] = _total_eligible_time(regions=regions_processed)
 
     # Subregion positions and ranks
-    stats['positions'] = subregion_ranks_df.position.values
-    stats['ranks'] = subregion_ranks_df.subregion_rank.values
+    stats['positions'] = subregion_ranks_df.position.to_list()
+    stats['ranks'] = subregion_ranks_df.subregion_rank.to_list()
 
     # Some stats are no longer of interest because they had any diagnostic value for the old algorithm only (see
     # annot_distr repository history). That algorithm used a clever formula to calculate the total listen time that
@@ -605,7 +605,7 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     # is not necessary.
     stats.update(dict(skip_silence_overlap_hour=0,
                       skip_time=totals_processed.total_time.get(RegionType.SKIP.value, 0),
-                      silence_time=totals_processed.total_time.get(RegionType.SILENCE.value),
+                      silence_time=totals_processed.total_time.get(RegionType.SILENCE.value, 0),
                       silence_raw_hour=milliseconds_to_hours(totals_raw.total_time.get(RegionType.SILENCE.value, 0))))
 
     # Stats before processing
