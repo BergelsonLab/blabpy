@@ -635,5 +635,5 @@ def _get_subregion_count(child, month):
     elif month in (6, 7):
         return 0
     else:
-        # If it 5, of course but it used so often in this module that hard-coding it was a threat.
+        # It is 5, of course, but it is used so often in this module that hard-coding it was not an option.
         return DEFAULT_SUBREGION_COUNT
