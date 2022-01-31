@@ -146,7 +146,7 @@ def _remove_interval_from_regions(regions, start, end):
     :param regions: a regions dataframe (region_type, start, end columns)
     :param start: int/float, start of the interval to be removed
     :param end: int/float, end of the interval to be removed
-    :return: a modified dataframe
+    :return: a new dataframe with one row per each resulting region part or None, if all regions get removed
     """
     assert_numbers(start, end)
     with_interval_removed = regions.copy()
@@ -156,12 +156,18 @@ def _remove_interval_from_regions(regions, start, end):
     with_interval_removed[new_starts_and_ends] = with_interval_removed.apply(
         lambda row: _set_difference_of_intervals(minuend=(int(row.start), int(row.end)), subtrahend=(start, end)),
         axis='columns')
+
     # Now, each element in that list should get its own row.
     with_interval_removed = (with_interval_removed
                              .explode(new_starts_and_ends)
                              .dropna(subset=[new_starts_and_ends])  # Empty lists result in an NA row
                              .drop(columns=['start', 'end'])  # The original start and end can be dropped now
                              )
+
+    # If no regions are left after the removal, return None
+    if with_interval_removed.size == 0:
+        return
+
     # Split 'new_start_and_ends' column that contains (start, end) tuples into two columns - start and end.
     with_interval_removed[['start', 'end']] = with_interval_removed.new_starts_and_ends.values.tolist()
     with_interval_removed.drop(columns=[new_starts_and_ends], inplace=True)
@@ -179,9 +185,17 @@ def _remove_overlaps_from_other_regions(regions, dominant_region_type):
     :return: copy of the regions dataframe with some of the non-dominant regions modified
     """
     is_dominant = regions.region_type == dominant_region_type
+
+    # If there are no "other" regions, there is nothing to do. This only happens for recordings from months 6 and 7 that
+    # only have skips or only have silences.
+    if is_dominant.all():
+        return regions
+
     dominant, nondominant = regions[is_dominant], regions[~is_dominant]
     for row in dominant.itertuples():
         nondominant = _remove_interval_from_regions(nondominant, int(row.start), int(row.end))
+        if nondominant is None:
+            break
 
     # Combine with the dominant regions and return
     return pd.concat([dominant, nondominant]).reset_index(drop=True)
@@ -500,10 +514,13 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
         positions_in_text=comments_df,
         timestamps_df=_extract_timestamps(clan_file_text),
         above=True)
-    # Some files have the first subregion comment before the first tier so they don't get a timestamp, so it will have
+    # Some files have region comments before the first tier and thus they don't get a timestamp, so it will have
     # NaN as offset, which will force pandas to convert the whole column to 'float64' which will cause problems down the
-    # line. So, here, we will convert offset to a special integer datatype that supports NaN at the same time.
-    comments_df['offset'] = comments_df.offset.astype(pd.Int64Dtype())
+    # line. So, here, we will convert offset to a special integer datatype that supports NaNs and will fill the ones in
+    # the beginning with 0.
+    for column in ('onset', 'offset'):
+        comments_df[column] = comments_df[column].astype(pd.Int64Dtype())
+        comments_df[column].loc[:comments_df[column].first_valid_index()] = 0
 
     subregions = []  # List of strings of the format 'Position: {}, Rank: {}'
     region_boundaries = []  # List of strings of the format
