@@ -572,7 +572,10 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
 
     # The code below emulates reading from cha_structures files that annot_distr creates
     region_boundaries_df = _region_boundaries_to_dataframe([' '.join(map(str, rb)) for rb in region_boundaries])
-    subregion_ranks_df = _subregion_ranks_to_dataframe(subregions, subregion_count=subregion_count)
+    if subregion_count > 0:
+        subregion_ranks_df = _subregion_ranks_to_dataframe(subregions, subregion_count=subregion_count)
+    else:
+        subregion_ranks_df = None
 
     return region_boundaries_df, subregion_ranks_df, listened_but_empty
 
@@ -589,11 +592,21 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     regions_raw, subregion_ranks_df, listened_but_empty = _extract_region_info(
         clan_file_text, subregion_count=subregion_count)
 
-    # Process the region structure and calculate basic stats before and after
+    # Calculate some of the stats before any region manipulation
     totals_raw = _total_time_and_count_per_region_type(regions_raw)
     per_region_timestamp_counts = _add_per_region_timestamp_count(regions_df=regions_raw,
                                                                   timestamps=annotation_timestamps)
-    regions_processed = _process_regions(regions_raw, annotation_timestamps, listened_but_empty)
+
+    # Process regions. For months 6 and 7, there are no subregions, so we only need to remove the overlapping parts of
+    # the regions.
+    if subregion_count > 0:
+        regions_processed = _remove_subregions_without_annotations(regions_raw, annotation_timestamps,
+                                                                   listened_but_empty)
+    else:
+        regions_processed = regions_raw.copy()
+    regions_processed = _account_for_region_overlaps(regions_processed)
+
+    # Repeat stats calculation on the processed regions
     totals_processed = _total_time_and_count_per_region_type(regions_processed)
 
     # Total time and count for regions that have been added manually. In case there is a makeup region from 0 to 10
@@ -606,33 +619,38 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     stats.update({f'{region_type}_time': totals_processed.total_time.get(region_type, 0)
                  for region_type in additional_regions})
 
-    # Total listen time is then calculated by adding the times above to the subregion total time (again, after the
-    # processing).
-    stats['subregion_time'] = totals_processed.total_time[RegionType.SUBREGION.value]
-    stats['num_subregion_with_annot'] = totals_processed.region_count[RegionType.SUBREGION.value]
-    stats['total_listen_time'] = _total_eligible_time(regions=regions_processed)
+    # Same for the subregions. The count field is named differently for historical reasons.
+    stats['subregion_time'] = totals_processed.total_time.get(RegionType.SUBREGION.value, 0)
+    stats['num_subregion_with_annot'] = totals_processed.region_count.get(RegionType.SUBREGION.value, 0)
 
-    # Subregion positions and ranks
-    stats['positions'] = subregion_ranks_df.position.to_list()
-    stats['ranks'] = subregion_ranks_df.subregion_rank.to_list()
-
-    # Some stats are no longer of interest because they had any diagnostic value for the old algorithm only (see
-    # annot_distr repository history). That algorithm used a clever formula to calculate the total listen time that
-    # included the total skip and silence time and their overlap. The current algorithm cuts the regions first so this
-    # is not necessary.
+    # These stats are relevant for total time calculation for months 6 and 7 which were listened to in full. The
+    # overlap is actually no longer relevant because overlaps are now removed during processing.
     stats.update(dict(skip_silence_overlap_hour=0,
                       skip_time=totals_processed.total_time.get(RegionType.SKIP.value, 0),
                       silence_time=totals_processed.total_time.get(RegionType.SILENCE.value, 0),
                       silence_raw_hour=milliseconds_to_hours(totals_raw.total_time.get(RegionType.SILENCE.value, 0))))
+    # Note: this can probably be optimized because we already extracted timestamps once - when we looked for annotation
+    # timestamps
+    last_timestamp_offset = _extract_timestamps(clan_file_text).iloc[-1].offset
+    stats['end_time'] = last_timestamp_offset
+
+    # The total listen time calculation depends on whether the full recording was listened to (month 6 and 7, excluding
+    # silences and skips) or just the subregions (months 8+, additionally makeup, extra, and surplus regions
+    if subregion_count > 0:
+        stats['total_listen_time'] = _total_eligible_time(regions=regions_processed)
+    else:
+        stats['total_listen_time'] = stats['end_time'] - stats['skip_time'] - stats['silence_time']
+
+    # Subregion positions and ranks
+    if subregion_count > 0:
+        stats['positions'] = subregion_ranks_df.position.to_list()
+        stats['ranks'] = subregion_ranks_df.subregion_rank.to_list()
+    else:
+        stats['positions'], stats['ranks'] = list(), list()
 
     # Stats before processing
     stats['subregion_raw_hour'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
     stats['num_raw_subregion'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
-
-    # This can probably be optimized because we already extracted timesatmps once when we looked for annotation
-    # timestamps
-    last_timestamp_offset = _extract_timestamps(clan_file_text).iloc[-1].offset
-    stats['end_time'] = last_timestamp_offset
 
     # This is not exactly correct: annotations that share their timestamp are only counted once.
     annotation_counts_raw = (per_region_timestamp_counts
