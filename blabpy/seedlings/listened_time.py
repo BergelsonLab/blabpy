@@ -24,12 +24,9 @@ Starting from the subregion ranked the first on talkativeness, we then assign ma
 until the total listened time is not at least an hour.
 """
 from enum import Enum
-from pathlib import Path
 import re
 
 import pandas as pd
-
-from blabpy.seedlings.paths import get_cha_path, _parse_out_child_and_month
 
 # Two recordings have four subregions, all the other one have five
 NO_CODEABLE_WORDS_BUT_LISTENED_COMMENT = 'subregion has been listened to but contains no codeable words'
@@ -102,12 +99,12 @@ def _subregion_ranks_to_dataframe(subregion_rank_lines, subregion_count=DEFAULT_
     """
     # Each row looks like "Position: 1, Rank: 1", so we can just extract position and rank using a regular expression
     subregion_ranks = (pd.Series(subregion_rank_lines)
-                       .str.extractall(r'Position: (?P<position>\d+), Rank: (?P<rank>\d+)')
+                       .str.extractall(r'Position: (?P<position>\d+), Rank: (?P<subregion_rank>\d+)')
                        .reset_index(drop=True))
 
     # There should always be exactly five subregions and five ranks: 1 to 5
     positions = sorted(subregion_ranks.position.tolist())
-    ranks = sorted(subregion_ranks['rank'].tolist())
+    ranks = sorted(subregion_ranks.subregion_rank.tolist())
     assert positions == ranks == [str(i + 1) for i in range(subregion_count)]
 
     return subregion_ranks
@@ -149,7 +146,7 @@ def _remove_interval_from_regions(regions, start, end):
     :param regions: a regions dataframe (region_type, start, end columns)
     :param start: int/float, start of the interval to be removed
     :param end: int/float, end of the interval to be removed
-    :return: a modified dataframe
+    :return: a new dataframe with one row per each resulting region part or None, if all regions get removed
     """
     assert_numbers(start, end)
     with_interval_removed = regions.copy()
@@ -159,12 +156,18 @@ def _remove_interval_from_regions(regions, start, end):
     with_interval_removed[new_starts_and_ends] = with_interval_removed.apply(
         lambda row: _set_difference_of_intervals(minuend=(int(row.start), int(row.end)), subtrahend=(start, end)),
         axis='columns')
+
     # Now, each element in that list should get its own row.
     with_interval_removed = (with_interval_removed
                              .explode(new_starts_and_ends)
                              .dropna(subset=[new_starts_and_ends])  # Empty lists result in an NA row
                              .drop(columns=['start', 'end'])  # The original start and end can be dropped now
                              )
+
+    # If no regions are left after the removal, return None
+    if with_interval_removed.size == 0:
+        return
+
     # Split 'new_start_and_ends' column that contains (start, end) tuples into two columns - start and end.
     with_interval_removed[['start', 'end']] = with_interval_removed.new_starts_and_ends.values.tolist()
     with_interval_removed.drop(columns=[new_starts_and_ends], inplace=True)
@@ -182,9 +185,17 @@ def _remove_overlaps_from_other_regions(regions, dominant_region_type):
     :return: copy of the regions dataframe with some of the non-dominant regions modified
     """
     is_dominant = regions.region_type == dominant_region_type
+
+    # If there are no "other" regions, there is nothing to do. This only happens for recordings from months 6 and 7 that
+    # only have skips or only have silences.
+    if is_dominant.all():
+        return regions
+
     dominant, nondominant = regions[is_dominant], regions[~is_dominant]
     for row in dominant.itertuples():
         nondominant = _remove_interval_from_regions(nondominant, int(row.start), int(row.end))
+        if nondominant is None:
+            break
 
     # Combine with the dominant regions and return
     return pd.concat([dominant, nondominant]).reset_index(drop=True)
@@ -323,57 +334,54 @@ def _total_eligible_time(regions):
     """
     _assert_no_overlaps(regions)
     region_types_to_exclude = [RegionType.SURPLUS.value, RegionType.SILENCE.value, RegionType.SKIP.value]
-    total_time_per_region = _total_time_per_region_type(regions_df=regions[
+    total_time_per_region = _total_time_and_count_per_region_type(regions_df=regions[
         ~regions.region_type.isin(region_types_to_exclude)])
     return total_time_per_region.total_time.sum()
 
 
-def calculate_total_listened_time(regions, listened_but_empty, child, month):
+def _process_regions(regions, annotation_timestamps, listened_but_empty):
     """
-    Calculates total listen time by:
-    - removing subregions without annotations (unless they contain a special comment instead),
-    - removing any overlaps between different regions in a certain order,
-    :param regions: a dataframe with region_type, start, end, position columns
-    :param listened_but_empty: a list of offsets of the special comments
-    :param child: child number
-    :param month: month number
+    Processes regions:
+    - removes subregions without annotations (unless they contain a special comment instead),
+    - removes any overlaps between different regions in a certain order,
+    :param regions:
+    :param annotation_timestamps:
+    :param listened_but_empty:
     :return:
     """
-    # Extract timestamps
-    clan_file_path = get_cha_path(child=child, month=month)
-    annotation_timestamps = _extract_annotation_timestamps(clan_file_path)
-
     # Do not count subregions without annotations, unless they contain a special comment
     regions = _remove_subregions_without_annotations(regions, annotation_timestamps, listened_but_empty)
 
     # Account for region overlaps
     regions = _account_for_region_overlaps(regions)
 
-    # Add up durations of all eligible regions
-    total_listen_time = _total_eligible_time(regions)
-
-    return total_listen_time
+    return regions
 
 
-def _total_time_per_region_type(regions_df):
+def _total_time_and_count_per_region_type(regions_df):
+    """
+    Calculates total duration and region count for each region type. Counts split regions only once.
+    :param regions_df: a regions dataframe with columns region_type, start, end, and position
+    :return:
+    """
     return (regions_df
-            .assign(duration=(regions_df.end - regions_df.start))
+            .assign(duration=(lambda df: df.end - df.start))
             .groupby('region_type')
-            .aggregate(total_time=('duration', 'sum'))
-            .reset_index())
+            .aggregate(total_time=('duration', 'sum'),
+                       region_count=('position', 'nunique')))
 
 
-def _extract_timestamps(clan_file_content: str):
+def _extract_timestamps(clan_file_text: str):
     """
     Extract all timestamps from a clan file remembering their positions in text. Raises a ValueError if the onsets or
-    offsets are not monotinc increasing.
-    :param clan_file_content: clan file as one long string
+    offsets are not monotonic increasing.
+    :param clan_file_text: clan file as one long string
     :return: a dataframe with one row per timestamp and three columns: onset, offset, 'position_in_text'
     """
     timestamps = pd.DataFrame(
         columns=['onset', 'offset', 'position_in_text'],
         data=[(int(match.group(1)), int(match.group(2)), match.start())
-              for match in TIMESTAMP_REGEX.finditer(clan_file_content)],
+              for match in TIMESTAMP_REGEX.finditer(clan_file_text)],
         dtype=int)
 
     if not timestamps.onset.is_monotonic:
@@ -415,20 +423,19 @@ def _match_with_timestamps(positions_in_text, timestamps_df, above=None, below=N
                          on='position_in_text', direction=direction)
 
 
-def _extract_annotation_timestamps(clan_file_path):
+def _extract_annotation_timestamps(clan_file_text: str):
     """
     Find all annotation timestamps in a clan/cha file
-    :param clan_file_path: path to the file
+    :param clan_file_text: string with the clan file text
     :return: a pandas dataframe with two columns: 'onset' and 'offset'; and one row per each annotation found
     """
-    clan_file_content = Path(clan_file_path).read_text()
-    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(clan_file_content)],
+    annotation_positions_in_text = pd.Series([match.start() for match in ANNOTATION_REGEX.finditer(clan_file_text)],
                                              name='position_in_text')
 
     # Add the first timestamps below the annotations in the file
     annotation_timestamps = _match_with_timestamps(
         positions_in_text=annotation_positions_in_text,
-        timestamps_df=_extract_timestamps(clan_file_content),
+        timestamps_df=_extract_timestamps(clan_file_text),
         below=True)
 
     # Here, we are only interested in unique timestamps, not unique annotations, so we should remove the duplicates
@@ -488,14 +495,13 @@ def _extract_subregion_info(comment):
     return position, rank, offset
 
 
-def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT):
+def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
     """
     Extracts region boundaries, subregions ranks, and info about "listened to, nothing to annotate" from a clan file.
-    :param clan_file_path:
+    :param clan_file_text: string with the clan file text
     :return:
     """
     # Find all the comments
-    clan_file_text = Path(clan_file_path).read_text()
     comment_line_regex = r'^%x?com:.*?(?=^[^\t])'
     comments_df = pd.DataFrame(
         columns=('text', 'position_in_text'),
@@ -508,10 +514,13 @@ def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT
         positions_in_text=comments_df,
         timestamps_df=_extract_timestamps(clan_file_text),
         above=True)
-    # Some files have the first subregion comment before the first tier so they don't get a timestamp, so it will have
+    # Some files have region comments before the first tier and thus they don't get a timestamp, so it will have
     # NaN as offset, which will force pandas to convert the whole column to 'float64' which will cause problems down the
-    # line. So, here, we will convert offset to a special integer datatype that supports NaN at the same time.
-    comments_df['offset'] = comments_df.offset.astype(pd.Int64Dtype())
+    # line. So, here, we will convert offset to a special integer datatype that supports NaNs and will fill the ones in
+    # the beginning with 0.
+    for column in ('onset', 'offset'):
+        comments_df[column] = comments_df[column].astype(pd.Int64Dtype())
+        comments_df[column].loc[:comments_df[column].first_valid_index()] = 0
 
     subregions = []  # List of strings of the format 'Position: {}, Rank: {}'
     region_boundaries = []  # List of strings of the format
@@ -563,6 +572,103 @@ def _extract_region_info(clan_file_path, subregion_count=DEFAULT_SUBREGION_COUNT
 
     # The code below emulates reading from cha_structures files that annot_distr creates
     region_boundaries_df = _region_boundaries_to_dataframe([' '.join(map(str, rb)) for rb in region_boundaries])
-    subregion_ranks_df = _subregion_ranks_to_dataframe(subregions, subregion_count=subregion_count)
+    if subregion_count > 0:
+        subregion_ranks_df = _subregion_ranks_to_dataframe(subregions, subregion_count=subregion_count)
+    else:
+        subregion_ranks_df = None
 
     return region_boundaries_df, subregion_ranks_df, listened_but_empty
+
+
+def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
+    """
+    Caculates a number of listen time statistics for the rmd report in the annot_distr repository.
+    :param clan_file_text: string with the clan file text
+    :param subregion_count: the number of subregions to expect, most have 5 but some have 4. Months 6 and 7 have zero.
+    :return:
+    """
+    # Extract the necessary information from the clan file
+    annotation_timestamps = _extract_annotation_timestamps(clan_file_text)
+    regions_raw, subregion_ranks_df, listened_but_empty = _extract_region_info(
+        clan_file_text, subregion_count=subregion_count)
+
+    # Calculate some of the stats before any region manipulation
+    totals_raw = _total_time_and_count_per_region_type(regions_raw)
+    per_region_timestamp_counts = _add_per_region_timestamp_count(regions_df=regions_raw,
+                                                                  timestamps=annotation_timestamps)
+
+    # Process regions. For months 6 and 7, there are no subregions, so we only need to remove the overlapping parts of
+    # the regions.
+    if subregion_count > 0:
+        regions_processed = _remove_subregions_without_annotations(regions_raw, annotation_timestamps,
+                                                                   listened_but_empty)
+    else:
+        regions_processed = regions_raw.copy()
+    regions_processed = _account_for_region_overlaps(regions_processed)
+
+    # Repeat stats calculation on the processed regions
+    totals_processed = _total_time_and_count_per_region_type(regions_processed)
+
+    # Total time and count for regions that have been added manually. In case there is a makeup region from 0 to 10
+    # and there is a skip inside of it from 2 to 8, we want to count it as 1 region with the listened time of 2 + 2 = 4.
+    # Therefore, the adding up is based on processed regions, _total_time_and_count_per_region_type already accounts for
+    # the fact that this makeup region will have been split into two (0-2 and 8-10).
+    additional_regions = (RegionType.MAKEUP.value, RegionType.EXTRA.value, RegionType.SURPLUS.value)
+    stats = {f'num_{region_type}_region': totals_processed.region_count.get(region_type, 0)
+             for region_type in additional_regions}
+    stats.update({f'{region_type}_time': totals_processed.total_time.get(region_type, 0)
+                 for region_type in additional_regions})
+
+    # Same for the subregions. The count field is named differently for historical reasons.
+    stats['subregion_time'] = totals_processed.total_time.get(RegionType.SUBREGION.value, 0)
+    stats['num_subregion_with_annot'] = totals_processed.region_count.get(RegionType.SUBREGION.value, 0)
+
+    # These stats are relevant for total time calculation for months 6 and 7 which were listened to in full. The
+    # overlap is actually no longer relevant because overlaps are now removed during processing.
+    stats.update(dict(skip_silence_overlap_hour=0,
+                      skip_time=totals_processed.total_time.get(RegionType.SKIP.value, 0),
+                      silence_time=totals_processed.total_time.get(RegionType.SILENCE.value, 0),
+                      silence_raw_hour=milliseconds_to_hours(totals_raw.total_time.get(RegionType.SILENCE.value, 0))))
+    # Note: this can probably be optimized because we already extracted timestamps once - when we looked for annotation
+    # timestamps
+    last_timestamp_offset = _extract_timestamps(clan_file_text).iloc[-1].offset
+    stats['end_time'] = last_timestamp_offset
+
+    # The total listen time calculation depends on whether the full recording was listened to (month 6 and 7, excluding
+    # silences and skips) or just the subregions (months 8+, additionally makeup, extra, and surplus regions
+    if subregion_count > 0:
+        stats['total_listen_time'] = _total_eligible_time(regions=regions_processed)
+    else:
+        stats['total_listen_time'] = stats['end_time'] - stats['skip_time'] - stats['silence_time']
+
+    # Subregion positions and ranks
+    if subregion_count > 0:
+        stats['positions'] = subregion_ranks_df.position.to_list()
+        stats['ranks'] = subregion_ranks_df.subregion_rank.to_list()
+    else:
+        stats['positions'], stats['ranks'] = list(), list()
+
+    # Stats before processing
+    stats['subregion_raw_hour'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
+    stats['num_raw_subregion'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
+
+    # This is not exactly correct: annotations that share their timestamp are only counted once.
+    annotation_counts_raw = (per_region_timestamp_counts
+                             [per_region_timestamp_counts.region_type == RegionType.SUBREGION.value]
+                             .sort_values(by='position')
+                             .annotation_count
+                             .astype(int)
+                             .to_list())
+    stats['annotation_counts_raw'] = annotation_counts_raw
+
+    return stats
+
+
+def _get_subregion_count(child, month):
+    if (child, month) in RECORDINGS_WITH_FOUR_SUBREGIONS:
+        return 4
+    elif month in (6, 7):
+        return 0
+    else:
+        # It is 5, of course, but it is used so often in this module that hard-coding it was not an option.
+        return DEFAULT_SUBREGION_COUNT

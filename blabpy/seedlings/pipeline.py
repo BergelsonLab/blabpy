@@ -5,6 +5,7 @@ import pandas as pd
 
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
+from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
@@ -331,3 +332,53 @@ def make_updated_all_basic_level_here():
                                  csv_path=output_stem.with_suffix('.csv'))
     write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
                                      feather_path=output_stem.with_suffix('.feather'))
+
+
+def calculate_listen_time_stats_for_cha_file(cha_path):
+    """
+    Runs listened_time.listen_time_stats_for_report on a single file accounting for files with four subregions.
+    :param cha_path: path to the clan file
+    :return: see listened_time.listen_time_stats_for_report
+    """
+    subregion_count = _get_subregion_count(**_parse_out_child_and_month(cha_path))
+    clan_file_text = Path(cha_path).read_text()
+    return listen_time_stats_for_report(clan_file_text=clan_file_text, subregion_count=subregion_count)
+
+
+def calculate_listen_time_stats_for_all_cha_files():
+    """
+    Runs calculate_listen_time_stats_for_cha_file on all cha files.
+    :return: a pandas DataFrame with the calculated states and an additional column 'filename'
+    """
+    cha_paths = get_all_cha_paths()
+    stats = [calculate_listen_time_stats_for_cha_file(cha_path) for cha_path in cha_paths]
+
+    # Check uniqueness of the keys in all returned dicts
+    [keys] = {tuple(stats_.keys()) for stats_ in stats}
+    # Check that the keys are what we expect them to be
+    expected_keys = ('num_makeup_region',
+                     'num_extra_region',
+                     'num_surplus_region',
+                     'makeup_time',
+                     'extra_time',
+                     'surplus_time',
+                     'subregion_time',
+                     'num_subregion_with_annot',
+                     'skip_silence_overlap_hour',
+                     'skip_time',
+                     'silence_time',
+                     'silence_raw_hour',
+                     'end_time',
+                     'total_listen_time',
+                     'positions',
+                     'ranks',
+                     'subregion_raw_hour',
+                     'num_raw_subregion',
+                     'annotation_counts_raw')
+    assert keys == expected_keys
+
+    # Combine into a dataframe and return
+    return pd.DataFrame(
+        index=pd.Index(data=[cha_path.name for cha_path in cha_paths], name='filename'),
+        data=stats,
+        columns=expected_keys).reset_index()
