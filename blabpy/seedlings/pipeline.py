@@ -5,7 +5,7 @@ import pandas as pd
 
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
-from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS
+from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
@@ -340,12 +340,7 @@ def calculate_listen_time_stats_for_cha_file(cha_path):
     :param cha_path: path to the clan file
     :return: see listened_time.listen_time_stats_for_report
     """
-    child_month = _parse_out_child_and_month(cha_path)
-    child, month = child_month['child'], child_month['month']
-    subregion_count = 5 if (child, month) not in RECORDINGS_WITH_FOUR_SUBREGIONS else 4
-    # TODO: remove once we can calculate stats for them as well
-    if month in (6, 7):
-        raise NotImplementedError
+    subregion_count = _get_subregion_count(**_parse_out_child_and_month(cha_path))
     clan_file_text = Path(cha_path).read_text()
     return listen_time_stats_for_report(clan_file_text=clan_file_text, subregion_count=subregion_count)
 
@@ -355,10 +350,7 @@ def calculate_listen_time_stats_for_all_cha_files():
     Runs calculate_listen_time_stats_for_cha_file on all cha files.
     :return: a pandas DataFrame with the calculated states and an additional column 'filename'
     """
-    # TODO: don't filter out months 6 and 7 once we can calculate stats for them as well
-    cha_paths = list(filter(
-        lambda cha_path: _parse_out_child_and_month(cha_path)['month'] not in (6, 7),
-        get_all_cha_paths()))
+    cha_paths = get_all_cha_paths()
     stats = [calculate_listen_time_stats_for_cha_file(cha_path) for cha_path in cha_paths]
 
     # Check uniqueness of the keys in all returned dicts
@@ -372,16 +364,16 @@ def calculate_listen_time_stats_for_all_cha_files():
                      'surplus_time',
                      'subregion_time',
                      'num_subregion_with_annot',
-                     'total_listen_time',
-                     'positions',
-                     'ranks',
                      'skip_silence_overlap_hour',
                      'skip_time',
                      'silence_time',
                      'silence_raw_hour',
+                     'end_time',
+                     'total_listen_time',
+                     'positions',
+                     'ranks',
                      'subregion_raw_hour',
                      'num_raw_subregion',
-                     'end_time',
                      'annotation_counts_raw')
     assert keys == expected_keys
 
