@@ -138,4 +138,11 @@ def _parse_out_child_and_month(file_path_or_name):
 
 @lru_cache(maxsize=None)  # do this just once
 def get_all_basic_level_paths(modality):
-    return _get_all_paths(get_single_file_function=get_basic_level_path, modality=modality)
+    _check_modality(modality)
+    if modality == AUDIO:
+        missing_child_month_combinations = MISSING_AUDIO_RECORDINGS
+    elif modality == VIDEO:
+        missing_child_month_combinations = MISSING_VIDEO_RECORDINGS
+
+    return _get_all_paths(get_single_file_function=get_basic_level_path,
+                          missing_child_month_combinations=missing_child_month_combinations, modality=modality)
