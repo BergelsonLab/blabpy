@@ -141,13 +141,14 @@ def write_all_basic_level_to_csv(all_basic_level_df, csv_path):
     The result is still not fully consistent but it is close enough.
     (readr::write_csv writes number 10000 as 1e+5 which was too silly to emulate)
     :param all_basic_level_df: a pandas DataFrame
+    :param csv_path: a path to the csv or None if you want to return the string that would have been written
     :return:
     """
     # For consistency with readr::write_csv that quotes strings but does not quote NAs, we'll have to use the following
     # trick from https://www.reddit.com/r/Python/comments/mu65ms/quoting_of_npnan_with_csvquote_nonnumeric_in/
     # This way, NAs will be considered numeric and won't be quoted.
     na = type("NaN", (float,), dict(__str__=lambda _: "NA"))()
-    all_basic_level_df.to_csv(csv_path, index=False, quoting=QUOTE_NONNUMERIC, na_rep=na)
+    return all_basic_level_df.to_csv(csv_path, index=False, quoting=QUOTE_NONNUMERIC, na_rep=na)
 
 
 def write_all_basic_level_to_feather(all_basic_level_df, feather_path):
