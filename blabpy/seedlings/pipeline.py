@@ -326,11 +326,20 @@ def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_m
 
 
 def make_updated_all_basic_level_here():
-    all_basic_level_df = gather_all_basic_level_annotations()
+    # Without NAs
     output_stem = Path('all_basiclevel')
+    all_basic_level_df = gather_all_basic_level_annotations()
     write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
                                  csv_path=output_stem.with_suffix('.csv'))
     write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
+                                     feather_path=output_stem.with_suffix('.feather'))
+
+    # With NAs
+    output_stem = Path('all_basiclevel_NA')
+    all_basic_level_na_df = gather_all_basic_level_annotations(keep_basic_level_na=True)
+    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_na_df,
+                                 csv_path=output_stem.with_suffix('.csv'))
+    write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_na_df,
                                      feather_path=output_stem.with_suffix('.feather'))
 
 
