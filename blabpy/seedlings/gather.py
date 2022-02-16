@@ -130,6 +130,12 @@ def gather_all_basic_level_annotations(keep_comments=False, keep_basic_level_na=
     # Sort by modality, month and subject for consistency with the older R code
     all_df = all_df.sort_values(by=['audio_video', 'month', 'subj'], ascending=[False, True, True])
 
+    # Convert a subset of the columns to factors (categorical in the pandas's terms)
+    factor_columns = ['object', 'utterance_type',
+                      'object_present', 'speaker', 'basic_level', 'id', 'subj',
+                      'month', 'SubjectNumber', 'audio_video', 'tier']
+    all_df[factor_columns] = all_df[factor_columns].astype('category')
+
     all_df.reset_index(drop=True, inplace=True)
 
     return all_df
