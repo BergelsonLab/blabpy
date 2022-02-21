@@ -3,6 +3,7 @@ from csv import QUOTE_NONNUMERIC
 import pandas as pd
 import numpy as np
 
+from . import VALID_UTTERANCE_TYPE_CODES, VALID_OBJECT_PRESENT_CODES
 from .paths import _check_modality, get_all_basic_level_paths, VIDEO, AUDIO
 
 
@@ -139,6 +140,37 @@ def gather_all_basic_level_annotations(keep_comments=False, keep_basic_level_na=
     all_df.reset_index(drop=True, inplace=True)
 
     return all_df
+
+
+def check_for_errors(all_basic_level_df: pd.DataFrame):
+    """
+    Checks the all_basic_level dataframe for:
+    1. Duplicate annotation ids.
+    2. Invalid "object present".
+    3. Invalid utterance type.
+    :param all_basic_level_df:
+    :return: None if there were no errors. Otherwise, return a subset of all_basic_level_df with additional "error_type"
+    column. The subset contains all the rows with errors.
+    """
+    df = all_basic_level_df
+
+    # Find duplicate annotation ids
+    # keep=False - mark all duplicates as such
+    duplicates = df[df.duplicated(subset=['annotid'], keep=False)]
+
+    # Invalid codes
+    invalid_utterance_type = df[~df.utterance_type.isin(VALID_UTTERANCE_TYPE_CODES)]
+    invalid_object_present = df[~df.object_present.isin(VALID_OBJECT_PRESENT_CODES)]
+
+    all_errors = pd.concat(
+        objs=[duplicates, invalid_utterance_type, invalid_object_present],
+        keys=['duplicate annotation id', 'invalid utterance type code', 'invalid object present code'],
+        names=['error_type', 'index']).reset_index(0)
+
+    if len(all_errors.index) > 0:
+        return all_errors
+    else:
+        return None
 
 
 def write_all_basic_level_to_csv(all_basic_level_df, csv_path):
