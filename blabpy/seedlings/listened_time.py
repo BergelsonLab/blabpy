@@ -223,6 +223,23 @@ def _contains_nested(regions, start, end):
     return (regions.start <= start) & (end <= regions.end)
 
 
+# TODO: This is unnecessarily complicated. The plan was to have multiple kinds of conditions: remove a subregion when it
+#  strictly partially overlaps with one of the, say, surpluses, contain a surplus that is fully nested, is fully nested
+#  within a surplus region, etc. The algorithm has been considerably simplified since then, so we only really need
+#  _overlaps_with_interval and it is only ever used once on a single set of `other_region_types` (makeup/surplus). This
+#  can all be simplified to something like `_remove_subregions_overlapping_with_makeup_or_surplus`.
+#  If you get to this, it might be a good idea to break the process into logical, not technical steps: what we are
+#  trying to do is figure out which subregions have been listened to: these are the ones with annotations or a special
+#  comment except for those that only have annotations because they were used for makeup, which might have later been
+#  renamed as surplus. So, it would make sense to have a `_remove_subregions_not_listened_to` function that would
+#  account for annotations, special comments *and* overlapping makeup/surplus regions.
+#  Another thing to consider: counting annotations after deoverlapping all the regions would be even better:
+#  - annotations in makeup/surplus would not be in the subregions at all (overlaps are removed from subregions during
+#    deoverlapping) so we would get the subregions without their own annotations removed for free,
+#  - if those subregions have annotations outside of the makeup/surplus regions, we would probably want to know: in
+#    such cases, the subregions would not get removed because they would still contain annotations ever after
+#    deoverlapping.
+#  Close issue https://github.com/BergelsonLab/blabpy/issues/12 when done.
 def _remove_subregions(regions, condition_function, other_region_types):
     """
     Remove all subregions that satisfy a given condition depending on overlap with another region, e.g., have at least
@@ -269,9 +286,7 @@ def _account_for_region_overlaps(regions):
     """
     # Some subregions need to be removed completely
     regions = _remove_subregions(regions, condition_function=_overlaps_with_interval,
-                                 other_region_types=[RegionType.SURPLUS])
-    regions = _remove_subregions(regions, condition_function=_contains_nested,
-                                 other_region_types=[RegionType.MAKEUP, RegionType.SURPLUS])
+                                 other_region_types=[RegionType.SURPLUS, RegionType.MAKEUP])
 
     # All other regions need to have parts of them remove dwhere they overlap with other regions.
     # The order matters, e.g. if you remove silences first, the silence will remain in their original form.
