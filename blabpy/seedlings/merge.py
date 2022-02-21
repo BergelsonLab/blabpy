@@ -69,14 +69,21 @@ def create_merged(file_new, file_old, file_merged, mode):
         # obj_pres = new_row['object_present']
         # ts = new_row['timestamp']
 
+        # As far as I can tell, `while` is used here instead of `if` so that we can do `break`.
+        # TODO:
+        #   1. Rewrite this, so the logic is more clear: there is exactly one branch that leads to using the old word.
+        #   2. Switch to using a join.
         while len(tmp.index) != 0:  # if the id already exists in the old df, check that the words/ts? do match
 
             if len(tmp.index) > 1:
-                print("ERROR: annotid not unique in old version : ", annot_id)  # raise exception
+                # One source of multiple matches are empty annotid's that comments might have
+                if annot_id != '':
+                    print("ERROR: annotid not unique in old version : ", annot_id)  # raise exception
+                    old_error = True
                 to_add[basic_level_col] = FIXME
                 merged_df = merged_df.append(to_add)
-                old_error = True
                 break
+
             old_row = tmp.iloc[0]
 
             # if new_row[:, new_row.columns != "basic_level"].equals(old_row[:, old_row.columns != "basic_level"]):
