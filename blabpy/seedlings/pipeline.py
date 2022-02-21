@@ -239,9 +239,9 @@ def scatter_all_basic_level(merged_folder_audio, merged_folder_video, working_fo
                 '\n',
                 '- Run',
                 f'  scatter_all_basic_level(',
-                f'      merged_folder_audio={merged_folder_audio},',
-                f'      merged_folder_video={merged_folder_video},',
-                f'      working_folder={working_folder}',
+                f'      merged_folder_audio=\'{merged_folder_audio}\',',
+                f'      merged_folder_video=\'{merged_folder_video}\',',
+                f'      working_folder=\'{working_folder}\',',
                 f'      check_for_missing_basic_levels={check_for_missing_basic_levels})'
             ]))
             return
