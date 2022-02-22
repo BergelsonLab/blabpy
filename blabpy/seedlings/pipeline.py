@@ -12,7 +12,7 @@ from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SU
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
-    ensure_folder_exists_and_empty, AUDIO, VIDEO
+    ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -130,6 +130,18 @@ def merge_annotations_with_basic_level(exported_annotations_folder, output_folde
           f'For details, see {log.absolute()}')
 
 
+def _with_basic_level_folder(working_folder: Path, modality):
+    """
+    Returns the name of the folder to output annotations merged with previous basic level data.
+    This function exists to avoid hard-coding the folder name in the functions that refer to it.
+    :param working_folder: the parent folder
+    :param modality: Audio/Video
+    :return:
+    """
+    _check_modality(modality)
+    return working_folder / f'with_basic_level_{modality.lower()}_annotations'
+
+
 def merge_all_annotations_with_basic_level(
         exported_audio_annotations_folder, exported_video_annotations_folder,
         working_folder, exported_suffix='_processed.csv'):
@@ -143,13 +155,13 @@ def merge_all_annotations_with_basic_level(
     :return:
     """
     # Audio
-    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
+    with_basic_level_audio_folder = _with_basic_level_folder(working_folder, AUDIO)
     merge_annotations_with_basic_level(exported_annotations_folder=exported_audio_annotations_folder,
                                        output_folder=with_basic_level_audio_folder,
                                        mode='audio', exported_suffix=exported_suffix)
 
     # Video
-    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+    with_basic_level_video_folder = _with_basic_level_folder(working_folder, VIDEO)
     merge_annotations_with_basic_level(exported_annotations_folder=exported_video_annotations_folder,
                                        output_folder=with_basic_level_video_folder,
                                        mode='video', exported_suffix=exported_suffix)
@@ -319,8 +331,8 @@ def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_m
     """
     working_folder = working_folder or Path('.')
 
-    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
-    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+    with_basic_level_audio_folder = _with_basic_level_folder(working_folder, AUDIO)
+    with_basic_level_video_folder = _with_basic_level_folder(working_folder, VIDEO)
 
     scatter_all_basic_level(merged_folder_audio=with_basic_level_audio_folder,
                             merged_folder_video=with_basic_level_video_folder,
