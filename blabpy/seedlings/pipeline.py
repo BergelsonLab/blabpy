@@ -1,10 +1,12 @@
+import logging
 import warnings
 from pathlib import Path
 
 import pandas as pd
 
 from .cha import export_cha_to_csv
-from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
+from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
+    check_for_errors
 from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -325,22 +327,41 @@ def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_m
                             check_for_missing_basic_levels=(not ignore_missing_basic_level))
 
 
+# TODO:
+#  1. add docstring,
+#  2. that is too much repetition, there might have been an argument for clarity before - not anymore,
+#  3. it might be less clean to repeat the NA logic here, but it makes much more sense to just create the version with
+#    NAs
 def make_updated_all_basic_level_here():
     # Without NAs
     output_stem = Path('all_basiclevel')
     all_basic_level_df = gather_all_basic_level_annotations()
-    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
-                                 csv_path=output_stem.with_suffix('.csv'))
-    write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
-                                     feather_path=output_stem.with_suffix('.feather'))
+    errors_df = check_for_errors(all_basic_level_df)
+    if errors_df:
+        errors_file = 'errors.csv'
+        logging.warning(f'The were errors found in `{output_stem.name}`, the corresponding rows are in "{errors_file}".')
+        errors_df.to_csv(errors_file)
+    else:
+        write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
+                                     csv_path=output_stem.with_suffix('.csv'))
+        write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
+                                         feather_path=output_stem.with_suffix('.feather'))
+        print(f'\n{output_stem.name} has been created and checked, files have been written to.')
 
     # With NAs
     output_stem = Path('all_basiclevel_NA')
     all_basic_level_na_df = gather_all_basic_level_annotations(keep_basic_level_na=True)
-    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_na_df,
-                                 csv_path=output_stem.with_suffix('.csv'))
-    write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_na_df,
-                                     feather_path=output_stem.with_suffix('.feather'))
+    errors_na_df = check_for_errors(all_basic_level_na_df)
+    if errors_na_df:
+        errors_file = 'errors_NA.csv'
+        logging.warning(f'The were errors found in `{output_stem.name}`, the corresponding rows are in "{errors_file}".')
+        errors_na_df.to_csv(errors_file)
+    else:
+        write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_na_df,
+                                     csv_path=output_stem.with_suffix('.csv'))
+        write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_na_df,
+                                         feather_path=output_stem.with_suffix('.feather'))
+        print(f'\n{output_stem.name} has been created and checked, files have been written to.')
 
 
 def calculate_listen_time_stats_for_cha_file(cha_path):
