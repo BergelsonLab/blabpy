@@ -1,5 +1,6 @@
 # Initially, an exact copy of https://github.com/SeedlingsBabylab/parse_clan2/blob/master/parse_clan2.py
 import csv
+import logging
 import re
 import os
 import collections
@@ -20,7 +21,7 @@ class Parser:
             processed_path = os.path.split(input_path)[1].replace(".cha", "_processed.csv")
             error_path = os.path.split(input_path)[1].replace(".cha", "_errors.txt")
             # self.output_file = os.path.join(output, name)
-            print(os.path.join(output, processed_path))
+            logging.info(os.path.join(output, processed_path))
             self.output_file = os.path.join(output, processed_path)
             self.error_file = os.path.join(output, error_path)
 
@@ -121,12 +122,12 @@ class Parser:
 
                 if line.startswith("%com:") and ("|" not in line):
                     if "begin skip" in line:
-                        print("Begin skip found in line# " + str(index))  #+ "\n"
+                        logging.info("Begin skip found in line# " + str(index))  #+ "\n"
                         self.skipping = True
                         self.begin_skip_start = index
                         continue
                     if "end skip" in line:
-                        print("End skip found in line# " + str(index) + "\n")
+                        logging.info("End skip found in line# " + str(index) + "\n")
                         self.skipping = False
                         self.begin_skip_start = None
                         continue
@@ -146,13 +147,12 @@ class Parser:
 
                 if (line.startswith("%xcom:")) and ("|" not in line):
                     if "begin skip" in line:
-                        print("Begin skip starts at line# " + str(index))  #+ "\n"
+                        logging.info("Begin skip starts at line# " + str(index))  #+ "\n"
                         self.skipping = True
                         self.begin_skip_start = index
                         continue
                     if "end skip" in line:
-                        print("End skip found in line# " + str(index) + "\n")
-                        # print "Found *end skip*"
+                        logging.info("End skip found in line# " + str(index) + "\n")
                         self.skipping = False
                         self.begin_skip_start = None
                         continue
@@ -177,7 +177,7 @@ class Parser:
                     interval_reg_result = self.interval_regx.search(line)
 
                     if interval_reg_result is None:
-                        # print "interval regx returned none. clan line: " + str(index)
+                        logging.info("interval regx returned none. clan line: " + str(index))
                         last_line = line
                         multi_line += line
                         continue
@@ -404,13 +404,13 @@ class Parser:
                     # correctly formatted entries
                     if entries:
                         if self.skipping:
-                            print("\nObject word was found in a skip region. Fix this in the .cha file. Line# "
-                                  + str(index))
-                            print("line: " + line)
+                            logging.warning(
+                                f"Object word was found in a skip region. Fix this in the .cha file.\n"
+                                f"Line# {str(index)}\n"
+                                f"line: {line}")
                             continue
                         else:
                             for entry in entries:
-                                # print((entry))
                                 self.words.append([line[0:4],
                                                    entry[0],            # word
                                                    entry[3],            # utterance_type
@@ -539,13 +539,12 @@ class Parser:
 
                     if entries:
                         if self.skipping:
-                            print("\nObject word was found in a skip region. Fix this in the .cha file. Line# "
-                                  + str(index))
-                            # print("Begin skip starts at line# " + str(self.begin_skip_start))
-                            print("line: " + line)
+                            logging.warning(
+                                f"Object word was found in a skip region. Fix this in the .cha file.\n"
+                                f"Line# {str(index)}\n"
+                                f"line: {line}")
                             continue
                         for entry in entries:
-                            # print(entry)
                             self.words.append([last_line[0:4],
                                                entry[0],            # word
                                                entry[3],            # utterance_type
@@ -592,7 +591,6 @@ class Parser:
             writer.writerow(["tier","word","utterance_type","object_present","speaker","annotid","timestamp","basic_level","comment","pho"])
             for entry in self.words:
                 transcription = self._get_transcription(word=entry)
-                # print(entry)
 
                 # check to make sure there are comments left on the queue
                 # If the current interval has passed the current comment interval,
@@ -626,9 +624,8 @@ class Parser:
                                     "NA",
                                      transcription])
 
-        print("\n\nTotal # of words: {}\n".format(len(self.words)))
+        logging.info("\n\nTotal # of words: {}\n".format(len(self.words)))
 
-        # print(self.personal_info_groups)
 
     def filter_comments(self):
         """
@@ -651,7 +648,10 @@ class Parser:
                 regx_result = self.interval_regx.findall(line)
                 if regx_result:
                     if len(regx_result) > 1:
-                        print("Found more than 1 interval on a single CLAN line:   line #" + str(index))
+                        logging.warning(
+                            f"Found more than 1 interval on a single CLAN line.\n"
+                            f"Line# {str(index)}\n"
+                            f"line: {line}")
                         return False
                     else:
                         continue
