@@ -228,45 +228,6 @@ def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, 
         return False
 
 
-def scatter_all_basic_level(merged_folder_audio, merged_folder_video, working_folder,
-                            check_for_missing_basic_levels=True):
-    """
-    Checks annotations files, freshly exported and merged with basic level data, for any missing basic level. If there
-    aren't any, copies the files to their individual child-month locations in Subject_Files.
-    :param merged_folder_audio: folder where merge_[all_]annotations_with_basic_level put the outputs
-    :param merged_folder_video: ditto for video
-    :param working_folder: where to put the list of missing basic level data (FIXMEs)
-    :param check_for_missing_basic_levels: should we scatter only when there are no FIXMEs? Mostly, will only make sense
-    when restoring from a backup.
-    :return:
-    """
-    if check_for_missing_basic_levels:
-        anything_missing = check_all_basic_level_for_missing(
-            merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
-            working_folder=working_folder, raise_error_if_any_missing=False)
-
-        if anything_missing:
-            print('\n'.join([
-                'There were rows with missing basic level data. Check the csv logs.',
-                '- Update the corresponding rows in the individual sparse_code csvs in the following folders:',
-                f'  {merged_folder_audio}',
-                f'  {merged_folder_video}',
-                '\n',
-                '- Run',
-                f'  scatter_all_basic_level(',
-                f'      merged_folder_audio=\'{merged_folder_audio}\',',
-                f'      merged_folder_video=\'{merged_folder_video}\',',
-                f'      working_folder=\'{working_folder}\',',
-                f'      check_for_missing_basic_levels={check_for_missing_basic_levels})'
-            ]))
-            return
-
-    copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO,
-                                                backup=True)
-    copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO,
-                                                backup=True)
-
-
 def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_problems=False):
     """
     Exports audio and video annotations to csv files in subfolders of working_folder.
@@ -313,21 +274,36 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
     )
 
 
-def scatter_updated_basic_level_files(working_folder=None, ignore_missing_basic_level=False):
+
+def scatter_updated_basic_level_files(working_folder=None):
     """
     Most of the time make_updated_basic_level_files will tell you that there are still some files with missing
     data in tha basic_level column. Run this function once you are done fixing those.
     :return:
     """
     working_folder = working_folder or Path('.')
+    merged_folders = {modality: _with_basic_level_folder(working_folder, modality) for modality in (AUDIO, VIDEO)}
 
-    with_basic_level_audio_folder = _with_basic_level_folder(working_folder, AUDIO)
-    with_basic_level_video_folder = _with_basic_level_folder(working_folder, VIDEO)
+    anything_missing = check_all_basic_level_for_missing(
+        merged_folder_audio=merged_folders[AUDIO],
+        merged_folder_video=merged_folders[VIDEO],
+        working_folder=working_folder,
+        raise_error_if_any_missing=False)
 
-    scatter_all_basic_level(merged_folder_audio=with_basic_level_audio_folder,
-                            merged_folder_video=with_basic_level_video_folder,
-                            working_folder=working_folder,
-                            check_for_missing_basic_levels=(not ignore_missing_basic_level))
+    if anything_missing:
+        print('\n'.join([
+            'There were rows with missing basic level data. Check the csv logs.',
+            '- Update the corresponding rows in the individual sparse_code csvs in the following folders:',
+            f'  {merged_folders[AUDIO]}',
+            f'  {merged_folders[VIDEO]}',
+            '\n',
+            '- Run scatter_updated_basic_level_files again.'
+        ]))
+        return
+
+    for modality in (AUDIO, VIDEO):
+        copy_all_basic_level_files_to_subject_files(
+            updated_basic_level_folder=merged_folders[modality], modality=modality, backup=True)
 
 
 def make_updated_all_basic_level_here():
