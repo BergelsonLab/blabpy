@@ -292,14 +292,11 @@ def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_p
     return exported_audio_annotations_folder, exported_video_annotations_folder
 
 
-def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_annotation_problems=False,
-                                          ignore_missing_basic_level=False):
+def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_problems=False):
     """
-    Updates all individual basic level files in the Seedlings folder:
+    Creates updated versions of individual basic level files:
      - exports all annotations from cha and opf files, checks for exporting errors,
-     - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added,
-     - if all basic level data is already present, backs up and updates the inividual basic level files
-    :return:
+     - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added.
     """
     working_folder = working_folder or Path('.')
 
@@ -309,24 +306,17 @@ def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_anno
         ignore_audio_annotation_problems=ignore_audio_annotation_problems)
 
     # Merge with current basic level data
-    with_basic_level_audio, with_basic_level_video = merge_all_annotations_with_basic_level(
+    merge_all_annotations_with_basic_level(
         exported_audio_annotations_folder=exported_audio,
         exported_video_annotations_folder=exported_video,
         working_folder=working_folder
     )
 
-    # Scatter if basic level column is complete everywhere
-    scatter_all_basic_level(merged_folder_audio=with_basic_level_audio,
-                            merged_folder_video=with_basic_level_video,
-                            working_folder=working_folder,
-                            check_for_missing_basic_levels=(not ignore_missing_basic_level))
 
-
-def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_missing_basic_level=False):
+def scatter_updated_basic_level_files(working_folder=None, ignore_missing_basic_level=False):
     """
-    Most of the time update_basic_level_files_in_seedlings will tell you that there are still some files with missing
-    data in tha basic_level column. Run this function once you are done fixing those. It will upodate the lists of
-    missing files and
+    Most of the time make_updated_basic_level_files will tell you that there are still some files with missing
+    data in tha basic_level column. Run this function once you are done fixing those.
     :return:
     """
     working_folder = working_folder or Path('.')
