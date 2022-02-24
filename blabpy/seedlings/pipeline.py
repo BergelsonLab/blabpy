@@ -271,6 +271,7 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
      - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added.
     """
     working_folder = working_folder or Path('.')
+    ensure_folder_exists_and_empty(working_folder)
 
     # Export
     exported_audio, exported_video = export_all_annotations_to_csv(
