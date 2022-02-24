@@ -1,15 +1,18 @@
+import logging
 import warnings
+from itertools import product
 from pathlib import Path
 
 import pandas as pd
 
 from .cha import export_cha_to_csv
-from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather
+from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
+    check_for_errors
 from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
-    ensure_folder_exists_and_empty, AUDIO, VIDEO
+    ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -25,12 +28,13 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
     ensure_folder_exists_and_empty(output_folder)
 
     opf_paths = get_all_opf_paths()
-
+    seedlings_path = get_seedlings_path()
     for opf_path in opf_paths:
         # Add suffix before all extensions
         extensions = ''.join(opf_path.suffixes)
         output_name = opf_path.name.replace(extensions, suffix + '.csv')
 
+        print(f'Exporting opf file at <SEEDLINGS_ROOT>/{opf_path.relative_to(seedlings_path)}')
         export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
 
 
@@ -48,7 +52,9 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     parsed_with_errors = list()
 
     cha_paths = get_all_cha_paths()
+    seedlings_path = get_seedlings_path()
     for cha_path in cha_paths:
+        print(f'Exporting cha file at <SEEDLINGS_ROOT>/{cha_path.relative_to(seedlings_path)}')
         problems = export_cha_to_csv(cha_path=cha_path, output_folder=output_folder)
         if not problems:
             continue
@@ -106,7 +112,15 @@ def merge_annotations_with_basic_level(exported_annotations_folder, output_folde
     output_files = [output_folder / basic_level_file.name for basic_level_file in basic_level_files]
 
     # Merge and save
-    results = [create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
+    seedlings_path = get_seedlings_path()
+
+    def _create_merged(file_new, file_old, file_merged, mode):
+        """Exists to add the printing part"""
+        print(f'Merging annotations in {file_new}\n'
+              f'with basic level info in <SEEDLINGS_ROOT>/{file_old.relative_to(seedlings_path)}')
+        return create_merged(file_new=file_new, file_old=file_old, file_merged=file_merged, mode=mode)
+
+    results = [_create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
                for annotation_file, basic_level_file, output_file
                in zip(annotation_files, basic_level_files, output_files)]
 
@@ -127,6 +141,18 @@ def merge_annotations_with_basic_level(exported_annotations_folder, output_folde
           f'For details, see {log.absolute()}')
 
 
+def _with_basic_level_folder(working_folder: Path, modality):
+    """
+    Returns the name of the folder to output annotations merged with previous basic level data.
+    This function exists to avoid hard-coding the folder name in the functions that refer to it.
+    :param working_folder: the parent folder
+    :param modality: Audio/Video
+    :return:
+    """
+    _check_modality(modality)
+    return working_folder / f'with_basic_level_{modality.lower()}_annotations'
+
+
 def merge_all_annotations_with_basic_level(
         exported_audio_annotations_folder, exported_video_annotations_folder,
         working_folder, exported_suffix='_processed.csv'):
@@ -140,13 +166,13 @@ def merge_all_annotations_with_basic_level(
     :return:
     """
     # Audio
-    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
+    with_basic_level_audio_folder = _with_basic_level_folder(working_folder, AUDIO)
     merge_annotations_with_basic_level(exported_annotations_folder=exported_audio_annotations_folder,
                                        output_folder=with_basic_level_audio_folder,
                                        mode='audio', exported_suffix=exported_suffix)
 
     # Video
-    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+    with_basic_level_video_folder = _with_basic_level_folder(working_folder, VIDEO)
     merge_annotations_with_basic_level(exported_annotations_folder=exported_video_annotations_folder,
                                        output_folder=with_basic_level_video_folder,
                                        mode='video', exported_suffix=exported_suffix)
@@ -213,45 +239,6 @@ def check_all_basic_level_for_missing(merged_folder_audio, merged_folder_video, 
         return False
 
 
-def scatter_all_basic_level(merged_folder_audio, merged_folder_video, working_folder,
-                            check_for_missing_basic_levels=True):
-    """
-    Checks annotations files, freshly exported and merged with basic level data, for any missing basic level. If there
-    aren't any, copies the files to their individual child-month locations in Subject_Files.
-    :param merged_folder_audio: folder where merge_[all_]annotations_with_basic_level put the outputs
-    :param merged_folder_video: ditto for video
-    :param working_folder: where to put the list of missing basic level data (FIXMEs)
-    :param check_for_missing_basic_levels: should we scatter only when there are no FIXMEs? Mostly, will only make sense
-    when restoring from a backup.
-    :return:
-    """
-    if check_for_missing_basic_levels:
-        anything_missing = check_all_basic_level_for_missing(
-            merged_folder_audio=merged_folder_audio, merged_folder_video=merged_folder_video,
-            working_folder=working_folder, raise_error_if_any_missing=False)
-
-        if anything_missing:
-            print('\n'.join([
-                'There were rows with missing basic level data. Check the csv logs.',
-                '- Update the corresponding rows in the individual sparse_code csvs in the following folders:',
-                f'  {merged_folder_audio}',
-                f'  {merged_folder_video}',
-                '\n',
-                '- Run',
-                f'  scatter_all_basic_level(',
-                f'      merged_folder_audio={merged_folder_audio},',
-                f'      merged_folder_video={merged_folder_video},',
-                f'      working_folder={working_folder}',
-                f'      check_for_missing_basic_levels={check_for_missing_basic_levels})'
-            ]))
-            return
-
-    copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_audio, modality=AUDIO,
-                                                backup=True)
-    copy_all_basic_level_files_to_subject_files(updated_basic_level_folder=merged_folder_video, modality=VIDEO,
-                                                backup=True)
-
-
 def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_problems=False):
     """
     Exports audio and video annotations to csv files in subfolders of working_folder.
@@ -277,16 +264,14 @@ def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_p
     return exported_audio_annotations_folder, exported_video_annotations_folder
 
 
-def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_annotation_problems=False,
-                                          ignore_missing_basic_level=False):
+def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_problems=False):
     """
-    Updates all individual basic level files in the Seedlings folder:
+    Creates updated versions of individual basic level files:
      - exports all annotations from cha and opf files, checks for exporting errors,
-     - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added,
-     - if all basic level data is already present, backs up and updates the inividual basic level files
-    :return:
+     - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added.
     """
     working_folder = working_folder or Path('.')
+    ensure_folder_exists_and_empty(working_folder)
 
     # Export
     exported_audio, exported_video = export_all_annotations_to_csv(
@@ -294,53 +279,108 @@ def update_basic_level_files_in_seedlings(working_folder=None, ignore_audio_anno
         ignore_audio_annotation_problems=ignore_audio_annotation_problems)
 
     # Merge with current basic level data
-    with_basic_level_audio, with_basic_level_video = merge_all_annotations_with_basic_level(
+    merge_all_annotations_with_basic_level(
         exported_audio_annotations_folder=exported_audio,
         exported_video_annotations_folder=exported_video,
         working_folder=working_folder
     )
 
-    # Scatter if basic level column is complete everywhere
-    scatter_all_basic_level(merged_folder_audio=with_basic_level_audio,
-                            merged_folder_video=with_basic_level_video,
-                            working_folder=working_folder,
-                            check_for_missing_basic_levels=(not ignore_missing_basic_level))
+    print('\nThe annotations have been exported and merged with existing basic level data.\n'
+          'Use scatter_updated_basic_level_files to check for basic levels that need updating amd move them to \n'
+          'SubjectFiles.')
 
 
-def finish_updating_basic_level_files_in_seedlings(working_folder=None, ignore_missing_basic_level=False):
+def scatter_updated_basic_level_files(working_folder=None):
     """
-    Most of the time update_basic_level_files_in_seedlings will tell you that there are still some files with missing
-    data in tha basic_level column. Run this function once you are done fixing those. It will upodate the lists of
-    missing files and
+    Checks for missing basic level data in updated sparse_code csv files.
+    If there are none, copies the files to their place on PN-OPUS, making a backup there first.
     :return:
     """
     working_folder = working_folder or Path('.')
+    merged_folders = {modality: _with_basic_level_folder(working_folder, modality) for modality in (AUDIO, VIDEO)}
 
-    with_basic_level_audio_folder = working_folder / 'with_basic_level_audio_annotations'
-    with_basic_level_video_folder = working_folder / 'with_basic_level_video_annotations'
+    anything_missing = check_all_basic_level_for_missing(
+        merged_folder_audio=merged_folders[AUDIO],
+        merged_folder_video=merged_folders[VIDEO],
+        working_folder=working_folder,
+        raise_error_if_any_missing=False)
 
-    scatter_all_basic_level(merged_folder_audio=with_basic_level_audio_folder,
-                            merged_folder_video=with_basic_level_video_folder,
-                            working_folder=working_folder,
-                            check_for_missing_basic_levels=(not ignore_missing_basic_level))
+    if anything_missing:
+        print('\n'.join([
+            'There were rows with missing basic level data. Check the "missing_basic_level_*.csv" files for a list of '
+            'the rows.',
+            '',
+            '- Update the corresponding rows in the individual sparse_code csvs in the following folders:',
+            f'  {merged_folders[AUDIO]}',
+            f'  {merged_folders[VIDEO]}',
+            '\n',
+            '- Run scatter_updated_basic_level_files again.'
+        ]))
+        return
+
+    for modality in (AUDIO, VIDEO):
+        copy_all_basic_level_files_to_subject_files(
+            updated_basic_level_folder=merged_folders[modality], modality=modality, backup=True)
 
 
 def make_updated_all_basic_level_here():
+    """
+    Gathers all basic level files, checks for some errors, and - if there were no errors - writes four files:
+    - all_basiclevel.csv
+    - all_basiclevel.feather
+    - all_basiclevel_NA.csv
+    - all_basiclevel_NA.feather
+    The files differ in whether they contain rows that have NA as the basic level and their format (csv/feather).
+    The files are created in the current working directory. If the files already exist, they will be deleted first. This
+    is done so there is a difference between:
+    - everything went well, but there are no changes (files are the same, git status sees no changes) and
+    - something went wrong (files are missing, git status will show that much).
+    :return: None
+    """
+    # Delete current files
+    output_paths = [Path(f'all_basiclevel{suffix}{extension}')
+                    for suffix, extension in product(('', '_NA'), ('.csv', '.feather'))]
+    for output_path in output_paths:
+        try:
+            output_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    # Gather all individual basic level files
+    df_with_na = gather_all_basic_level_annotations(keep_basic_level_na=True)
+
+    # Check for errors
+    errors_df = check_for_errors(df_with_na)
+    if errors_df:
+        errors_file = 'errors.csv'
+        logging.warning(f'The were errors found, the corresponding rows are in "{errors_file}".')
+        errors_df.to_csv(errors_file)
+        return
+
+    # Write the four files
+    def _write_to_csv_and_feather(all_basic_level_df, output_stem):
+        write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
+                                     csv_path=output_stem.with_suffix('.csv'))
+        write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
+                                         feather_path=output_stem.with_suffix('.feather'))
     # Without NAs
-    output_stem = Path('all_basiclevel')
-    all_basic_level_df = gather_all_basic_level_annotations()
-    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
-                                 csv_path=output_stem.with_suffix('.csv'))
-    write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
-                                     feather_path=output_stem.with_suffix('.feather'))
+    output_stem_without_na = Path('all_basiclevel')
+    df_without_na = df_with_na[~df_with_na.basic_level.isna()].reset_index(drop=True)
+    # The feather version contains categorical information, so we need to remove categories that no longer exist - as if
+    # the categories were set after removing NAs.
+    for column_name in df_without_na.columns:
+        if df_without_na[column_name].dtype.name == 'category':
+            df_without_na[column_name] = df_without_na[column_name].cat.remove_unused_categories()
+    _write_to_csv_and_feather(df_without_na, output_stem_without_na)
 
     # With NAs
-    output_stem = Path('all_basiclevel_NA')
-    all_basic_level_na_df = gather_all_basic_level_annotations(keep_basic_level_na=True)
-    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_na_df,
-                                 csv_path=output_stem.with_suffix('.csv'))
-    write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_na_df,
-                                     feather_path=output_stem.with_suffix('.feather'))
+    output_stem_with_na = output_stem_without_na.with_name(output_stem_without_na.name + '_NA')
+    _write_to_csv_and_feather(df_with_na, output_stem_with_na)
+
+    # Check that the output files have been created
+    for output_path in output_paths:
+        assert output_path.exists()
+    print(f'all_basiclevel has been created and checked for errors, files have been written to.')
 
 
 def calculate_listen_time_stats_for_cha_file(cha_path):
