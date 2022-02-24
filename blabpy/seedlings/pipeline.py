@@ -292,8 +292,8 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
 
 def scatter_updated_basic_level_files(working_folder=None):
     """
-    Most of the time make_updated_basic_level_files will tell you that there are still some files with missing
-    data in tha basic_level column. Run this function once you are done fixing those.
+    Checks for missing basic level data in updated sparse_code csv files.
+    If there are none, copies the files to their place on PN-OPUS, making a backup there first.
     :return:
     """
     working_folder = working_folder or Path('.')
@@ -307,7 +307,9 @@ def scatter_updated_basic_level_files(working_folder=None):
 
     if anything_missing:
         print('\n'.join([
-            'There were rows with missing basic level data. Check the csv logs.',
+            'There were rows with missing basic level data. Check the "missing_basic_level_*.csv" files for a list of '
+            'the rows.',
+            '',
             '- Update the corresponding rows in the individual sparse_code csvs in the following folders:',
             f'  {merged_folders[AUDIO]}',
             f'  {merged_folders[VIDEO]}',
