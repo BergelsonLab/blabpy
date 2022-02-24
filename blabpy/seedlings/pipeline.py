@@ -12,7 +12,7 @@ from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SU
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
-    ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality
+    ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -28,12 +28,13 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
     ensure_folder_exists_and_empty(output_folder)
 
     opf_paths = get_all_opf_paths()
-
+    seedlings_path = get_seedlings_path()
     for opf_path in opf_paths:
         # Add suffix before all extensions
         extensions = ''.join(opf_path.suffixes)
         output_name = opf_path.name.replace(extensions, suffix + '.csv')
 
+        print(f'Exporting opf file at <SEEDLINGS_ROOT>/{opf_path.relative_to(seedlings_path)}')
         export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
 
 
@@ -51,7 +52,9 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
     parsed_with_errors = list()
 
     cha_paths = get_all_cha_paths()
+    seedlings_path = get_seedlings_path()
     for cha_path in cha_paths:
+        print(f'Exporting cha file at <SEEDLINGS_ROOT>/{cha_path.relative_to(seedlings_path)}')
         problems = export_cha_to_csv(cha_path=cha_path, output_folder=output_folder)
         if not problems:
             continue
@@ -109,7 +112,15 @@ def merge_annotations_with_basic_level(exported_annotations_folder, output_folde
     output_files = [output_folder / basic_level_file.name for basic_level_file in basic_level_files]
 
     # Merge and save
-    results = [create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
+    seedlings_path = get_seedlings_path()
+
+    def _create_merged(file_new, file_old, file_merged, mode):
+        """Exists to add the printing part"""
+        print(f'Merging annotations in {file_new}\n'
+              f'with basic level info in <SEEDLINGS_ROOT>/{file_old.relative_to(seedlings_path)}')
+        return create_merged(file_new=file_new, file_old=file_old, file_merged=file_merged, mode=mode)
+
+    results = [_create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
                for annotation_file, basic_level_file, output_file
                in zip(annotation_files, basic_level_files, output_files)]
 
@@ -273,6 +284,9 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
         working_folder=working_folder
     )
 
+    print('\nThe annotations have been exported and merged with existing basic level data.\n'
+          'Use scatter_updated_basic_level_files to check for basic levels that need updating amd move them to \n'
+          'SubjectFiles.')
 
 
 def scatter_updated_basic_level_files(working_folder=None):
