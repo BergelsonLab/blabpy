@@ -1,8 +1,10 @@
 import ast
+from pathlib import Path
 
 import pytest
 import pandas as pd
 
+from blabpy.seedlings.cha import export_cha_to_csv
 from blabpy.seedlings.listened_time import listen_time_stats_for_report, _get_subregion_count
 from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
 
@@ -33,3 +35,26 @@ def test_the_whole_thing(listen_time_stats_df, child, month):
     for key, correct_value in stats_correct.items():
         correct_value = _possibly_interpret_as_list(correct_value)
         assert stats[key] == correct_value
+
+
+@pytest.fixture(scope='module')
+def cha_export_checksums_df():
+    return pd.read_csv('data/cha_parsing_checksums.csv').set_index('cha_filename')
+
+
+@pytest.mark.parametrize(argnames=('child', 'month'),
+                         argvalues=[(child, month)
+                                    for child in ALL_CHILDREN for month in ALL_MONTHS
+                                    if (child, month) not in MISSING_AUDIO_RECORDINGS])
+def test_export_cha_to_csv(cha_export_checksums_df, child, month, tmpdir):
+    cha_path = Path(f'data/annotated_cha/annotated_cha/{child:02}_{month:02}_sparse_code.cha')
+    cha_checksum = text_file_checksum(cha_path)
+    export_cha_to_csv(cha_path, tmpdir)
+    exported_csv_path = tmpdir / cha_path.name.replace(".cha", "_processed.csv")
+    exported_csv_checksum = text_file_checksum(exported_csv_path)
+
+    checksums = cha_export_checksums_df.loc[cha_path.name]
+
+    assert cha_checksum == checksums.cha_checksum
+    assert exported_csv_path.exists()
+    assert exported_csv_checksum == checksums.exported_csv_checksum
