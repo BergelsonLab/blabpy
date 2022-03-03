@@ -1,5 +1,5 @@
 import pandas as pd
-import constants
+from blabpy.vihi.segments import constants
 import pympi
 import random
 import os, shutil

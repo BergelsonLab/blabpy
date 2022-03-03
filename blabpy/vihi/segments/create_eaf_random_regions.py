@@ -1,6 +1,6 @@
 import sys, os, shutil
 import pandas as pd
-import constants, utils
+from blabpy.vihi.segments import constants, utils
 import random
 
 def main():
