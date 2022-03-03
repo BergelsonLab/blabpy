@@ -5,5 +5,5 @@ setup(
     version="0.2.1",
     packages=find_packages(),
     python_requires='>=3.7',
-    install_requires=['pandas', 'numpy', 'pyarrow']
+    install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling']
 )
