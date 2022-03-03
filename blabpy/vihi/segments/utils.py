@@ -27,7 +27,7 @@ def choose_onsets(l, n=5, t=5, start=30, end=10):
     int t: length of region of interest (including context)
     int start: minute at which
     """
-    minute_range = range(start, min(l - t, l-end))
+    minute_range = list(range(start, min(l - t, l-end)))
     random.shuffle(minute_range)
     selected = []
     for x in minute_range:
