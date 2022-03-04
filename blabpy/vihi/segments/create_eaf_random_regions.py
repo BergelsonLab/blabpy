@@ -1,14 +1,17 @@
-import sys, os, shutil
+import sys
+import os
+import shutil
+
 import pandas as pd
-from blabpy.vihi.segments import constants, utils
-import random
+
+from blabpy.vihi.segments import utils
+
 
 def main():
-
     record_list = pd.read_csv(sys.argv[1])
     output_dir = sys.argv[2]
 
-    selected = pd.DataFrame(columns = ['id', 'clip_num', 'onset', 'offset'], dtype=int)
+    selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
 
     for i, record in record_list.iterrows():
         print(record.index)
@@ -27,11 +30,9 @@ def main():
 
         selected = pd.concat([selected, utils.create_output_csv(record.id, timestamps)])
 
-
-
     selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
-    selected.to_csv(os.path.join(output_dir,'selected_regions.csv'), index=False)
+    selected.to_csv(os.path.join(output_dir, 'selected_regions.csv'), index=False)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
