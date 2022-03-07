@@ -48,12 +48,10 @@ def select_segments_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
-def create_eaf(etf_path, id, output_dir, segments_list, context_before=120000, context_after=60000):
+def create_eaf(etf_path, segments_list, context_before=120000, context_after=60000):
     """
     Writes an eaf file <id>.eaf to the output_dir by adding segments to the etf template at etf_path.
     :param etf_path:
-    :param id:
-    :param output_dir:
     :param segments_list:
     :param context_before:
     :param context_after:
@@ -79,7 +77,6 @@ def create_eaf(etf_path, id, output_dir, segments_list, context_before=120000, c
         eaf.add_annotation("on_off", roi_onset, roi_offset, value="{}_{}".format(roi_onset, roi_offset))
         eaf.add_annotation("context", whole_region_onset, whole_region_offset)
 
-    eaf.to_file(os.path.join(output_dir, "{}.eaf".format(id)))
     return eaf
 
 
@@ -105,9 +102,13 @@ def create_files_with_random_regions(recording_id, age, length_of_recording, out
     # retrieve correct templates for the age
     etf_template_path, pfsx_template_path = templates.choose_template(age)
 
+    # create an eaf object with the selected regions
+    eaf = create_eaf(etf_template_path, timestamps)
+
     # create the output files
     # eaf with segments added
-    create_eaf(etf_template_path, recording_id, output_dir, timestamps)
+    eaf_output_path = os.path.join(output_dir, f'{recording_id}.eaf')
+    eaf.to_file(os.path.join(output_dir, eaf_output_path))
     # copy the pfsx template
     pfsx_output_path = os.path.join(output_dir, f'{recording_id}.pfsx')
     shutil.copy(pfsx_template_path, pfsx_output_path)
