@@ -1,6 +1,7 @@
 import sys
 import os
 import shutil
+import random
 
 import pandas as pd
 
@@ -10,6 +11,9 @@ from blabpy.vihi.segments import utils
 def main():
     record_list = pd.read_csv(sys.argv[1])
     output_dir = sys.argv[2]
+    if len(sys.argv) > 3:
+        seed = int(sys.argv[3])
+        random.seed(seed)
 
     selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
 
