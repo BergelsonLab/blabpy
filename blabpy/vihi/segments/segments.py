@@ -83,7 +83,7 @@ def create_eaf(etf_path, id, output_dir, segments_list, context_before=120000, c
     return eaf
 
 
-def create_output_df(id, segments_list, context_before=120000, context_after=60000):
+def create_selected_regions_df(id, segments_list, context_before=120000, context_after=60000):
     selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
     for i, ts in enumerate(segments_list):
         selected = selected.append({'id': id,
@@ -91,7 +91,7 @@ def create_output_df(id, segments_list, context_before=120000, context_after=600
                                     'onset': ts[0] + context_before,
                                     'offset': ts[1] - context_after},
                                    ignore_index=True)
-    # selected[['id', 'clip_num', 'onset', 'offset']] = selected[['id', 'clip_num', 'onset', 'offset']].astype(int)
+    selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
     return selected
 
 
@@ -112,7 +112,6 @@ def create_eafs_with_random_regions(info_spreadsheet_path, output_dir, seed=None
     :return: None
     """
     record_list = pd.read_csv(info_spreadsheet_path)
-    selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
     if seed:
         random.seed(seed)
 
@@ -124,14 +123,15 @@ def create_eafs_with_random_regions(info_spreadsheet_path, output_dir, seed=None
         timestamps.sort(key=lambda tup: tup[0])
         print(timestamps)
 
-        # retrieve right age templates
-        etf_path, pfsx_path = templates.choose_template(record.age)
+        # retrieve correct templates for the age
+        etf_template_path, pfsx_template_path = templates.choose_template(record.age)
 
-        # create
-        create_eaf(etf_path, record.id, output_dir, timestamps)
-        shutil.copy(pfsx_path, os.path.join(output_dir, "{}.pfsx".format(record.id)))
-
-        selected = pd.concat([selected, create_output_df(record.id, timestamps)])
-
-    selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
-    selected.to_csv(os.path.join(output_dir, 'selected_regions.csv'), index=False)
+        # create the output files
+        # eaf with segments added
+        create_eaf(etf_template_path, record.id, output_dir, timestamps)
+        # copy the pfsx template
+        pfsx_output_path = os.path.join(output_dir, f'{record.id}.pfsx')
+        shutil.copy(pfsx_template_path, pfsx_output_path)
+        # csv with the list of selected regions
+        selected_regions_path = os.path.join(output_dir, f'{record.id}_selected-regions.csv')
+        create_selected_regions_df(record.id, timestamps).to_csv(selected_regions_path, index=False)

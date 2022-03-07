@@ -27,7 +27,7 @@ def test_create_eaf_random_regions(tmpdir):
 
     # Run with a seed
     expected_checksums = {'VI_018_924.eaf': 3088937518,
-                          'selected_regions.csv': 174746390,
+                          'VI_018_924_selected-regions.csv': 174746390,
                           'VI_018_924.pfsx': 1301328091}
     _run_the_script(seed=15)
 
