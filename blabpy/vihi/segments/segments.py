@@ -95,7 +95,28 @@ def create_selected_regions_df(id, segments_list, context_before=120000, context
     return selected
 
 
-def create_eafs_with_random_regions(info_spreadsheet_path, output_dir, seed=None):
+def create_files_with_random_regions(recording_id, age, length_of_recording, output_dir):
+    # choose regions (5 by default)
+    timestamps = select_segments_randomly(int(length_of_recording), n=15)
+    timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
+    timestamps.sort(key=lambda tup: tup[0])
+    print(timestamps)
+
+    # retrieve correct templates for the age
+    etf_template_path, pfsx_template_path = templates.choose_template(age)
+
+    # create the output files
+    # eaf with segments added
+    create_eaf(etf_template_path, recording_id, output_dir, timestamps)
+    # copy the pfsx template
+    pfsx_output_path = os.path.join(output_dir, f'{recording_id}.pfsx')
+    shutil.copy(pfsx_template_path, pfsx_output_path)
+    # csv with the list of selected regions
+    selected_regions_path = os.path.join(output_dir, f'{recording_id}_selected-regions.csv')
+    create_selected_regions_df(recording_id, timestamps).to_csv(selected_regions_path, index=False)
+
+
+def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, seed=None):
     """
     Reads a list of recording for which eafs with randomly selected regions need to be created. Outputs an eaf and pfsx
     file for each row in that list. Additionally, creates a file "selected_regions.csv" which contains the info on the
@@ -111,27 +132,10 @@ def create_eafs_with_random_regions(info_spreadsheet_path, output_dir, seed=None
      all the recordings.
     :return: None
     """
-    record_list = pd.read_csv(info_spreadsheet_path)
     if seed:
         random.seed(seed)
 
-    for i, record in record_list.iterrows():
-        print(record.index)
-        # choose regions (5 by default)
-        timestamps = select_segments_randomly(int(record.length_of_recording), n=15)
-        timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
-        timestamps.sort(key=lambda tup: tup[0])
-        print(timestamps)
-
-        # retrieve correct templates for the age
-        etf_template_path, pfsx_template_path = templates.choose_template(record.age)
-
-        # create the output files
-        # eaf with segments added
-        create_eaf(etf_template_path, record.id, output_dir, timestamps)
-        # copy the pfsx template
-        pfsx_output_path = os.path.join(output_dir, f'{record.id}.pfsx')
-        shutil.copy(pfsx_template_path, pfsx_output_path)
-        # csv with the list of selected regions
-        selected_regions_path = os.path.join(output_dir, f'{record.id}_selected-regions.csv')
-        create_selected_regions_df(record.id, timestamps).to_csv(selected_regions_path, index=False)
+    recordings_df = pd.read_csv(info_spreadsheet_path)
+    for _, recording in recordings_df.iterrows():
+        create_files_with_random_regions(recording_id=recording.id, age=recording.age,
+                                         length_of_recording=recording.length_of_recording, output_dir=output_dir)
