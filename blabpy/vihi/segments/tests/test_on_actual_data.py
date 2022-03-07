@@ -13,7 +13,7 @@ def test_create_eaf_random_regions(tmpdir):
     info_spreadsheet_path = Path(tmpdir) / 'info_spreadsheet.csv'
     with info_spreadsheet_path.open('w') as f:
         f.write('\n'.join(['id,age,length_of_recording',
-                           'VI_018_924,30,960']))
+                           'VI_666_924,30,960']))
     output_dir = tmpdir
     script = 'blabpy.vihi.segments.create_eaf_random_regions'
 
@@ -26,9 +26,9 @@ def test_create_eaf_random_regions(tmpdir):
         os.system(command)
 
     # Run with a seed
-    expected_checksums = {'VI_018_924.eaf': 3088937518,
-                          'VI_018_924_selected-regions.csv': 174746390,
-                          'VI_018_924.pfsx': 1301328091}
+    expected_checksums = {'VI_666_924.eaf': 3088937518,
+                          'VI_666_924_selected-regions.csv': 2384423837,
+                          'VI_666_924.pfsx': 1301328091}
     _run_the_script(seed=15)
 
     for filename in expected_checksums:
