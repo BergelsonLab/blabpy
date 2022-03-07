@@ -1,10 +1,12 @@
 import random
 import os
 import shutil
+from pathlib import Path
 
 import pandas as pd
 import pympi
 
+from blabpy.utils import OutputExistsError
 from blabpy.vihi.segments import templates
 
 
@@ -105,16 +107,26 @@ def create_files_with_random_regions(recording_id, age, length_of_recording, out
     # create an eaf object with the selected regions
     eaf = create_eaf(etf_template_path, timestamps)
 
+    # check that none of the output files already exist
+    output_filenames = {
+        'eaf': f'{recording_id}.eaf',
+        'pfsx': f'{recording_id}.pfsx',
+        'csv': f'{recording_id}_selected-regions.csv'
+    }
+    output_file_paths = {extension: Path(output_dir) / filename
+                         for extension, filename in output_filenames.items()}
+
+    paths_exist = [path for path in output_file_paths.values() if path.exists()]
+    if any(paths_exist):
+        raise OutputExistsError(paths=paths_exist)
+
     # create the output files
     # eaf with segments added
-    eaf_output_path = os.path.join(output_dir, f'{recording_id}.eaf')
-    eaf.to_file(os.path.join(output_dir, eaf_output_path))
+    eaf.to_file(os.path.join(output_dir, output_file_paths['eaf']))
     # copy the pfsx template
-    pfsx_output_path = os.path.join(output_dir, f'{recording_id}.pfsx')
-    shutil.copy(pfsx_template_path, pfsx_output_path)
+    shutil.copy(pfsx_template_path, output_file_paths['pfsx'])
     # csv with the list of selected regions
-    selected_regions_path = os.path.join(output_dir, f'{recording_id}_selected-regions.csv')
-    create_selected_regions_df(recording_id, timestamps).to_csv(selected_regions_path, index=False)
+    create_selected_regions_df(recording_id, timestamps).to_csv(output_file_paths['csv'], index=False)
 
 
 def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, seed=None):
@@ -137,6 +149,14 @@ def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, se
         random.seed(seed)
 
     recordings_df = pd.read_csv(info_spreadsheet_path)
+    output_exists_errors = []
     for _, recording in recordings_df.iterrows():
-        create_files_with_random_regions(recording_id=recording.id, age=recording.age,
-                                         length_of_recording=recording.length_of_recording, output_dir=output_dir)
+        try:
+            create_files_with_random_regions(recording_id=recording.id, age=recording.age,
+                                             length_of_recording=recording.length_of_recording,
+                                             output_dir=output_dir)
+        except OutputExistsError as e:
+            output_exists_errors.append(e)
+
+    if output_exists_errors:
+        raise OutputExistsError(paths=[path for error in output_exists_errors for path in error.paths])

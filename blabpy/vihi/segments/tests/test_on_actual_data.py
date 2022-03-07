@@ -35,13 +35,12 @@ def test_create_eaf_random_regions(tmpdir):
         output_file_path = output_dir.join(filename)
         assert output_file_path.exists()
         assert text_file_checksum(output_file_path) == expected_checksums[filename]
-        # Otherwise, a ".bak" version will be created by pympi before writing the new file.
-        if output_file_path.basename.endswith('.eaf'):
-            output_file_path.remove()
+        # Remove the file for the second run - without a seed
+        output_file_path.remove()
 
     # Check that there are no other files in the output directory (3 output files minus the .eaf file we just deleted
     # plus info_spreasheet.csv)
-    assert len(output_dir.listdir()) == 3
+    assert len(output_dir.listdir()) == 1
 
     # Run without a seed
     _run_the_script(seed=None)

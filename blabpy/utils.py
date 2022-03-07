@@ -12,3 +12,19 @@ def text_file_checksum(path: Path):
     encoding = 'utf-8'
     # Decoding/encoding is done to stay invariant to different line endings.
     return adler32(path.read_text(encoding=encoding).encode(encoding=encoding))
+
+
+class OutputExistsError(Exception):
+    """
+    Raised when a function crates output files and some of them already exist.
+    """
+    def __init__(self, paths):
+        """
+        Paths
+        :param paths: the paths to the output files that already exist.
+        """
+        self.paths = paths
+        message = 'Some of the output files already exist'
+        if paths:
+            message += ':\n\n' + '\n'.join((str(path.absolute()) for path in paths))
+        super().__init__()
