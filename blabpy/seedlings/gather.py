@@ -128,8 +128,10 @@ def gather_all_basic_level_annotations(keep_comments=False, keep_basic_level_na=
     if not keep_basic_level_na:
         all_df = all_df[~all_df.basic_level.isna()]
 
-    # Sort by modality, month and subject for consistency with the older R code
-    all_df = all_df.sort_values(by=['audio_video', 'month', 'subj'], ascending=[False, True, True])
+    # Sort by modality, month and subject for consistency with the older R code.
+    # And then by ordinal (relevent for opfs only), onset, offset, and annotid for semi-consistency between versions
+    all_df = all_df.sort_values(by=['audio_video', 'month', 'subj', 'ordinal', 'onset', 'offset', 'annotid'],
+                                ascending=[False, True, True, True, True, True, True])
 
     # Convert a subset of the columns to factors (categorical in the pandas's terms)
     factor_columns = ['object', 'utterance_type',
