@@ -3,7 +3,7 @@ import pandas as pd
 FIXME = '***FIX ME***'
 
 
-def _read_annotations_csv(path):
+def read_annotations_csv(path):
     """
     Reads an annotation csv file (either a csv exported from cha/opf or a sparse_code csv file) in a specific way: no
     strings are be parsed as NaN and the engine used is python. No idea why the engine bit is important.
@@ -49,8 +49,8 @@ def create_merged(file_new, file_old, file_merged, mode):
     edit_word = False
     new_word = False
 
-    old_df = _read_annotations_csv(file_old)
-    new_df = _read_annotations_csv(file_new)
+    old_df = read_annotations_csv(file_old)
+    new_df = read_annotations_csv(file_new)
 
     # The basic level column in some video files is called basic_level, in others - labeled_object.basic_level. Let's
     # find which it is.

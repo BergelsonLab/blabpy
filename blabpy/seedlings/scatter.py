@@ -5,7 +5,7 @@ from shutil import copy2
 import pandas as pd
 
 from .paths import _parse_out_child_and_month, get_basic_level_path, _check_modality, AUDIO, VIDEO
-from .merge import _read_annotations_csv
+from .merge import read_annotations_csv
 
 
 def backup_to_old_files(file_path: Path):
@@ -35,7 +35,7 @@ def backup_to_old_files(file_path: Path):
     copy2(file_path, backup_path)
 
 
-def _sort_basic_level_df(df, modality):
+def sort_basic_level_df(df, modality):
     """
     Sorts a dataframe read from an individual basic level file (sparse_code csv)
     :param df: a pandas dataframe
@@ -78,7 +78,7 @@ def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True):
     assert modality.lower() in file_path.name.lower()
 
     # Sort the rows in the source file and overwrite it
-    _sort_basic_level_df(df=_read_annotations_csv(file_path), modality=modality).to_csv(file_path, index=False)
+    sort_basic_level_df(df=read_annotations_csv(file_path), modality=modality).to_csv(file_path, index=False)
 
     # Backup the current version
     basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
