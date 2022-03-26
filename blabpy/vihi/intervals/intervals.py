@@ -7,15 +7,15 @@ import pandas as pd
 import pympi
 
 from blabpy.utils import OutputExistsError
-from blabpy.vihi.segments import templates
+from blabpy.vihi.intervals import templates
 
 
 def _overlap(onset1, onset2, width):
     """
-    Do the width-long segments starting with onset1 and onset2 overlap?
+    Do the width-long intervals starting with onset1 and onset2 overlap?
     (1, 2) and (2, 3) are considered to be non-overlapping.
-    :param onset1: int, onset1 > 0, start of the first segment,
-    :param onset2: int, onset2 != onset1 & onset2 > 0, start of the second segment,
+    :param onset1: int, onset1 > 0, start of the first interval,
+    :param onset2: int, onset2 != onset1 & onset2 > 0, start of the second interval,
     :param width: int, width > 0, their common duration
     :return: True/False
     """
@@ -26,21 +26,21 @@ def _overlap(onset1, onset2, width):
     return False
 
 
-def select_segments_randomly(total_duration, n=5, t=5, start=30, end=10):
+def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
     """
     Randomly selects n non-overlapping regions of length t that start not earlier than at minute start and not later
     than (total_duration - end).
     int total_duration: length of recording in minutes
-    int n: number of random segments to choose
+    int n: number of random intervals to choose
     int t: length of region of interest (including context)
-    int start: minute at which the earliest segment can start
+    int start: minute at which the earliest interval can start
     return: a list of (onset, offset + t) tuples
     """
     candidate_onsets = list(range(start, min(total_duration - t, total_duration - end)))
     random.shuffle(candidate_onsets)
     selected_onsets = []
     for possible_onset in candidate_onsets:
-        # Select onsets until we have the required number of segments
+        # Select onsets until we have the required number of intervals
         if len(selected_onsets) >= n:
             break
         # Check that the candidate region would not overlap with any of the already selected ones
@@ -50,11 +50,11 @@ def select_segments_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
-def create_eaf(etf_path, segments_list, context_before=120000, context_after=60000):
+def create_eaf(etf_path, intervals_list, context_before=120000, context_after=60000):
     """
-    Writes an eaf file <id>.eaf to the output_dir by adding segments to the etf template at etf_path.
+    Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
     :param etf_path:
-    :param segments_list:
+    :param intervals_list:
     :param context_before:
     :param context_after:
     :return:
@@ -68,8 +68,8 @@ def create_eaf(etf_path, segments_list, context_before=120000, context_after=600
     eaf.add_tier("code_num", ling=transcription_type)
     eaf.add_tier("on_off", ling=transcription_type)
 
-    # Add the segments
-    for i, ts in enumerate(segments_list):
+    # Add the intervals
+    for i, ts in enumerate(intervals_list):
         whole_region_onset = ts[0]
         whole_region_offset = ts[1]
         roi_onset = whole_region_onset + context_before
@@ -82,9 +82,9 @@ def create_eaf(etf_path, segments_list, context_before=120000, context_after=600
     return eaf
 
 
-def create_selected_regions_df(id, segments_list, context_before=120000, context_after=60000):
+def create_selected_regions_df(id, intervals_list, context_before=120000, context_after=60000):
     selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
-    for i, ts in enumerate(segments_list):
+    for i, ts in enumerate(intervals_list):
         selected = selected.append({'id': id,
                                     'clip_num': i + 1,
                                     'onset': ts[0] + context_before,
@@ -96,7 +96,7 @@ def create_selected_regions_df(id, segments_list, context_before=120000, context
 
 def create_files_with_random_regions(recording_id, age, length_of_recording, output_dir):
     # choose regions (5 by default)
-    timestamps = select_segments_randomly(int(length_of_recording), n=15)
+    timestamps = select_intervals_randomly(int(length_of_recording), n=15)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
     timestamps.sort(key=lambda tup: tup[0])
     print(timestamps)
@@ -121,7 +121,7 @@ def create_files_with_random_regions(recording_id, age, length_of_recording, out
         raise OutputExistsError(paths=paths_exist)
 
     # create the output files
-    # eaf with segments added
+    # eaf with intervals added
     eaf.to_file(os.path.join(output_dir, output_file_paths['eaf']))
     # copy the pfsx template
     shutil.copy(pfsx_template_path, output_file_paths['pfsx'])
@@ -133,7 +133,7 @@ def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, se
     """
     Reads a list of recording for which eafs with randomly selected regions need to be created. Outputs an eaf and pfsx
     file for each row in that list. Additionally, creates a file "selected_regions.csv" which contains the info on the
-    selected segments.
+    selected intervals.
 
     :param info_spreadsheet_path: path to a csv that has the following columns:
      `age` with the child's age in months at the time of the recording,
