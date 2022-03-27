@@ -1,8 +1,9 @@
-import random
 import os
+import random
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pympi
 
@@ -160,3 +161,54 @@ def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, se
 
     if output_exists_errors:
         raise OutputExistsError(paths=[path for error in output_exists_errors for path in error.paths])
+
+
+def calculate_energy_in_one_interval(start, end, audio, low_freq: int = 0, high_freq: int = 100000):
+    """
+    Calculates energy from start to end from a recording loaded into memory.
+    NB: The code is copied almost verbatim from ChildProject's energy-based sampler code.
+    :param high_freq: upper frequency
+    :param low_freq: lower frequency limit
+    :param start: start in milliseconds
+    :param end: end in milliseconds
+    :param audio: pydub.AudioSegment object
+    :return: float - energy in the interval
+    """
+    def compute_energy_loudness(chunk, sampling_frequency: int, low_freq: int = 0, high_freq: int = 100000):
+        if low_freq > 0 or high_freq < 100000:
+            chunk_fft = np.fft.fft(chunk)
+            freq = np.abs(np.fft.fftfreq(len(chunk_fft), 1 / sampling_frequency))
+            chunk_fft = chunk_fft[(freq > low_freq) & (freq < high_freq)]
+            return np.sum(np.abs(chunk_fft) ** 2) / len(chunk)
+        else:
+            return np.sum(chunk ** 2)
+
+    channels = audio.channels
+    sampling_frequency = int(audio.frame_rate)
+    max_value = 256 ** (int(audio.sample_width)) / 2 - 1
+
+    chunk = audio[start:end].get_array_of_samples()
+    channel_energies = np.zeros(channels)
+
+    for channel in range(channels):
+        data = np.array(chunk[channel::channels]) / max_value
+        channel_energies[channel] = compute_energy_loudness(chunk=data, sampling_frequency=sampling_frequency,
+                                                            low_freq=low_freq, high_freq=high_freq)
+
+    energy = np.sum(channel_energies)
+    return energy
+
+
+def calculate_energy_in_all_intervals(intervals, audio, low_freq: int = 0, high_freq: int = 100000):
+    """
+    Calculates energy in audio for each interval in intervals.
+    :param high_freq: see calculate_energy_in_one_interval
+    :param low_freq: see calculate_energy_in_one_interval
+    :param intervals: a pandas dataframe containing "start" and "end" columns in seconds
+    :param audio: pydub.AudioSegment object
+    :return: a pandas Series object
+    """
+    return intervals.apply(lambda row:
+                           calculate_energy_in_one_interval(start=row.start, end=row.end, audio=audio,
+                                                            low_freq=low_freq, high_freq=high_freq),
+                           axis='columns')
