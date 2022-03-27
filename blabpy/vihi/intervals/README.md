@@ -1,6 +1,6 @@
-This subpackage (`blabpy.vihi.segments`) is, at the moment of the first commit, a copy of the [etf_to_eaf][etf_to_eaf] repository. 
+This subpackage (`blabpy.vihi.intervals`) is, at the moment of the first commit, a copy of the [etf_to_eaf][etf_to_eaf] repository. 
 
-The scripts in the repo created eaf files with randomly distributed segments that are then annotated.
+The scripts in the repo created eaf files with randomly distributed intervals that are then annotated.
 The point of copying these scripts to blabpy is to unify the distribution of this code and then update it by udpateing blabpy, not files on a shared drive.
 
 # Scripts
@@ -12,7 +12,7 @@ The point of copying these scripts to blabpy is to unify the distribution of thi
 1. Make sure you have [blabpy][blabpy] installed.
 2. Run
     ```
-    python -m blabpy.vihi.segments.create_eaf_random_regions path/to/info_spreadsheet.csv path/to/output_dir [random_seed]
+    python -m blabpy.vihi.intervals.create_eaf_random_regions path/to/info_spreadsheet.csv path/to/output_dir [random_seed]
     ```
 
 where:
@@ -30,7 +30,7 @@ where:
 - there are different etf templates for different ages, so the info spreadsheet has to contain an `age` column, a `length_of_recording` column and an `id` column containing the name of the recording
 - `etf_templates/` contains age-specific ACLEW templates and the corresponding ELAN preference files,
 - `templates.py` finds the right template and preference file for a given age,
-- `segments.py` contains the functions necessary to randomly select non overlapping random regions, add them to a template, batch-process "info_spreadsheet.csv".
+- `intervals.py` contains the functions necessary to randomly select non overlapping random regions, add them to a template, batch-process "info_spreadsheet.csv".
 
 [etf_to_eaf]: https://github.com/BergelsonLab/etf_to_eaf
 [blabpy]: https://github.com/BergelsonLab/blabpy

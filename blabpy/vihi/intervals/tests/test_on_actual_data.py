@@ -18,7 +18,7 @@ def test_create_eaf_random_regions(tmpdir):
         f.write('\n'.join(['id,age,length_of_recording',
                            'VI_666_924,30,960']))
     output_dir = tmpdir
-    script = 'blabpy.vihi.segments.create_eaf_random_regions'
+    script = 'blabpy.vihi.intervals.create_eaf_random_regions'
 
     def _run_the_script(seed=None):
         no_seed_command = f'python -m {script} {info_spreadsheet_path} {output_dir}'

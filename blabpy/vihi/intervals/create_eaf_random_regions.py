@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from blabpy.vihi.segments.segments import batch_create_files_with_random_regions
+from blabpy.vihi.intervals.intervals import batch_create_files_with_random_regions
 
 
 if __name__ == "__main__":

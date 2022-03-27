@@ -1,6 +1,6 @@
 from importlib.resources import path
 
-import blabpy.vihi.segments.etf_templates as etf_templates
+import blabpy.vihi.intervals.etf_templates as etf_templates
 
 
 def _get_etf_template(filename):
