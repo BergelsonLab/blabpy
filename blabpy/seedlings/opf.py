@@ -115,6 +115,18 @@ class OPFFile(object):
                 else:
                     opf_zipped.writestr(filename, self.other_components[filename])
 
+    def update_annotations(self, opf_df: 'OPFDataFrame'):
+        """
+        Updates the annotations based on an OPFDataFrame object with updated data.
+        Preserves presence/absence of newline at the end of file to avoid annoying diffs.
+        :param opf_df:
+        :return:
+        """
+        newline_at_end_of_file = self.db.endswith('\n')
+        self.db = str(opf_df)
+        if newline_at_end_of_file:
+            self.db = self.db.rstrip('\n') + '\n'
+
 
 class OPFDataFrame(object):
     def __init__(self, opf_file: OPFFile):
