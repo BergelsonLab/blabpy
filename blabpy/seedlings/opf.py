@@ -16,40 +16,56 @@ class OPFFile(object):
     SKIP_PREFIXES = ('.DS_Store', '__MACOSX/')
 
     def __init__(self, path):
-        self.path = path
+        self.path: Path = path
         self.loaded = False
         self.db = None
         self.other_components = None
-        self.filenames_in_archive = None
+        self.name_list = None
         self.load()
 
     def load(self):
         if self.path.is_dir():
-            raise NotImplementedError('Reading unarchived version from a folder is not yet implemented')
+            # List all the files skipping macos-specific hidden files
+            name_list = [path.name for path in self.path.iterdir()
+                         if not any(path.name.startswith(prefix) for prefix in self.SKIP_PREFIXES)]
 
-        with ZipFile(self.path, 'r') as opf_zipped:
-            assert 'db' in opf_zipped.namelist(), f'The file at {self.path} does not contain "db". Not an OPF file?'
+            # Load the annotations
+            assert 'db' in name_list, f'The folder at {self.path} does not contain a "db" file. Not an OPF folder?'
+            db = self.path.joinpath('db').read_text(encoding='utf-8')
 
-            # Annotations
-            with opf_zipped.open('db', 'r') as db_zipped:
-                # ZipFile.open reads files in the binary mode
-                db = db_zipped.read().decode('utf-8')
-
-            filenames_in_archive = opf_zipped.namelist()
-
-            # Skip macos-specific hidden files
-            filenames_in_archive = [fn for fn in filenames_in_archive
-                                    if not any(fn.startswith(prefix) for prefix in self.SKIP_PREFIXES)]
-
+            # Other files
             other_components = {
-                name: opf_zipped.open(name, 'r').read()
-                for name in filenames_in_archive
-                if name != 'db'}
+                name: self.path.joinpath(name).read_bytes()  # for parity with the archived version (see below)
+                for name in name_list
+                if name != 'db'
+            }
 
-            self.db = db
-            self.filenames_in_archive = filenames_in_archive
-            self.other_components = other_components
-            self.loaded = True
+        elif self.path.suffix == '.opf':
+            with ZipFile(self.path, 'r') as opf_zipped:
+                # List all the files skipping macos-specific hidden files
+                name_list = [fn for fn in opf_zipped.namelist()
+                             if not any(fn.startswith(prefix) for prefix in self.SKIP_PREFIXES)]
+                assert 'db' in name_list, f'The file at {self.path} does not contain "db". Not an OPF file?'
+
+                # Load the annotations
+                with opf_zipped.open('db', 'r') as db_zipped:
+                    # ZipFile.open reads files in the binary mode
+                    db = db_zipped.read().decode('utf-8')
+
+                # Other files
+                other_components = {
+                    name: opf_zipped.open(name, 'r').read()
+                    for name in name_list
+                    if name != 'db'}
+
+        else:
+            raise ValueError('Can read OPF annotation from .opf files or unzipped folders, the input path is neither:'
+                             + str(self.path))
+
+        self.db = db
+        self.name_list = name_list
+        self.other_components = other_components
+        self.loaded = True
 
     def read_in_editor(self):
         zf = ZipFile(self.path)
@@ -82,7 +98,7 @@ class OPFFile(object):
                 self._write_to_opf(path)
 
     def _write_to_dir(self, folder_path):
-        for filename in self.filenames_in_archive:
+        for filename in self.name_list:
             filepath = folder_path / filename
             if filename == 'db':
                 with filepath.open('w') as f:
@@ -93,7 +109,7 @@ class OPFFile(object):
 
     def _write_to_opf(self, path):
         with ZipFile(path, mode='w', compression=ZIP_DEFLATED) as opf_zipped:
-            for filename in self.filenames_in_archive:
+            for filename in self.name_list:
                 if filename == 'db':
                     opf_zipped.writestr('db', self.db)
                 else:
