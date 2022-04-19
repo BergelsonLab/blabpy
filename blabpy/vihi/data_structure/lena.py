@@ -61,23 +61,23 @@ def audit_recording_folder(folder_path: Path, population: str, subject_id: str, 
         f'VIHI_Coding_Issues_{recording_id}.docx'
     ]
 
-    objeccts_statuses = list()
+    objects_statuses = list()
     satisfied_rules = list()
     folder_contents = [path.relative_to(folder_path) for path in folder_path.iterdir()]
     for path in folder_contents:
         if _name_matches(path, rule_list=IGNORED):
-            objeccts_statuses.append(AuditStatus.ignored)
+            objects_statuses.append(AuditStatus.ignored)
             continue
 
         rule_matched = _name_matches(path, rule_list=expected_objects)
         if rule_matched:
             satisfied_rules.append(rule_matched)
-            objeccts_statuses.append(AuditStatus.expected)
+            objects_statuses.append(AuditStatus.expected)
         else:
-            objeccts_statuses.append(AuditStatus.unexpected)
+            objects_statuses.append(AuditStatus.unexpected)
 
     missing_files = [rule for rule in expected_objects if rule not in satisfied_rules]
-    audit_results = ([(path.as_posix(), str(status)) for path, status in zip(folder_contents, objeccts_statuses)]
+    audit_results = ([(path.as_posix(), str(status)) for path, status in zip(folder_contents, objects_statuses)]
                      + [(rule, str(AuditStatus.missing)) for rule in missing_files])
 
     return (pd.DataFrame(columns=['relative_path', 'status'], data=audit_results)
