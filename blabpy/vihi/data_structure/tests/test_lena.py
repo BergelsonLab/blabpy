@@ -3,7 +3,7 @@ from io import StringIO
 import pandas as pd
 
 from blabpy.vihi.paths import get_lena_path
-from blabpy.vihi.data_structure.lena import audit_recording_folder
+from blabpy.vihi.data_structure.lena import audit_recording_folder, audit_all_recordings
 
 
 def test_audit_recording_folder(tmp_path):
@@ -38,3 +38,10 @@ def test_audit_recording_folder(tmp_path):
          'VIHI_Coding_Issues_VI_018_924.docx,missing',
          'VIHI_Coding_Issues_VI_018_924_.docx,unexpected'])))
     assert audit_results.equals(expected_audit_resuls)
+
+
+def test_audit_all_recordings():
+    # Check that the function works and returns a pandas dataframe
+    audit_results = audit_all_recordings()
+    assert isinstance(audit_results, pd.DataFrame)
+    assert audit_results.shape[0] > 0

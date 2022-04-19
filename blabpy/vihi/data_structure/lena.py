@@ -83,3 +83,75 @@ def audit_recording_folder(folder_path: Path, population: str, subject_id: str, 
     return (pd.DataFrame(columns=['relative_path', 'status'], data=audit_results)
             .sort_values(by=['status', 'relative_path'])
             .reset_index(drop=True))
+
+
+def audit_all_recordings():
+    """
+    Checks:
+    - all the folders at levels between ".../LENA" and the recording-level folders,
+    - all the recording-level folders using `audit_recording_folder`
+    :return:
+    """
+    recordings_list = pd.read_csv(get_vihi_path().joinpath('vihi_data_check', 'recordings.csv'))
+    recordings_list[['population', 'subject_id', 'recording_id']] = pd.DataFrame(
+        recordings_list.recording.apply(_parse_recording_prefix).to_list())
+
+    # Check the folder presence at population, subject, and recording levels
+    lena_dir = get_lena_path()
+    expected_folders = {
+        folder
+        for population, subject_id, recording_id
+        in recordings_list[['population', 'subject_id', 'recording_id']].drop_duplicates().to_records(index=False)
+        for folder in (
+            lena_dir / population,
+            lena_dir / population / f'{population}_{subject_id}',
+            lena_dir / population / f'{population}_{subject_id}' / f'{population}_{subject_id}_{recording_id}'
+        )}
+
+    actual_folders = {
+        path
+        for glob_results in (lena_dir.glob('*'),
+                             lena_dir.glob('*/*'),
+                             lena_dir.glob('*/*/*'))
+        for path in glob_results
+        if path.is_dir()
+    }
+
+    folder_statuses = list()
+    unexpected = actual_folders - expected_folders
+    expected = actual_folders & expected_folders
+    missing = expected_folders - actual_folders
+    for folder_list, status in [(unexpected, AuditStatus.unexpected),
+                                (expected, AuditStatus.expected),
+                                (missing, AuditStatus.missing)]:
+        for folder in folder_list:
+            folder_statuses.append(dict(parent=lena_dir,
+                                        relative_path=folder.relative_to(lena_dir), status=status))
+
+    # Check the recording folders contents
+    recordings_list['folder_path'] = recordings_list.apply(
+        lambda row: get_lena_recording_path(row.population, row.subject_id, row.recording_id),
+        axis='columns')
+    recording_audits = recordings_list.apply(
+        lambda row:
+        audit_recording_folder(
+            folder_path=row.folder_path,
+            population=row.population,
+            subject_id=row.subject_id,
+            recording_id=row.recording_id).assign(parent=row.folder_path),
+        axis='columns',
+        result_type='reduce')
+
+    # Combine the results
+    full_results = pd.concat([pd.DataFrame(folder_statuses)] + recording_audits.to_list())
+    assert full_results.columns.to_list() == ['parent', 'relative_path', 'status']
+
+    # Sort by full path and convert "parent" to string
+    full_results = (full_results
+                    .assign(full_path=lambda df: df.parent / df.relative_path)
+                    .sort_values(by='full_path')
+                    .drop(columns='full_path')
+                    .assign(parent=lambda df: df.parent.apply(lambda path: path.as_posix()))
+                    )
+
+    return full_results
