@@ -1,14 +1,15 @@
 """
 This module checks that the LENA folder contains all and only files that we expect to be there.
 """
+import re
 from enum import auto, unique
 from pathlib import Path
-import re
-from strenum import StrEnum
 
 import pandas as pd
+from strenum import StrEnum
 
-POPULATIONS = ['VI', 'HI', 'TD']
+from ..paths import get_lena_path, _recording_prefix, _parse_recording_prefix, get_lena_recording_path, get_vihi_path
+
 # Strings to match literally, and re.Pattern objects to match in the sense of re.match. Add $ to match the full name.
 IGNORED = [re.compile(r'~.*\.docx$'), '.DS_Store', '.git']
 
@@ -19,42 +20,6 @@ class AuditStatus(StrEnum):
     expected = auto()
     unexpected = auto()
     missing = auto()
-
-
-def _id_from_int(id_):
-    """
-    Converts integer subject and recordings ids to a 3-digit-long zero-paddes string
-    :param id_: int
-    :return: str
-    """
-    return f'{id_:03}'
-
-
-def _check_id_string(id_):
-    """
-    Checks that the subject or recordings id is formatted correctly by converting to number and back.
-    :param id_:
-    :return:
-    """
-    assert isinstance(id_, str)
-    assert _id_from_int(int(id_)) == id_
-
-
-def _check_population(population):
-    assert population in POPULATIONS
-
-
-def _recording_prefix(population: str, subject_id: str, recording_id: str):
-    """
-    Combines population type, subject id, and recording id into a filename prefix, e.g., VI_123_456
-    :param population: VI/HI/TD
-    :param subject_id:
-    :param recording_id:
-    :return:
-    """
-    _check_id_string(subject_id)
-    _check_id_string(recording_id)
-    return f'{population}_{subject_id}_{recording_id}'
 
 
 def _name_matches(path, rule_list):
