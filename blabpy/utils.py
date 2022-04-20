@@ -27,4 +27,4 @@ class OutputExistsError(Exception):
         message = 'Some of the output files already exist'
         if paths:
             message += ':\n\n' + '\n'.join((str(path.absolute()) for path in paths))
-        super().__init__()
+        super().__init__(message)
