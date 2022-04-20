@@ -99,11 +99,20 @@ def create_selected_regions_df(id, intervals_list, context_before=120000, contex
 
 
 def create_files_with_random_regions(recording_id, age, length_of_recording):
-    # choose regions (5 by default)
+    """
+    Randomly samples 15 five-min long regions to be annotated and creates three files:
+    - <recording_id>.eaf - ELAN file with annotations prepared for the sampled intervals,
+    - <recording_id>.pfsx - ELAN preferences file,
+    - <recoroding_id>_selected-regions.csv - a table with onset and offsets of the selected regions.
+    Raises an OutputExistsError if any of the files already exist.
+    :param recording_id: the recording prefix, including the population and subject id, e.g. 'TD_123_456'
+    :param age: age in months - will be used to select an .etf template
+    :param length_of_recording: length of the actual file in minutes
+    :return: None, writes files to the recording folder in VIHI
+    """
     timestamps = select_intervals_randomly(int(length_of_recording), n=15)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
     timestamps.sort(key=lambda tup: tup[0])
-    print(timestamps)
 
     # retrieve correct templates for the age
     etf_template_path, pfsx_template_path = templates.choose_template(age)
