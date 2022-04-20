@@ -143,7 +143,7 @@ def create_files_with_random_regions(recording_id, age, length_of_recording):
     create_selected_regions_df(recording_id, timestamps).to_csv(output_file_paths['csv'], index=False)
 
 
-def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, seed=None):
+def batch_create_files_with_random_regions(info_spreadsheet_path, seed=None):
     """
     Reads a list of recording for which eafs with randomly selected regions need to be created. Outputs an eaf and pfsx
     file for each row in that list. Additionally, creates a file "selected_regions.csv" which contains the info on the
@@ -153,8 +153,6 @@ def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, se
      `age` with the child's age in months at the time of the recording,
      `length_of_recording` in minutes,
      `id`: recording identifier, such as VI_018_924
-    :param output_dir: a directory where the eaf and pfsx files for each recording will be created and where
-     "selected_regions.csv" will be stored as well
     :param seed: int, optional, random seed to be set before selecting random regions. Set only once, before processing
      all the recordings.
     :return: None
@@ -167,8 +165,7 @@ def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, se
     for _, recording in recordings_df.iterrows():
         try:
             create_files_with_random_regions(recording_id=recording.id, age=recording.age,
-                                             length_of_recording=recording.length_of_recording,
-                                             output_dir=output_dir)
+                                             length_of_recording=recording.length_of_recording)
         except OutputExistsError as e:
             output_exists_errors.append(e)
 
