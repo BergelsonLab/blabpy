@@ -9,6 +9,7 @@ import pympi
 
 from blabpy.utils import OutputExistsError
 from blabpy.vihi.intervals import templates
+from blabpy.vihi.paths import get_lena_recording_path, _parse_recording_prefix
 
 
 def _overlap(onset1, onset2, width):
@@ -97,7 +98,7 @@ def create_selected_regions_df(id, intervals_list, context_before=120000, contex
     return selected
 
 
-def create_files_with_random_regions(recording_id, age, length_of_recording, output_dir):
+def create_files_with_random_regions(recording_id, age, length_of_recording):
     # choose regions (5 by default)
     timestamps = select_intervals_randomly(int(length_of_recording), n=15)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
@@ -111,6 +112,7 @@ def create_files_with_random_regions(recording_id, age, length_of_recording, out
     eaf = create_eaf(etf_template_path, timestamps)
 
     # check that none of the output files already exist
+    output_dir = get_lena_recording_path(**_parse_recording_prefix(recording_id))
     output_filenames = {
         'eaf': f'{recording_id}.eaf',
         'pfsx': f'{recording_id}.pfsx',
