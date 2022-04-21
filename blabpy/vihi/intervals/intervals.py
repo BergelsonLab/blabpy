@@ -147,7 +147,7 @@ def create_files_with_random_regions(recording_id, age, length_of_recording):
 
     # create the output files
     # eaf with intervals added
-    eaf.to_file(os.path.join(output_dir, output_file_paths['eaf']))
+    eaf.to_file(output_file_paths['eaf'])
     # copy the pfsx template
     shutil.copy(pfsx_template_path, output_file_paths['pfsx'])
     # csv with the list of selected regions
