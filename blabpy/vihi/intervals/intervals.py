@@ -1,4 +1,3 @@
-import os
 import random
 import shutil
 from pathlib import Path
@@ -156,32 +155,38 @@ def create_files_with_random_regions(recording_id, age, length_of_recording):
 
 def batch_create_files_with_random_regions(info_spreadsheet_path, seed=None):
     """
-    Reads a list of recording for which eafs with randomly selected regions need to be created. Outputs an eaf and pfsx
-    file for each row in that list. Additionally, creates a file "selected_regions.csv" which contains the info on the
-    selected intervals.
+    Reads a list of recordings for which eafs with randomly selected regions need to be created. Outputs an eaf, a pfsx,
+    and a *_selected_regions.csv files for each recording.
+    If any of the output files for any of the recordings already exist, the process is aborted.
 
     :param info_spreadsheet_path: path to a csv that has the following columns:
      `age` with the child's age in months at the time of the recording,
      `length_of_recording` in minutes,
      `id`: recording identifier, such as VI_018_924
     :param seed: int, optional, random seed to be set before selecting random regions. Set only once, before processing
-     all the recordings.
+     all the recordings. For testing purposes mostly.
     :return: None
     """
     if seed:
         random.seed(seed)
 
     recordings_df = pd.read_csv(info_spreadsheet_path)
-    output_exists_errors = []
-    for _, recording in recordings_df.iterrows():
-        try:
-            create_files_with_random_regions(recording_id=recording.id, age=recording.age,
-                                             length_of_recording=recording.length_of_recording)
-        except OutputExistsError as e:
-            output_exists_errors.append(e)
 
-    if output_exists_errors:
-        raise OutputExistsError(paths=[path for error in output_exists_errors for path in error.paths])
+    # Check that the output files don't yet exist
+    def some_outputs_exist(recording_id_):
+        return any(path.exists() for path in _region_output_files(recording_id=recording_id_).values())
+    recordings_previously_processed = recordings_df.id[recordings_df.id.apply(some_outputs_exist)]
+    if recordings_previously_processed.any():
+        msg = ('The following recordings already have random region files:\n'
+               + '\n'.join(recordings_previously_processed)
+               + '\nAborting!')
+        raise FileExistsError(msg)
+
+    # Create random regions
+    for _, recording in recordings_df.iterrows():
+        create_files_with_random_regions(recording_id=recording.id, age=recording.age,
+                                         length_of_recording=recording.length_of_recording)
+        print(f'{recording.id}: random regions created.')
 
 
 def calculate_energy_in_one_interval(start, end, audio, low_freq: int = 0, high_freq: int = 100000):
