@@ -1,4 +1,3 @@
-import os
 import random
 import shutil
 from pathlib import Path
@@ -9,6 +8,7 @@ import pympi
 
 from blabpy.utils import OutputExistsError
 from blabpy.vihi.intervals import templates
+from blabpy.vihi.paths import get_lena_recording_path, _parse_recording_prefix
 
 
 def _overlap(onset1, onset2, width):
@@ -54,11 +54,13 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
 def create_eaf(etf_path, intervals_list, context_before=120000, context_after=60000):
     """
     Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
-    :param etf_path:
-    :param intervals_list:
-    :param context_before:
-    :param context_after:
-    :return:
+    :param etf_path: path to the .etf template file
+    :param intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the context
+    :param context_before: the context starts this many milliseconds before the interval to annotate does
+    :param context_after: the context ends this many milliseconds after the interval to annotate does
+    :return: a pympi.Eaf objects with the code, code_num, on_off, and context annotations.
+    code_num is the number of interval within the interval_list
+    context onset and offset are those from the intervals_list - it includes the region to annotate
     """
     eaf = pympi.Eaf(etf_path)
 
@@ -95,12 +97,46 @@ def create_selected_regions_df(id, intervals_list, context_before=120000, contex
     return selected
 
 
-def create_files_with_random_regions(recording_id, age, length_of_recording, output_dir):
-    # choose regions (5 by default)
+def _region_output_files(recording_id):
+    """
+    Find the recording folder and list the output files as a dict.
+    Factored out so we can check which files are already present during batch processing without creating random regions
+    for the recordings that haven't been processed yet.
+    :param recording_id:
+    :return:
+    """
+    output_dir = get_lena_recording_path(**_parse_recording_prefix(recording_id))
+    output_filenames = {
+        'eaf': f'{recording_id}.eaf',
+        'pfsx': f'{recording_id}.pfsx',
+        'csv': f'{recording_id}_selected-regions.csv'
+    }
+    return {extension: Path(output_dir) / filename
+            for extension, filename in output_filenames.items()}
+
+
+def create_files_with_random_regions(recording_id, age, length_of_recording):
+    """
+    Randomly samples 15 five-min long regions to be annotated and creates three files:
+    - <recording_id>.eaf - ELAN file with annotations prepared for the sampled intervals,
+    - <recording_id>.pfsx - ELAN preferences file,
+    - <recoroding_id>_selected-regions.csv - a table with onset and offsets of the selected regions.
+    Raises an OutputExistsError if any of the files already exist.
+    :param recording_id: the recording prefix, including the population and subject id, e.g. 'TD_123_456'
+    :param age: age in months - will be used to select an .etf template
+    :param length_of_recording: length of the actual file in minutes
+    :return: None, writes files to the recording folder in VIHI
+    """
+    # check that none of the output files already exist
+    output_file_paths = _region_output_files(recording_id=recording_id)
+    paths_exist = [path for path in output_file_paths.values() if path.exists()]
+    if any(paths_exist):
+        raise OutputExistsError(paths=paths_exist)
+
+    # select random intervals
     timestamps = select_intervals_randomly(int(length_of_recording), n=15)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
     timestamps.sort(key=lambda tup: tup[0])
-    print(timestamps)
 
     # retrieve correct templates for the age
     etf_template_path, pfsx_template_path = templates.choose_template(age)
@@ -108,59 +144,49 @@ def create_files_with_random_regions(recording_id, age, length_of_recording, out
     # create an eaf object with the selected regions
     eaf = create_eaf(etf_template_path, timestamps)
 
-    # check that none of the output files already exist
-    output_filenames = {
-        'eaf': f'{recording_id}.eaf',
-        'pfsx': f'{recording_id}.pfsx',
-        'csv': f'{recording_id}_selected-regions.csv'
-    }
-    output_file_paths = {extension: Path(output_dir) / filename
-                         for extension, filename in output_filenames.items()}
-
-    paths_exist = [path for path in output_file_paths.values() if path.exists()]
-    if any(paths_exist):
-        raise OutputExistsError(paths=paths_exist)
-
     # create the output files
     # eaf with intervals added
-    eaf.to_file(os.path.join(output_dir, output_file_paths['eaf']))
+    eaf.to_file(output_file_paths['eaf'])
     # copy the pfsx template
     shutil.copy(pfsx_template_path, output_file_paths['pfsx'])
     # csv with the list of selected regions
     create_selected_regions_df(recording_id, timestamps).to_csv(output_file_paths['csv'], index=False)
 
 
-def batch_create_files_with_random_regions(info_spreadsheet_path, output_dir, seed=None):
+def batch_create_files_with_random_regions(info_spreadsheet_path, seed=None):
     """
-    Reads a list of recording for which eafs with randomly selected regions need to be created. Outputs an eaf and pfsx
-    file for each row in that list. Additionally, creates a file "selected_regions.csv" which contains the info on the
-    selected intervals.
+    Reads a list of recordings for which eafs with randomly selected regions need to be created. Outputs an eaf, a pfsx,
+    and a *_selected_regions.csv files for each recording.
+    If any of the output files for any of the recordings already exist, the process is aborted.
 
     :param info_spreadsheet_path: path to a csv that has the following columns:
      `age` with the child's age in months at the time of the recording,
      `length_of_recording` in minutes,
      `id`: recording identifier, such as VI_018_924
-    :param output_dir: a directory where the eaf and pfsx files for each recording will be created and where
-     "selected_regions.csv" will be stored as well
     :param seed: int, optional, random seed to be set before selecting random regions. Set only once, before processing
-     all the recordings.
+     all the recordings. For testing purposes mostly.
     :return: None
     """
     if seed:
         random.seed(seed)
 
     recordings_df = pd.read_csv(info_spreadsheet_path)
-    output_exists_errors = []
-    for _, recording in recordings_df.iterrows():
-        try:
-            create_files_with_random_regions(recording_id=recording.id, age=recording.age,
-                                             length_of_recording=recording.length_of_recording,
-                                             output_dir=output_dir)
-        except OutputExistsError as e:
-            output_exists_errors.append(e)
 
-    if output_exists_errors:
-        raise OutputExistsError(paths=[path for error in output_exists_errors for path in error.paths])
+    # Check that the output files don't yet exist
+    def some_outputs_exist(recording_id_):
+        return any(path.exists() for path in _region_output_files(recording_id=recording_id_).values())
+    recordings_previously_processed = recordings_df.id[recordings_df.id.apply(some_outputs_exist)]
+    if recordings_previously_processed.any():
+        msg = ('The following recordings already have random region files:\n'
+               + '\n'.join(recordings_previously_processed)
+               + '\nAborting!')
+        raise FileExistsError(msg)
+
+    # Create random regions
+    for _, recording in recordings_df.iterrows():
+        create_files_with_random_regions(recording_id=recording.id, age=recording.age,
+                                         length_of_recording=recording.length_of_recording)
+        print(f'{recording.id}: random regions created.')
 
 
 def calculate_energy_in_one_interval(start, end, audio, low_freq: int = 0, high_freq: int = 100000):
