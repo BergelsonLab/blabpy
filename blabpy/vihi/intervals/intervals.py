@@ -98,6 +98,24 @@ def create_selected_regions_df(id, intervals_list, context_before=120000, contex
     return selected
 
 
+def _region_output_files(recording_id):
+    """
+    Find the recording folder and list the output files as a dict.
+    Factored out so we can check which files are already present during batch processing without creating random regions
+    for the recordings that haven't been processed yet.
+    :param recording_id:
+    :return:
+    """
+    output_dir = get_lena_recording_path(**_parse_recording_prefix(recording_id))
+    output_filenames = {
+        'eaf': f'{recording_id}.eaf',
+        'pfsx': f'{recording_id}.pfsx',
+        'csv': f'{recording_id}_selected-regions.csv'
+    }
+    return {extension: Path(output_dir) / filename
+            for extension, filename in output_filenames.items()}
+
+
 def create_files_with_random_regions(recording_id, age, length_of_recording):
     """
     Randomly samples 15 five-min long regions to be annotated and creates three files:
@@ -110,6 +128,13 @@ def create_files_with_random_regions(recording_id, age, length_of_recording):
     :param length_of_recording: length of the actual file in minutes
     :return: None, writes files to the recording folder in VIHI
     """
+    # check that none of the output files already exist
+    output_file_paths = _region_output_files(recording_id=recording_id)
+    paths_exist = [path for path in output_file_paths.values() if path.exists()]
+    if any(paths_exist):
+        raise OutputExistsError(paths=paths_exist)
+
+    # select random intervals
     timestamps = select_intervals_randomly(int(length_of_recording), n=15)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
     timestamps.sort(key=lambda tup: tup[0])
@@ -119,20 +144,6 @@ def create_files_with_random_regions(recording_id, age, length_of_recording):
 
     # create an eaf object with the selected regions
     eaf = create_eaf(etf_template_path, timestamps)
-
-    # check that none of the output files already exist
-    output_dir = get_lena_recording_path(**_parse_recording_prefix(recording_id))
-    output_filenames = {
-        'eaf': f'{recording_id}.eaf',
-        'pfsx': f'{recording_id}.pfsx',
-        'csv': f'{recording_id}_selected-regions.csv'
-    }
-    output_file_paths = {extension: Path(output_dir) / filename
-                         for extension, filename in output_filenames.items()}
-
-    paths_exist = [path for path in output_file_paths.values() if path.exists()]
-    if any(paths_exist):
-        raise OutputExistsError(paths=paths_exist)
 
     # create the output files
     # eaf with intervals added
