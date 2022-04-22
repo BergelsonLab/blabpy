@@ -119,6 +119,13 @@ def create_merged(file_new, file_old, file_merged, mode):
                 new_word = True
     # print(merged_df)
     merged_df = merged_df.loc[:, ~merged_df.columns.str.contains('^Unnamed')]
+
+    # Remove comments from the video annotations where the comments live in separate rows (for audio, there is a
+    # "comment" column)
+    if mode == "video":
+        is_comment = merged_df[word_col].str.startswith('%com')
+        merged_df = merged_df[~is_comment]
+
     merged_df.to_csv(file_merged, index=False)
 
     return old_error, edit_word, new_word
