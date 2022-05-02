@@ -2,8 +2,7 @@ from io import StringIO
 
 import pandas as pd
 
-from blabpy.vihi.paths import get_lena_path
-from blabpy.vihi.data_structure.lena import audit_recording_folder, audit_all_recordings
+from blabpy.vihi.data_structure.lena import audit_recording_folder, audit_all_lena_recordings
 
 
 def test_audit_recording_folder(tmp_path):
@@ -24,7 +23,8 @@ def test_audit_recording_folder(tmp_path):
         recording_path.joinpath(filename).touch()
 
     audit_results = audit_recording_folder(folder_path=recording_path, population=population,
-                                           subject_id=subject_id, recording_id=recording_id)
+                                           subject_id=subject_id, recording_id=recording_id,
+                                           source='VIHI')
     expected_audit_resuls = pd.read_csv(StringIO('\n'.join(
         ['relative_path,status',
          'VI_018_924.eaf,expected',
@@ -40,8 +40,8 @@ def test_audit_recording_folder(tmp_path):
     assert audit_results.equals(expected_audit_resuls)
 
 
-def test_audit_all_recordings():
+def test_audit_all_lena_recordings():
     # Check that the function works and returns a pandas dataframe
-    audit_results = audit_all_recordings()
+    audit_results = audit_all_lena_recordings()
     assert isinstance(audit_results, pd.DataFrame)
     assert audit_results.shape[0] > 0

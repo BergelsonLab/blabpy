@@ -10,6 +10,7 @@ from strenum import StrEnum
 
 from ..paths import get_lena_path, _recording_prefix, _parse_recording_prefix, get_lena_recording_path, get_vihi_path
 
+DATA_SOURCES = ['VIHI', 'Ambrose', 'OSU', 'ELSSP', 'Seedlings', 'Warlaumont', 'Cougars', 'Herrera']
 # Strings to match literally, and re.Pattern objects to match in the sense of re.match. Add $ to match the full name.
 IGNORED = [re.compile(r'~.*\.docx$'), '.DS_Store', '.git']
 
@@ -38,28 +39,44 @@ def _name_matches(path, rule_list):
     return
 
 
-def audit_recording_folder(folder_path: Path, population: str, subject_id: str, recording_id: str):
+def _expected_recording_folder_contents(recording_id: str, source: str):
+    """
+    What sort of files should we expect to find in a folder coming from a given source.
+    :param recording_id: e.g., "VI_666_123" - the full recording id
+    :param source: one of DATA_SOURCES
+    :return:
+    """
+    assert source in DATA_SOURCES
+    if source == 'VIHI':
+        return [
+            f'{recording_id}.eaf',
+            f'{recording_id}.its',
+            f'{recording_id}.wav',
+            f'{recording_id}.pfsx',
+            f'{recording_id}.upl',
+            f'{recording_id}_lena5min.csv',
+            f'VIHI_Coding_Issues_{recording_id}.docx'
+        ]
+    else:
+        raise NotImplementedError
+
+
+def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str):
     """
     Checks a recording folder for
     :param folder_path: path to the folder with the recording
+    :param source: where did the data come from? VIHI, OSU, etc.
     :param population: population
     :param subject_id: subject id string
     :param recording_id: recording id string
     :return: a dataframe with the status of each file in folder in `path`
     """
+    assert source in DATA_SOURCES
     assert folder_path.is_dir()
     recording_id = _recording_prefix(population, subject_id, recording_id)
     assert folder_path.name == recording_id
 
-    expected_objects = [
-        f'{recording_id}.eaf',
-        f'{recording_id}.its',
-        f'{recording_id}.wav',
-        f'{recording_id}.pfsx',
-        f'{recording_id}.upl',
-        f'{recording_id}_lena5min.csv',
-        f'VIHI_Coding_Issues_{recording_id}.docx'
-    ]
+    expected_objects = _expected_recording_folder_contents(recording_id=recording_id, source=source)
 
     objects_statuses = list()
     satisfied_rules = list()
@@ -85,23 +102,31 @@ def audit_recording_folder(folder_path: Path, population: str, subject_id: str, 
             .reset_index(drop=True))
 
 
-def audit_all_recordings():
+def audit_all_lena_recordings():
     """
     Checks:
     - all the folders at levels between ".../LENA" and the recording-level folders,
     - all the recording-level folders using `audit_recording_folder`
     :return:
     """
-    recordings_list = pd.read_csv(get_vihi_path().joinpath('Scripts', 'recordings.csv'))
-    recordings_list[['population', 'subject_id', 'recording_id']] = pd.DataFrame(
-        recordings_list.recording.apply(_parse_recording_prefix).to_list())
+    # Load the list of expected recordings
+    vihi_data_check_folder = get_vihi_path() / 'Scripts' / 'vihi_data_check'
+    lena_recordings_list = pd.read_csv(vihi_data_check_folder / 'LENA' / 'expected_recordings.csv')
+    lena_recordings_list[['population', 'subject_id', 'recording_id']] = pd.DataFrame(
+        lena_recordings_list.recording.apply(_parse_recording_prefix).to_list())
+
+    # Get their data source
+    all_recordings_list = pd.read_csv(vihi_data_check_folder / 'VIHI_participant_IDs.csv')
+    lena_recordings_list = lena_recordings_list.merge(
+        all_recordings_list.query('method == "LENA"')[['VIHI_ID', 'source']],
+        left_on='recording', right_on='VIHI_ID', validate='1:1')
 
     # Check the folder presence at population, subject, and recording levels
     lena_dir = get_lena_path()
     expected_folders = {
         folder
         for population, subject_id, recording_id
-        in recordings_list[['population', 'subject_id', 'recording_id']].drop_duplicates().to_records(index=False)
+        in lena_recordings_list[['population', 'subject_id', 'recording_id']].to_records(index=False)
         for folder in (
             lena_dir / population,
             lena_dir / population / f'{population}_{subject_id}',
@@ -129,16 +154,17 @@ def audit_all_recordings():
                                         relative_path=folder.relative_to(lena_dir), status=status))
 
     # Check the recording folders contents
-    recordings_list['folder_path'] = recordings_list.apply(
+    lena_recordings_list['folder_path'] = lena_recordings_list.apply(
         lambda row: get_lena_recording_path(row.population, row.subject_id, row.recording_id),
         axis='columns')
-    recording_audits = recordings_list.apply(
+    recording_audits = lena_recordings_list.apply(
         lambda row:
         audit_recording_folder(
             folder_path=row.folder_path,
             population=row.population,
             subject_id=row.subject_id,
-            recording_id=row.recording_id).assign(parent=row.folder_path),
+            recording_id=row.recording_id,
+            source=row.source).assign(parent=row.folder_path),
         axis='columns',
         result_type='reduce')
 
