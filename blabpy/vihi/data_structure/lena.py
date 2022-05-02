@@ -47,18 +47,32 @@ def _expected_recording_folder_contents(recording_id: str, source: str):
     :return:
     """
     assert source in DATA_SOURCES
+
+    its = f'{recording_id}.its'
+    wav = f'{recording_id}.wav'
+    upl = f'{recording_id}.upl'
+    lena5min = f'{recording_id}_lena5min.csv'
+
     if source == 'VIHI':
-        return [
-            f'{recording_id}.eaf',
-            f'{recording_id}.its',
-            f'{recording_id}.wav',
-            f'{recording_id}.pfsx',
-            f'{recording_id}.upl',
-            f'{recording_id}_lena5min.csv',
-            f'VIHI_Coding_Issues_{recording_id}.docx'
-        ]
+        expected_files = [its, wav, upl, lena5min]
+    elif source == 'OSU':
+        # TODO: lena5min.csv is actually optional
+        expected_files = [its, wav, lena5min]
+    elif source in ('Warlaumont', 'Cougars'):
+        expected_files = [its, wav]
+    elif source == 'Seedlings':
+        expected_files = [its]
     else:
         raise NotImplementedError
+
+    # Add the annotation files
+    expected_files += [
+        f'{recording_id}.eaf',
+        f'{recording_id}.pfsx',
+        f'VIHI_Coding_Issues_{recording_id}.docx'
+    ]
+
+    return expected_files
 
 
 def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str):
