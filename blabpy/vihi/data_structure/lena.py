@@ -92,7 +92,7 @@ def audit_all_recordings():
     - all the recording-level folders using `audit_recording_folder`
     :return:
     """
-    recordings_list = pd.read_csv(get_vihi_path().joinpath('vihi_data_check', 'recordings.csv'))
+    recordings_list = pd.read_csv(get_vihi_path().joinpath('Scripts', 'recordings.csv'))
     recordings_list[['population', 'subject_id', 'recording_id']] = pd.DataFrame(
         recordings_list.recording.apply(_parse_recording_prefix).to_list())
 
