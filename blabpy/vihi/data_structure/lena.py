@@ -153,7 +153,9 @@ def audit_all_lena_recordings():
                              lena_dir.glob('*/*'),
                              lena_dir.glob('*/*/*'))
         for path in glob_results
-        if path.is_dir()
+        # TODO: process every folder non-recursively, do not walk into the ignored folder. Then we won't have to skip
+        #  .git subfolders manually.
+        if path.is_dir() and not ((lena_dir / '.git') in path.parents)
     }
 
     folder_statuses = list()
