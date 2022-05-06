@@ -39,11 +39,12 @@ def _name_matches(path, rule_list):
     return
 
 
-def _expected_recording_folder_contents(recording_id: str, source: str):
+def _expected_recording_folder_contents(recording_id: str, source: str, has_clan_files: bool):
     """
-    What sort of files should we expect to find in a folder coming from a given source.
+    What sort of files/folder should we expect to find in a folder coming from a given source.
     :param recording_id: e.g., "VI_666_123" - the full recording id
     :param source: one of DATA_SOURCES
+    :param has_clan_files: Has this recording been annotated using CLAN?
     :return:
     """
     assert source in DATA_SOURCES
@@ -54,26 +55,28 @@ def _expected_recording_folder_contents(recording_id: str, source: str):
     lena5min = f'{recording_id}_lena5min.csv'
 
     if source == 'VIHI':
-        expected_files = [its, wav, upl, lena5min]
+        expected_objects = [its, wav, upl, lena5min]
     elif source == 'OSU':
         # TODO: lena5min.csv is actually optional
-        expected_files = [its, wav, lena5min]
+        expected_objects = [its, wav, lena5min]
     elif source in ('Warlaumont', 'Cougars'):
-        expected_files = [its, wav]
+        expected_objects = [its, wav]
     elif source == 'Seedlings':
-        expected_files = [its]
+        expected_objects = [its]
     else:
         raise NotImplementedError
 
     # Add the annotation files
-    expected_files += [
+    expected_objects += [
         f'{recording_id}.eaf',
         f'{recording_id}.pfsx',
         f'VIHI_Coding_Issues_{recording_id}.docx'
     ]
 
-    return expected_files
+    if has_clan_files:
+        expected_objects += ['clan_files']
 
+    return expected_objects
 
 def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str):
     """
