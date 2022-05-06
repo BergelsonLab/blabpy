@@ -78,26 +78,26 @@ def _expected_recording_folder_contents(recording_id: str, source: str, has_clan
 
     return expected_objects
 
-def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str):
-    """
-    Checks a recording folder for
-    :param folder_path: path to the folder with the recording
-    :param source: where did the data come from? VIHI, OSU, etc.
-    :param population: population
-    :param subject_id: subject id string
-    :param recording_id: recording id string
-    :return: a dataframe with the status of each file in folder in `path`
-    """
-    assert source in DATA_SOURCES
-    assert folder_path.is_dir()
-    recording_id = _recording_prefix(population, subject_id, recording_id)
-    assert folder_path.name == recording_id
 
-    expected_objects = _expected_recording_folder_contents(recording_id=recording_id, source=source)
-
+def _audit_folder(folder_path: Path, expected_objects: list, folder_exists: bool = True):
+    """
+    Check the folder contents non-recursively against the list of objects we expect to be there. Can be used if the
+    folder does not exist - lists all expected files as missing in that case.
+    :param folder_path: path to the folder to be checked. Tha path doesn't have to exist
+    :param expected_objects: list of rules to be check with _name_matches
+    :return: a pandas dataframe with two columns: `relative_path` and `status` and one row for every object in the
+    folder and then one row for every rule that hasn't been satisfied. `relative_path` is the name of the object or
+    the string representation of an unsatisfied rule. And `status` is one of AuditStatus values.
+    """
     objects_statuses = list()
     satisfied_rules = list()
+
+    if folder_path.exists():
     folder_contents = [path.relative_to(folder_path) for path in folder_path.iterdir()]
+    else:
+        # Folder that does not exists is not different from an empty one for our purposes
+        folder_contents = []
+
     for path in folder_contents:
         if _name_matches(path, rule_list=IGNORED):
             objects_statuses.append(AuditStatus.ignored)
@@ -117,6 +117,29 @@ def audit_recording_folder(folder_path: Path, source: str, population: str, subj
     return (pd.DataFrame(columns=['relative_path', 'status'], data=audit_results)
             .sort_values(by=['status', 'relative_path'])
             .reset_index(drop=True))
+
+
+def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str):
+    """
+    Checks a recording folder for
+    :param folder_path: path to the folder with the recording
+    :param source: where did the data come from? VIHI, OSU, etc.
+    :param population: population
+    :param subject_id: subject id string
+    :param recording_id: recording id string
+    :return: a dataframe with the status of each file in folder in `path`
+    """
+    assert source in DATA_SOURCES
+    assert folder_path.is_dir()
+    recording_id = _recording_prefix(population, subject_id, recording_id)
+    assert folder_path.name == recording_id
+
+    expected_objects = _expected_recording_folder_contents(recording_id=recording_id, source=source,
+                                                           has_clan_files=has_clan_files)
+    audit_results = _audit_folder(folder_path=folder_path, expected_objects=expected_objects)
+
+
+    return audit_results
 
 
 def audit_all_lena_recordings():
