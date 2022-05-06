@@ -24,7 +24,7 @@ def test_audit_recording_folder(tmp_path):
 
     audit_results = audit_recording_folder(folder_path=recording_path, population=population,
                                            subject_id=subject_id, recording_id=recording_id,
-                                           source='VIHI')
+                                           source='VIHI', has_clan_files=False)
     expected_audit_resuls = pd.read_csv(StringIO('\n'.join(
         ['relative_path,status',
          'VI_018_924.eaf,expected',
@@ -41,7 +41,7 @@ def test_audit_recording_folder(tmp_path):
 
 
 def test_audit_all_lena_recordings():
-    # Check that the function works and returns a pandas dataframe
+    # Check that the function works and returns a non-empty pandas dataframe
     audit_results = audit_all_lena_recordings()
     assert isinstance(audit_results, pd.DataFrame)
     assert audit_results.shape[0] > 0

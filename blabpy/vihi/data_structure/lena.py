@@ -93,7 +93,7 @@ def _audit_folder(folder_path: Path, expected_objects: list, folder_exists: bool
     satisfied_rules = list()
 
     if folder_path.exists():
-    folder_contents = [path.relative_to(folder_path) for path in folder_path.iterdir()]
+        folder_contents = [path.relative_to(folder_path) for path in folder_path.iterdir()]
     else:
         # Folder that does not exists is not different from an empty one for our purposes
         folder_contents = []
@@ -119,7 +119,8 @@ def _audit_folder(folder_path: Path, expected_objects: list, folder_exists: bool
             .reset_index(drop=True))
 
 
-def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str):
+def audit_recording_folder(folder_path: Path, source: str, population: str, subject_id: str, recording_id: str,
+                           has_clan_files: bool):
     """
     Checks a recording folder for
     :param folder_path: path to the folder with the recording
@@ -127,6 +128,7 @@ def audit_recording_folder(folder_path: Path, source: str, population: str, subj
     :param population: population
     :param subject_id: subject id string
     :param recording_id: recording id string
+    :param has_clan_files: should we expect clan files for this one?
     :return: a dataframe with the status of each file in folder in `path`
     """
     assert source in DATA_SOURCES
@@ -138,8 +140,30 @@ def audit_recording_folder(folder_path: Path, source: str, population: str, subj
                                                            has_clan_files=has_clan_files)
     audit_results = _audit_folder(folder_path=folder_path, expected_objects=expected_objects)
 
+    if has_clan_files:
+        clan_files_folder = folder_path.joinpath('clan_files')
+        clan_files_audit_results = audit_clan_files_folder(clan_files_folder)
+        # Move the paths to be relative to the folder_path
+        clan_files_audit_results['relative_path'] = clan_files_audit_results.relative_path.apply(
+            lambda path: clan_files_folder.joinpath(path).relative_to(folder_path))
+        audit_results = pd.concat([audit_results, clan_files_audit_results])
 
     return audit_results
+
+
+def audit_clan_files_folder(clan_files_path: Path):
+    """
+    Check the folder with the clan-related files
+    :return:
+    """
+    expected_objects = [
+        'Label_Track.txt',
+        'silences_added.cha',
+        'silences.txt',
+        'subregions.cha',
+        'lena.cha'
+    ]
+    return _audit_folder(folder_path=clan_files_path, expected_objects=expected_objects)
 
 
 def audit_all_lena_recordings():
@@ -159,7 +183,11 @@ def audit_all_lena_recordings():
     all_recordings_list = pd.read_csv(vihi_data_check_folder / 'VIHI_participant_IDs.csv')
     lena_recordings_list = lena_recordings_list.merge(
         all_recordings_list.query('method == "LENA"')[['VIHI_ID', 'source']],
-        left_on='recording', right_on='VIHI_ID', validate='1:1')
+        left_on='recording', right_on='VIHI_ID', validate='1:1').drop(columns=['VIHI_ID'])
+
+    # Have these recordings been annotated in CLAN?
+    clan_recordings_list = pd.read_csv(vihi_data_check_folder / 'LENA' / 'extra_information' / 'clan_files_list.csv')
+    lena_recordings_list['has_clan_files'] = lena_recordings_list.recording.isin(clan_recordings_list.recording)
 
     # Check the folder presence at population, subject, and recording levels
     lena_dir = get_lena_path()
@@ -206,7 +234,8 @@ def audit_all_lena_recordings():
             population=row.population,
             subject_id=row.subject_id,
             recording_id=row.recording_id,
-            source=row.source).assign(parent=row.folder_path),
+            source=row.source,
+            has_clan_files=row.has_clan_files).assign(parent=row.folder_path),
         axis='columns',
         result_type='reduce')
 
