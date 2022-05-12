@@ -166,11 +166,12 @@ def audit_clan_files_folder(clan_files_path: Path):
     return _audit_folder(folder_path=clan_files_path, expected_objects=expected_objects)
 
 
-def audit_all_lena_recordings():
+def audit_all_lena_recordings(lena_path: Path = None):
     """
     Checks:
     - all the folders at levels between ".../LENA" and the recording-level folders,
     - all the recording-level folders using `audit_recording_folder`
+    :param lena_path: path to the LENA folder, use for testing only
     :return:
     """
     # Load the list of expected recordings
@@ -190,7 +191,7 @@ def audit_all_lena_recordings():
     lena_recordings_list['has_clan_files'] = lena_recordings_list.recording.isin(clan_recordings_list.recording)
 
     # Check the folder presence at population, subject, and recording levels
-    lena_dir = get_lena_path()
+    lena_dir = lena_path or get_lena_path()
     expected_folders = {
         folder
         for population, subject_id, recording_id
