@@ -166,16 +166,35 @@ def audit_clan_files_folder(clan_files_path: Path):
     return _audit_folder(folder_path=clan_files_path, expected_objects=expected_objects)
 
 
-def audit_all_lena_recordings(lena_path: Path = None):
+def audit_all_lena_recordings(test_lena_path: Path = None, test_vihi_data_check_path: Path = None):
     """
     Checks:
     - all the folders at levels between ".../LENA" and the recording-level folders,
-    - all the recording-level folders using `audit_recording_folder`
-    :param lena_path: path to the LENA folder, use for testing only
+    - all the recording-level folders using `audit_recording_folder`.
+    Relies on several info sheets in the "vihi_data_check" folder.
+    Should be run without any parameters.
+    :param test_lena_path: path to the LENA folder, use for testing only
+    :param test_vihi_data_check_path: path to the vihi_data_check folder, use for testing only
     :return:
     """
+    # Deal with the testing runs
+    assert (test_lena_path is None) == (test_vihi_data_check_path is None)  # both or neither should be supplied
+    in_test_mode = test_lena_path is not None
+    vihi_data_check_folder = test_vihi_data_check_path or (get_vihi_path() / 'Scripts' / 'vihi_data_check')
+    lena_dir = test_lena_path or get_lena_path()
+    if in_test_mode:
+        # Override the function that finds LENA recordings
+        real_lena_dir = get_lena_path()
+
+        def test_get_lena_recording_path(*args, **kwargs):
+            path = get_lena_recording_path(*args, **kwargs)
+            return lena_dir / path.relative_to(real_lena_dir)
+
+        _get_lena_recording_path = test_get_lena_recording_path
+    else:
+        _get_lena_recording_path = get_lena_recording_path
+
     # Load the list of expected recordings
-    vihi_data_check_folder = get_vihi_path() / 'Scripts' / 'vihi_data_check'
     lena_recordings_list = pd.read_csv(vihi_data_check_folder / 'LENA' / 'expected_recordings.csv')
     lena_recordings_list[['population', 'subject_id', 'recording_id']] = pd.DataFrame(
         lena_recordings_list.recording.apply(_parse_recording_prefix).to_list())
@@ -191,7 +210,6 @@ def audit_all_lena_recordings(lena_path: Path = None):
     lena_recordings_list['has_clan_files'] = lena_recordings_list.recording.isin(clan_recordings_list.recording)
 
     # Check the folder presence at population, subject, and recording levels
-    lena_dir = lena_path or get_lena_path()
     expected_folders = {
         folder
         for population, subject_id, recording_id
@@ -226,7 +244,7 @@ def audit_all_lena_recordings(lena_path: Path = None):
 
     # Check the recording folders contents
     lena_recordings_list['folder_path'] = lena_recordings_list.apply(
-        lambda row: get_lena_recording_path(row.population, row.subject_id, row.recording_id),
+        lambda row: _get_lena_recording_path(row.population, row.subject_id, row.recording_id),
         axis='columns')
     recording_audits = lena_recordings_list.apply(
         lambda row:

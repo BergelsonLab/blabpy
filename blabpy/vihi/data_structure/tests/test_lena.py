@@ -1,4 +1,5 @@
 from io import StringIO
+from pathlib import Path
 
 import pandas as pd
 
@@ -45,3 +46,24 @@ def test_audit_all_lena_recordings():
     audit_results = audit_all_lena_recordings()
     assert isinstance(audit_results, pd.DataFrame)
     assert audit_results.shape[0] > 0
+
+
+def test_audit_on_mock_lena(tmp_path):
+    # Check that the audit results haven't changed when run on a mock LENA folder
+
+    # Create a copy of the LENA folder snapshot with just empty files (we don't care about the contents)
+    test_data = Path('data')
+    lena_file_listing = pd.read_csv(test_data / 'lena_file_listing.csv')
+    lena_mock_path = tmp_path / 'LENA'
+    lena_mock_path.mkdir()
+    for row in lena_file_listing.itertuples():
+        path = lena_mock_path / row.relative_path
+        if row.is_folder:
+            path.mkdir()
+        else:
+            path.touch()
+
+    # Check the LENA f and compare with the saved results.
+    audit_results = audit_all_lena_recordings(test_lena_path=lena_mock_path, test_vihi_data_check_path=test_data)
+    expected_audit_results = pd.read_csv('data/lena_audit_results.csv')
+    1/0
