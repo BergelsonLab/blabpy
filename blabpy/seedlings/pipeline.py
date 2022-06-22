@@ -8,7 +8,8 @@ import pandas as pd
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
-from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count
+from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count, \
+    _preprocess_region_info
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
@@ -392,6 +393,18 @@ def calculate_listen_time_stats_for_cha_file(cha_path):
     subregion_count = _get_subregion_count(**_parse_out_child_and_month(cha_path))
     clan_file_text = Path(cha_path).read_text()
     return listen_time_stats_for_report(clan_file_text=clan_file_text, subregion_count=subregion_count)
+
+
+def preprocess_region_info(cha_path):
+    """
+    Extract enough info about the regions from a chat file to calculate listen time stats.
+    This function does a half of what calculate_listen_time_stats_for_cha_file does.
+    :param cha_path: path to the clan file
+    :return: see `_preprocess_region_info`
+    """
+    subregion_count = _get_subregion_count(**_parse_out_child_and_month(cha_path))
+    clan_file_text = Path(cha_path).read_text()
+    return _preprocess_region_info(clan_file_text=clan_file_text, subregion_count=subregion_count)
 
 
 def calculate_listen_time_stats_for_all_cha_files():
