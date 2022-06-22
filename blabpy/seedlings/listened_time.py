@@ -307,26 +307,30 @@ def _account_for_region_overlaps(regions):
     return regions
 
 
-def _remove_subregions_without_annotations(regions, annotation_timestamps, listened_but_empty):
+def _remove_subregions_without_annotations(regions_df, listened_but_empty):
     """
     This function has to be run before any region adjustments because it does not account for possible splits resulting
     from having, for example, a skip in the middle.
-    :param regions: a regions dataframe
-    :param annotation_timestamps: dataframe with unique annotation timestamps
+    :param regions_df: a regions dataframe
     :param listened_but_empty: list of additional timestamp offset corresponding to the special comments that mark
     subregions that were listened to but did not have any codeable words
     :return: regions with possibly a few rows removed
     """
-    # Check that no subregions have been split yet
-    assert regions[regions.region_type == RegionType.SUBREGION.value].duplicated(subset=['position']).sum() == 0
+    # Check that no subregions have been split yet. Split subregions would result in duplicate position values.
+    assert regions_df[regions_df.region_type == RegionType.SUBREGION.value].duplicated(subset=['position']).sum() == 0
 
-    # Merge annotation timestamps with the additional offsets (they will become both onsets and offsets)
-    listened_but_empty_df = pd.DataFrame(columns=('onset', 'offset'), data=zip(*([listened_but_empty] * 2)))
-    timestamps = pd.concat([annotation_timestamps, listened_but_empty_df], ignore_index=True)
+    # Which regions contain a "listened but empty" comment?
+    has_listened_but_empty_comment = regions_df.apply(
+        lambda row: any(row.start <= timestamp <= row.end for timestamp in listened_but_empty),
+        axis='columns')
 
-    regions = _add_per_region_timestamp_count(regions, timestamps)
-    regions = regions[(regions.annotation_count > 0) | (regions.region_type != RegionType.SUBREGION.value)]
-    return regions.drop(columns='annotation_count')
+    # Remove subregions without annotations unless they have a special comment
+    is_subregion = regions_df.region_type == RegionType.SUBREGION.value
+    has_annotations = regions_df.annotation_count > 0
+    should_be_removed = is_subregion & ~(has_annotations | has_listened_but_empty_comment)
+    regions_df = regions_df[~should_be_removed]
+
+    return regions_df.drop(columns='annotation_count')
 
 
 def _assert_no_overlaps(regions):
@@ -595,6 +599,38 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
     return region_boundaries_df, subregion_ranks_df, listened_but_empty
 
 
+def _preprocess_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
+    """
+    Extract and preprocess region info from the cha files.
+    :param clan_file_text: contents of the clan files as a string
+    :param subregion_count: expected total number of subregions. Should be 0 for months 6 and 7, and 5 for all other
+     months except for a few known exceptions.
+    :return: (regions_raw, regions_processed, subregion_ranks_df, listened_but_empty) where:
+        - regions_raw - dataframe with all the regions (possibly overlapping), their onsets, offsets, position within
+            regions of the same kind, and the number of annotations in each of them (same annotation can count towards
+            multiple regions if they are overlapping),
+        - regions_processed - regions_raw with some regions removed and then deoverlapped,
+        - subregion_ranks_df - dataframe with positions and ranks of subregions,
+        - listened_but_empty - list of comments used to mark subregions that were listened to but didn't have any
+            codable objects and thus don't have any annotations.
+    """
+    annotation_timestamps = _extract_annotation_timestamps(clan_file_text)
+    regions_raw, subregion_ranks_df, listened_but_empty = _extract_region_info(
+        clan_file_text, subregion_count=subregion_count)
+
+    # Process regions. For months 6 and 7 that have no subregions, we only need to remove the overlapping parts of
+    # the regions.
+    regions_raw = _add_per_region_timestamp_count(regions_df=regions_raw,
+                                                  timestamps=annotation_timestamps)
+    if subregion_count > 0:
+        regions_processed = _remove_subregions_without_annotations(regions_raw, listened_but_empty)
+    else:
+        regions_processed = regions_raw.copy()
+    regions_processed = _account_for_region_overlaps(regions_processed)
+
+    return regions_raw, regions_processed, subregion_ranks_df, listened_but_empty
+
+
 def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
     """
     Caculates a number of listen time statistics for the rmd report in the annot_distr repository.
@@ -603,25 +639,11 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     :return:
     """
     # Extract the necessary information from the clan file
-    annotation_timestamps = _extract_annotation_timestamps(clan_file_text)
-    regions_raw, subregion_ranks_df, listened_but_empty = _extract_region_info(
-        clan_file_text, subregion_count=subregion_count)
+    regions_raw, regions_processed, subregion_ranks_df, _ = _preprocess_region_info(clan_file_text=clan_file_text,
+                                                                                    subregion_count=subregion_count)
 
-    # Calculate some of the stats before any region manipulation
+    # Calculate total for each region type
     totals_raw = _total_time_and_count_per_region_type(regions_raw)
-    per_region_timestamp_counts = _add_per_region_timestamp_count(regions_df=regions_raw,
-                                                                  timestamps=annotation_timestamps)
-
-    # Process regions. For months 6 and 7, there are no subregions, so we only need to remove the overlapping parts of
-    # the regions.
-    if subregion_count > 0:
-        regions_processed = _remove_subregions_without_annotations(regions_raw, annotation_timestamps,
-                                                                   listened_but_empty)
-    else:
-        regions_processed = regions_raw.copy()
-    regions_processed = _account_for_region_overlaps(regions_processed)
-
-    # Repeat stats calculation on the processed regions
     totals_processed = _total_time_and_count_per_region_type(regions_processed)
 
     # Total time and count for regions that have been added manually. In case there is a makeup region from 0 to 10
@@ -668,8 +690,8 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
     stats['num_raw_subregion'] = milliseconds_to_hours(totals_raw.total_time.get(RegionType.SUBREGION.value, 0))
 
     # This is not exactly correct: annotations that share their timestamp are only counted once.
-    annotation_counts_raw = (per_region_timestamp_counts
-                             [per_region_timestamp_counts.region_type == RegionType.SUBREGION.value]
+    annotation_counts_raw = (regions_raw
+                             [regions_raw.region_type == RegionType.SUBREGION.value]
                              .sort_values(by='position')
                              .annotation_count
                              .astype(int)
