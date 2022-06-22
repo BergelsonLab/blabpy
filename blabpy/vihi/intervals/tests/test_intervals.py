@@ -15,8 +15,15 @@ def test_calculate_energy_in_all_intervals():
     seed(24)
     noise = WhiteNoise().to_audio_segment(duration=200)
     intervals = pd.DataFrame.from_dict(dict(start=[0, 50, 150], end=[50, 150, 200]))
+
+    # Without filtering
     energy = calculate_energy_in_all_intervals(intervals=intervals, audio=noise)
     expected_energy = pd.Series({0: 733.6411476029159, 1: 1469.4191753712091, 2: 728.1696980215235})
+    assert energy.equals(expected_energy)
+
+    # With filtering
+    energy = calculate_energy_in_all_intervals(intervals=intervals, audio=noise, low_freq=300, high_freq=3000)
+    expected_energy = pd.Series({0: 82.11954411321199, 1: 187.31203579565587, 2: 81.01795951661462})
     assert energy.equals(expected_energy)
 
 
