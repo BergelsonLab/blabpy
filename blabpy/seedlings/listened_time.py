@@ -539,7 +539,8 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
     # the beginning with 0.
     for column in ('onset', 'offset'):
         comments_df[column] = comments_df[column].astype(pd.Int64Dtype())
-        comments_df[column].loc[:comments_df[column].first_valid_index()] = 0
+        # .ffill() will ensure we are only filling NaNs in the beginning.
+        comments_df.loc[comments_df[column].ffill().isnull(), column] = 0
 
     subregions = []  # List of strings of the format 'Position: {}, Rank: {}'
     region_boundaries = []  # List of strings of the format
