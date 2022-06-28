@@ -2,8 +2,9 @@ import pandas as pd
 import pytest
 
 from blabpy.seedlings.listened_time import _set_difference_of_intervals, \
-    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_and_count_per_region_type, _remove_subregions, \
-    _overlaps_with_interval, RegionType, _assert_no_overlaps
+    _remove_interval_from_regions, _remove_silences_and_skips, _total_time_and_count_per_region_type, \
+    _remove_subregions, \
+    _overlaps_with_interval, RegionType, _assert_no_overlaps, _extract_region_info
 
 test_regions_df = pd.DataFrame(
     columns=['region_type', 'start', 'end', 'position'],
@@ -141,3 +142,20 @@ def test__assert_no_overlaps():
     with pytest.raises(AssertionError):
         _assert_no_overlaps(overlapping)
     _assert_no_overlaps(non_overlapping)
+
+
+def test__extract_region_info():
+    clan_file_text = '\n'.join([
+        '*OLN:\t0 . \x15653650_654740\x15',
+        '%xcom:\tbegin skip, eating',
+        '*NOF:\t0 . \x15699220_701620\x15',
+        '%xcom:\tend skip, eating over',
+        'whatever'
+    ])
+    expected_region_boundaries_df = pd.DataFrame.from_dict({'region_type': {0: 'skip'},
+                                                            'start': {0: 654740},
+                                                            'end': {0: 701620},
+                                                            'position': {0: 1}})
+
+    region_boundaries_df, _, _ = _extract_region_info(clan_file_text=clan_file_text, subregion_count=0)
+    assert region_boundaries_df.equals(expected_region_boundaries_df)

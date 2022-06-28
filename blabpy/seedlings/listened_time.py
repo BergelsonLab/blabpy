@@ -520,7 +520,13 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
     :param clan_file_text: string with the clan file text
     :return:
     """
-    # Find all the comments
+    # Find all the comments except for the LENA comments
+
+    # This regex will consume any number of lines the first of which starts with '%com' or '%xcom' and the last of which
+    # is followed by a line that starts with any character except for the tabulation symbol. This is necessary to
+    # consume the multiline comments which use `\t` as the line continuation symbol. For this regex to work, we need
+    # to additionally specify the MULTILINE (we want '^' to match the beginning of any line, not just of the whole text)
+    # and the DOTALL (we want '.*' to be able to cross the line boundaries) flags.
     comment_line_regex = r'^%x?com:.*?(?=^[^\t])'
     comments_df = pd.DataFrame(
         columns=('text', 'position_in_text'),
@@ -539,7 +545,8 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
     # the beginning with 0.
     for column in ('onset', 'offset'):
         comments_df[column] = comments_df[column].astype(pd.Int64Dtype())
-        comments_df[column].loc[:comments_df[column].first_valid_index()] = 0
+        # .ffill() will ensure we are only filling NaNs in the beginning.
+        comments_df.loc[comments_df[column].ffill().isnull(), column] = 0
 
     subregions = []  # List of strings of the format 'Position: {}, Rank: {}'
     region_boundaries = []  # List of strings of the format
