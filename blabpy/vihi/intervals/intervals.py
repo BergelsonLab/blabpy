@@ -51,10 +51,10 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
-def create_eaf(etf_path, intervals_list, context_before=120000, context_after=60000):
+def create_eaf(etf_template_path, intervals_list, context_before=120000, context_after=60000):
     """
     Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
-    :param etf_path: path to the .etf template file
+    :param etf_template_path: path to the .etf template file
     :param intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the context
     :param context_before: the context starts this many milliseconds before the interval to annotate does
     :param context_after: the context ends this many milliseconds after the interval to annotate does
@@ -62,7 +62,7 @@ def create_eaf(etf_path, intervals_list, context_before=120000, context_after=60
     code_num is the number of interval within the interval_list
     context onset and offset are those from the intervals_list - it includes the region to annotate
     """
-    eaf = pympi.Eaf(etf_path)
+    eaf = pympi.Eaf(etf_template_path)
 
     # Create the tiers
     transcription_type = "transcription"
