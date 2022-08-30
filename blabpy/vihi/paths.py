@@ -59,9 +59,9 @@ def _check_population(population):
     assert population in POPULATIONS
 
 
-def _recording_prefix(population: str, subject_id: str, recording_id: str):
+def compose_full_recording_id(population: str, subject_id: str, recording_id: str):
     """
-    Combines population type, subject id, and recording id into a filename prefix, e.g., VI_123_456
+    Combines population type, subject id, and recording id into a full recording id, e.g., VI_123_456
     :param population: VI/HI/TD
     :param subject_id:
     :param recording_id:
@@ -73,13 +73,13 @@ def _recording_prefix(population: str, subject_id: str, recording_id: str):
     return f'{population}_{subject_id}_{recording_id}'
 
 
-def _parse_recording_prefix(prefix):
+def parse_full_recording_id(full_recording_id):
     """
-    Recording prefix, e.g., VI_123_456
-    :param prefix: a string
+    Parse a full recording id, e.g., VI_123_456, into three constituent parts.
+    :param full_recording_id: a string
     :return: a dict with string values and keys population, subject_id, recording_id
     """
-    population, subject_id, recording_id = prefix.split('_')
+    population, subject_id, recording_id = full_recording_id.split('_')
     _check_population(population)
     _check_id_string(subject_id)
     _check_id_string(recording_id)
@@ -120,4 +120,4 @@ def get_lena_recording_path(population, subject_id, recording_id):
     _check_population(population)
     _check_id_string(subject_id)
     _check_id_string(recording_id)
-    return get_lena_subject_path(population, subject_id) / _recording_prefix(population, subject_id, recording_id)
+    return get_lena_subject_path(population, subject_id) / compose_full_recording_id(population, subject_id, recording_id)
