@@ -10,6 +10,10 @@ from blabpy.utils import OutputExistsError
 from blabpy.vihi.intervals import templates
 from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
 
+_ms_in_a_minute = 60 * 10**3
+CONTEXT_BEFORE = 2 * _ms_in_a_minute
+CONTEXT_AFTER = 1 * _ms_in_a_minute
+
 
 def _overlap(onset1, onset2, width):
     """
@@ -51,13 +55,11 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
-def create_eaf(etf_template_path, intervals_list, context_before=120000, context_after=60000):
+def create_eaf(etf_template_path, intervals_list):
     """
     Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
     :param etf_template_path: path to the .etf template file
     :param intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the context
-    :param context_before: the context starts this many milliseconds before the interval to annotate does
-    :param context_after: the context ends this many milliseconds after the interval to annotate does
     :return: a pympi.Eaf objects with the code, code_num, on_off, and context annotations.
     code_num is the number of interval within the interval_list
     context onset and offset are those from the intervals_list - it includes the region to annotate
@@ -85,13 +87,13 @@ def create_eaf(etf_template_path, intervals_list, context_before=120000, context
     return eaf
 
 
-def create_selected_regions_df(id, intervals_list, context_before=120000, context_after=60000):
+def create_selected_regions_df(id, intervals_list):
     selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
     for i, ts in enumerate(intervals_list):
         selected = selected.append({'id': id,
                                     'clip_num': i + 1,
-                                    'onset': ts[0] + context_before,
-                                    'offset': ts[1] - context_after},
+                                    'onset': ts[0] + CONTEXT_BEFORE,
+                                    'offset': ts[1] - CONTEXT_AFTER},
                                    ignore_index=True)
     selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
     return selected
@@ -200,26 +202,26 @@ def calculate_energy_in_one_interval(start, end, audio, low_freq: int = 0, high_
     :param audio: pydub.AudioSegment object
     :return: float - energy in the interval
     """
-    def compute_energy_loudness(chunk, sampling_frequency: int, low_freq: int = 0, high_freq: int = 100000):
+    sampling_frequency = int(audio.frame_rate)
+
+    def compute_energy_loudness(single_channel_chunk):
         if low_freq > 0 or high_freq < 100000:
-            chunk_fft = np.fft.fft(chunk)
+            chunk_fft = np.fft.fft(single_channel_chunk)
             freq = np.abs(np.fft.fftfreq(len(chunk_fft), 1 / sampling_frequency))
             chunk_fft = chunk_fft[(freq > low_freq) & (freq < high_freq)]
-            return np.sum(np.abs(chunk_fft) ** 2) / len(chunk)
+            return np.sum(np.abs(chunk_fft) ** 2) / len(single_channel_chunk)
         else:
-            return np.sum(chunk ** 2)
+            return np.sum(single_channel_chunk ** 2)
 
     channels = audio.channels
-    sampling_frequency = int(audio.frame_rate)
     max_value = 256 ** (int(audio.sample_width)) / 2 - 1
 
     chunk = audio[start:end].get_array_of_samples()
     channel_energies = np.zeros(channels)
 
     for channel in range(channels):
-        data = np.array(chunk[channel::channels]) / max_value
-        channel_energies[channel] = compute_energy_loudness(chunk=data, sampling_frequency=sampling_frequency,
-                                                            low_freq=low_freq, high_freq=high_freq)
+        channel_chunk = np.array(chunk[channel::channels]) / max_value
+        channel_energies[channel] = compute_energy_loudness(single_channel_chunk=channel_chunk)
 
     energy = np.sum(channel_energies)
     return energy
