@@ -55,48 +55,80 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
-def create_eaf(etf_template_path, intervals_list):
+# TODO: this function should handle non-empty eafs too
+# TODO: this function should take a list/dataframe with both code and context region boundaries, the current way is kind
+#  of backwards.
+def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
     """
-    Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
-    :param etf_template_path: path to the .etf template file
-    :param intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the context
-    :return: a pympi.Eaf objects with the code, code_num, on_off, and context annotations.
-    code_num is the number of interval within the interval_list
-    context onset and offset are those from the intervals_list - it includes the region to annotate
+    Adds annotation intervals to an Eaf object. The input is list of *full* intervals - including the context.
+    :param eaf: pympi.Eaf objects with tiers added, assumed to be empty
+    :param context_intervals_list: list of (context_onset, context_offset) tuples
+    :return: Eaf object with intervals added.
     """
-    eaf = pympi.Eaf(etf_template_path)
-
-    # Create the tiers
-    transcription_type = "transcription"
-    eaf.add_tier("code", ling=transcription_type)
-    eaf.add_tier("context", ling=transcription_type)
-    eaf.add_tier("code_num", ling=transcription_type)
-    eaf.add_tier("on_off", ling=transcription_type)
-
-    # Add the intervals
-    for i, ts in enumerate(intervals_list):
-        whole_region_onset = ts[0]
-        whole_region_offset = ts[1]
-        roi_onset = whole_region_onset + context_before
-        roi_offset = whole_region_offset - context_after
-        eaf.add_annotation("code", roi_onset, roi_offset)
-        eaf.add_annotation("code_num", roi_onset, roi_offset, value=str(i + 1))
-        eaf.add_annotation("on_off", roi_onset, roi_offset, value="{}_{}".format(roi_onset, roi_offset))
-        eaf.add_annotation("context", whole_region_onset, whole_region_offset)
+    for i, (context_onset, context_offset) in enumerate(context_intervals_list):
+        code_onset = context_onset + CONTEXT_BEFORE
+        code_offset = context_offset - CONTEXT_AFTER
+        eaf.add_annotation("code", code_onset, code_offset)
+        eaf.add_annotation("code_num", code_onset, code_offset, value=str(i + 1))
+        eaf.add_annotation("on_off", code_onset, code_offset, value="{}_{}".format(code_onset, code_offset))
+        eaf.add_annotation("context", context_onset, context_offset)
 
     return eaf
 
 
-def create_selected_regions_df(id, intervals_list):
+def prepare_eaf_from_template(etf_template_path):
+    """
+    Loads eaf template, adds tiers and return an Eaf object
+    :param etf_template_path:
+    :return:
+    """
+    # Load
+    eaf = pympi.Eaf(etf_template_path)
+
+    # Add tiers
+    transcription_type = "transcription"
+    tier_ids = ('code', 'context', 'code_num', 'on_off')
+    for tier_id in tier_ids:
+        eaf.add_tier(tier_id=tier_id, ling=transcription_type)
+
+    return eaf
+
+
+def create_eaf_from_template(etf_template_path, context_intervals_list):
+    """
+    Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
+    :param etf_template_path: path to the .etf template file
+    :param context_intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the
+    context.
+    :return: a pympi.Eaf objects with the code, code_num, on_off, and context annotations.
+    code_num is the number of interval within the interval_list
+    context onset and offset are those from the intervals_list - it includes the region to annotate
+    """
+    eaf = prepare_eaf_from_template(etf_template_path)
+    eaf = add_annotation_intervals_to_eaf(eaf=eaf, context_intervals_list=context_intervals_list)
+    return eaf
+
+
+# TODO: This shouldn't be decoupled from creating the corresponding tiers. Do you want contradictory data? Because
+#  that's how you get contradictory data.
+# TODO: we'll want to use it for high-volubility regions too.
+def create_selected_regions_df(full_recording_id, context_intervals_list):
+    """
+    Creates a dataframe with all the interval data added to an eaf - for logging purposes.
+    :param full_recording_id: full recording id
+    :param context_intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the
+    context.
+    :return:
+    """
     selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
-    for i, ts in enumerate(intervals_list):
-        selected = selected.append({'id': id,
+    for i, ts in enumerate(context_intervals_list):
+        selected = selected.append({'id': full_recording_id,
                                     'clip_num': i + 1,
                                     'onset': ts[0] + CONTEXT_BEFORE,
                                     'offset': ts[1] - CONTEXT_AFTER},
                                    ignore_index=True)
     selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
-    return selected
+    return context_intervals_list
 
 
 def _region_output_files(full_recording_id):
@@ -144,7 +176,7 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     etf_template_path, pfsx_template_path = templates.choose_template(age)
 
     # create an eaf object with the selected regions
-    eaf = create_eaf(etf_template_path, timestamps)
+    eaf = create_eaf_from_template(etf_template_path, timestamps)
 
     # create the output files
     # eaf with intervals added
