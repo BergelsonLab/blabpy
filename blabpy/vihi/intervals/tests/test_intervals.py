@@ -57,7 +57,7 @@ def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
 
     # Prepare the recordings list
     info_spreadsheet_path_1 = tmp_path / 'info_spreadsheet.csv'
-    info_spreadsheet_1 = pd.DataFrame(columns='full_recording_id,age,length_of_recording'.split(','),
+    info_spreadsheet_1 = pd.DataFrame(columns='id,age,length_of_recording'.split(','),
                                       data=('VI_666_924,30,960'.split(','),
                                             'VI_777_234,12,360'.split(',')))
     info_spreadsheet_1.to_csv(info_spreadsheet_path_1, index=False)
