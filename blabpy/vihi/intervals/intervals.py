@@ -12,6 +12,7 @@ from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
 
 _ms_in_a_minute = 60 * 10**3
 CONTEXT_BEFORE = 2 * _ms_in_a_minute
+CODE_REGION = 2 * _ms_in_a_minute
 CONTEXT_AFTER = 1 * _ms_in_a_minute
 
 
@@ -272,3 +273,69 @@ def calculate_energy_in_all_intervals(intervals, audio, low_freq: int = 0, high_
                            calculate_energy_in_one_interval(start=row.start, end=row.end, audio=audio,
                                                             low_freq=low_freq, high_freq=high_freq),
                            axis='columns')
+
+
+def _make_intervals_for_sub_recording(first_code_onset, last_code_offset, first_code_onset_wav):
+    """
+    Creates a sequence of intervals for one sub-recording.
+    :param first_code_onset: datetime, onset of the first code region
+    :param last_code_offset: datetime, offset of the first code region
+    :param first_code_onset_wav: int, onset of the first code region in ms from the statt of the wav file
+    :return:
+    """
+    return (pd.date_range(start=first_code_onset,
+                          end=last_code_offset,
+                          freq=f'{CODE_REGION}ms')
+            .to_frame(index=False, name='code_onset')
+            .assign(code_offset=lambda df: df.code_onset + pd.Timedelta(f'{CODE_REGION}ms'),
+                    context_onset=lambda df: df.code_onset - pd.Timedelta(f'{CONTEXT_BEFORE}ms'),
+                    context_offset=lambda df: df.code_offset + pd.Timedelta(f'{CONTEXT_AFTER}ms'),
+                    since_first_code_ms=lambda df: (df.code_onset - first_code_onset).dt.total_seconds() * 1000,
+                    code_onset_wav=lambda df: first_code_onset_wav + df.since_first_code_ms.astype(int))
+            .drop(columns='since_first_code_ms'))
+
+
+def make_intervals(sub_recordings):
+    """
+    Creates a population of all possible intervals to be sampled from.
+
+    Assumptions that might become parameters later:
+
+    - 2 minutes of buffer for context before the interval,
+    - 2 minutes for the actual interval,
+    - 1 minute of context after the interval,
+    - start at hh:mm:00 where mm is divisible by CODE_REGION converted to minutes,
+    - intervals sequence is continuous within each sub-recording and non-overlapping.
+
+    :param sub_recordings: list of starts and ends of all sub-recordings as datetime columns `onset` and `offset` and
+    an integer column `onset_wav` with the onset in ms from the start of the wav file.
+
+    :return: pd.DataFrame with the following datetime columns: `code_onset`, `code_offset`, `context_onset`,
+    and `context_offset` and an integer column `code_onset_wav` with the onset in ms from the start of the wav file.
+    """
+    # Find where first code region starts and last code region ends in each sub-recording
+    starts_and_ends = (
+        sub_recordings
+        .assign(
+            # Narrow the boundaries, so that there is enough space for the context.
+            first_code_onset=lambda df: df.recording_start + pd.Timedelta(f'{CONTEXT_BEFORE}ms'),
+            last_code_offset=lambda df: df.recording_end - pd.Timedelta(f'{CONTEXT_AFTER}ms'))
+        .assign(
+            # Round starts up and ends down to the closes whole number of code region durations:
+            # (1:02:03, 7:45:00) -> (1:04:00, 7:44:00)
+            first_code_onset=lambda df: df.first_code_onset.dt.ceil(f'{CODE_REGION}ms'),
+            last_code_offset=lambda df: df.last_code_offset.dt.floor(f'{CODE_REGION}ms'),
+            # Add first code region onset as ms from the wav start
+            first_code_onset_recording=lambda df: (df.first_code_onset - df.recording_start).dt.total_seconds() * 1000,
+            first_code_onset_wav=lambda df:
+                df.recording_start_wav + df.first_code_onset_recording.astype(int)))
+
+    # Create intervals within the boundaries we calculate above
+    intervals = pd.concat(
+        (_make_intervals_for_sub_recording(row.first_code_onset,
+                                         row.last_code_offset,
+                                         row.first_code_onset_wav)
+         for _, row in starts_and_ends.iterrows()),
+        ignore_index=True)
+
+    return intervals
