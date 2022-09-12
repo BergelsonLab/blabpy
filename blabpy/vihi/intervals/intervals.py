@@ -15,6 +15,11 @@ CONTEXT_BEFORE = 2 * _ms_in_a_minute
 CODE_REGION = 2 * _ms_in_a_minute
 CONTEXT_AFTER = 1 * _ms_in_a_minute
 
+# Metric that is maximized when selecting high-volubility intervals
+# TODO: use an actual metric
+METRIC_TO_MAXIMIZE = 'fake_metric'
+INTERVALS_FOR_ANNOTATION_COUNT = 15
+
 
 def _overlap(onset1, onset2, width):
     """
@@ -79,9 +84,9 @@ def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
 
 def prepare_eaf_from_template(etf_template_path):
     """
-    Loads eaf template, adds tiers and return an Eaf object
+    Loads eaf template, adds empty tiers and returns an Eaf object ready for inserting annotation interval data.
     :param etf_template_path:
-    :return:
+    :return: Eaf object
     """
     # Load
     eaf = pympi.Eaf(etf_template_path)
@@ -93,6 +98,16 @@ def prepare_eaf_from_template(etf_template_path):
         eaf.add_tier(tier_id=tier_id, ling=transcription_type)
 
     return eaf
+
+
+def prepare_eaf_for_age(age_in_days):
+    """
+    Finds age-appropriate template and returns an Eaf object ready for inserting annotation intervals data.
+    :param age_in_days: int
+    :return: an Eaf object
+    """
+    etf_template_path, _ = templates.choose_template(age_in_days)
+    return prepare_eaf_from_template(etf_template_path)
 
 
 def create_eaf_from_template(etf_template_path, context_intervals_list):
@@ -152,7 +167,7 @@ def _region_output_files(full_recording_id):
 
 def create_files_with_random_regions(full_recording_id, age, length_of_recording):
     """
-    Randomly samples 15 five-min long regions to be annotated and creates three files:
+    Randomly samples INTERVALS_FOR_ANNOTATION_COUNT five-min long regions to be annotated and creates three files:
     - <full_recording_id>.eaf - ELAN file with annotations prepared for the sampled intervals,
     - <full_recording_id>.pfsx - ELAN preferences file,
     - <full_recording_id>_selected-regions.csv - a table with onset and offsets of the selected regions.
@@ -169,7 +184,7 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
         raise OutputExistsError(paths=paths_exist)
 
     # select random intervals
-    timestamps = select_intervals_randomly(int(length_of_recording), n=15)
+    timestamps = select_intervals_randomly(int(length_of_recording), n=INTERVALS_FOR_ANNOTATION_COUNT)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
     timestamps.sort(key=lambda tup: tup[0])
 
@@ -333,9 +348,71 @@ def make_intervals(sub_recordings):
     # Create intervals within the boundaries we calculate above
     intervals = pd.concat(
         (_make_intervals_for_sub_recording(row.first_code_onset,
-                                         row.last_code_offset,
-                                         row.first_code_onset_wav)
+                                           row.last_code_offset,
+                                           row.first_code_onset_wav)
          for _, row in starts_and_ends.iterrows()),
         ignore_index=True)
 
     return intervals
+
+
+def add_metric(intervals, vtc_data):
+    """
+    For a given set of intervals calculates a metric based on VTC (.rttm) data. Works for a single recording only.
+
+    Assumptions that might become parameters later:
+
+    - the data source is vtc data for a single recording,
+    - the metric is hard-coded.
+
+    :param intervals: a dataframe with columns `onset`, `offset`, `onset_wav` (see, e.g., `make_intervals`)
+    :param vtc_data: a dataframe with enough information to calculate the metric for a single recording.
+    :return: copy of intervals with a new column containing the metric and being named after that metric
+
+    Note: we already calculate energy here, now this metric, it might be a good idea to have a separate `metrics`
+    module if we add more metrics.
+    """
+    # TODO: implement an actual metric
+    return intervals.assign(**{METRIC_TO_MAXIMIZE: [2, 4, 3, 5, 1]})
+
+
+# TODO: update after switching from context to dataframes with all interval data (code, context, code_num, etc.)
+def select_best_intervals(intervals, not_overlapping_with=None):
+    """
+    Select INTERVALS_FOR_ANNOTATION_COUNT intervals, potentially non-overlapping with existing intervals.
+    :param intervals: a dataframe with code intervals with metric calculated
+    :param not_overlapping_with: list of (onset_wav, offset_wav) that selected intervals shouldn't overlap with
+    :return: (context_intervals, ranks) where
+      context_intervals - list of selected intervals as (context_onset, context_offset) tuples sorted by onsets.
+      ranks - list of ranks of selected intervals. If there is no overlap with not_overlapping_with, this should be a
+      list of numbers from 1 to INTERVALS_FOR_ANNOTATION_COUNT in order corresponding to context_intervals.
+    """
+    # Mark intervals that do not overlap with not_overlapping_with
+    if not_overlapping_with is not None:
+        is_not_overlapping = (
+            intervals
+            .assign(code_offset_wav=lambda df: df.code_onset_wav + CODE_REGION)
+            .apply(lambda row:
+                   all(row.code_offset_wav <= existing_onset
+                       or row.code_onset_wav >= existing_offset
+                       for (existing_onset, existing_offset)
+                       in not_overlapping_with),
+            axis='columns'))
+    else:
+        is_not_overlapping = pd.Series([True] * intervals.shape[0])
+
+    # Check that we have enough intervals to sample from
+    assert is_not_overlapping.sum() >= INTERVALS_FOR_ANNOTATION_COUNT
+
+    best_intervals = (
+        intervals[is_not_overlapping]
+        .copy()
+        .assign(maximized_metric=METRIC_TO_MAXIMIZE,
+                value=lambda df: df[METRIC_TO_MAXIMIZE],
+                rank=lambda df: df[METRIC_TO_MAXIMIZE].rank(method='first', ascending=False))
+        .loc[lambda df: df['rank'] <= INTERVALS_FOR_ANNOTATION_COUNT]
+        .drop(columns=METRIC_TO_MAXIMIZE)
+        .reset_index(drop=True)
+    )
+
+    return best_intervals

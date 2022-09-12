@@ -8,7 +8,7 @@ from pydub.generators import WhiteNoise
 import blabpy.vihi.intervals.intervals as intervals_module
 from blabpy.utils import OutputExistsError, text_file_checksum
 from blabpy.vihi.intervals.intervals import calculate_energy_in_all_intervals, create_files_with_random_regions, \
-    batch_create_files_with_random_regions, make_intervals
+    batch_create_files_with_random_regions, make_intervals, select_best_intervals, add_metric
 from blabpy.vihi.paths import compose_full_recording_id
 
 
@@ -121,3 +121,45 @@ def test_make_intervals():
     expected_intervals = _read_intervals()
 
     assert_frame_equal(expected_intervals, actual_intervals)
+
+
+def _read_intervals_with_metric():
+    return pd.read_csv(f'data/intervals_with_metric.csv',
+                       parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
+                       dtype=dict(code_onset_wav=int))
+
+
+def test_add_metric():
+    intervals = _read_intervals()
+    # TODO: use vtc data instead of None
+    actual_intervals_with_metric = add_metric(intervals, None)
+    expected_intervals_with_metric = _read_intervals_with_metric()
+    assert_frame_equal(actual_intervals_with_metric, expected_intervals_with_metric)
+
+
+def _read_best_intervals(version: int):
+    return pd.read_csv(f'data/best_intervals_{version:02}.csv',
+                       parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
+                       dtype=dict(code_onset_wav=int))
+
+
+def test_select_best_intervals(monkeypatch):
+    # We'll only be sampling 3 intervals here
+    monkeypatch.setattr(intervals_module, 'INTERVALS_FOR_ANNOTATION_COUNT', 3)
+
+    # Read the input
+    intervals = _read_intervals()
+    # TODO: use vtc data instead of None
+    intervals_with_metric = add_metric(intervals, None)
+
+    # Test when there are no pre-existing interval
+    actual_best_intervals_1 = select_best_intervals(intervals_with_metric)
+    expected_best_intervals_1 = _read_best_intervals(1)
+    assert_frame_equal(actual_best_intervals_1, expected_best_intervals_1)
+
+    # And when there are some
+    pre_existing_intervals = [(353000, 473000), (1200000, 1320000)]
+    actual_best_intervals_2 = select_best_intervals(intervals_with_metric,
+                                                    not_overlapping_with=pre_existing_intervals)
+    expected_best_intervals_2 = _read_best_intervals(2)
+    assert_frame_equal(actual_best_intervals_2, expected_best_intervals_2)
