@@ -129,7 +129,7 @@ def create_selected_regions_df(full_recording_id, context_intervals_list):
                                     'offset': ts[1] - CONTEXT_AFTER},
                                    ignore_index=True)
     selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
-    return context_intervals_list
+    return selected
 
 
 def _region_output_files(full_recording_id):
