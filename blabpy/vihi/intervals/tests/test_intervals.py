@@ -1,13 +1,14 @@
 from random import seed
 
 import pandas as pd
+from pandas.testing import assert_frame_equal
 import pytest
 from pydub.generators import WhiteNoise
 
-import blabpy.vihi.intervals.intervals as intervals
+import blabpy.vihi.intervals.intervals as intervals_module
 from blabpy.utils import OutputExistsError, text_file_checksum
 from blabpy.vihi.intervals.intervals import calculate_energy_in_all_intervals, create_files_with_random_regions, \
-    batch_create_files_with_random_regions
+    batch_create_files_with_random_regions, make_intervals
 from blabpy.vihi.paths import compose_full_recording_id
 
 
@@ -32,7 +33,7 @@ def test_create_files_with_random_regions(monkeypatch, tmp_path):
     full_recording_id = 'TD_666_222'
     recording_path = tmp_path / full_recording_id
     recording_path.mkdir()
-    monkeypatch.setattr(intervals, 'get_lena_recording_path', lambda *args, **kwargs: recording_path)
+    monkeypatch.setattr(intervals_module, 'get_lena_recording_path', lambda *args, **kwargs: recording_path)
 
     # Run the first time
     def run():
@@ -53,7 +54,7 @@ def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
     # Make sure pn-opus is not touched
     def get_lena_recording_path_(population, subject_id, recording_id):
         return tmp_path / compose_full_recording_id(population, subject_id, recording_id)
-    monkeypatch.setattr(intervals, 'get_lena_recording_path', get_lena_recording_path_)
+    monkeypatch.setattr(intervals_module, 'get_lena_recording_path', get_lena_recording_path_)
 
     # Prepare the recordings list
     info_spreadsheet_path_1 = tmp_path / 'info_spreadsheet.csv'
@@ -100,3 +101,23 @@ def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
 
     # The first-run outputs have not changed
     check_first_run_outputs()
+
+
+def _read_sub_recordings():
+    return pd.read_csv('data/sub_recordings.csv',
+                       parse_dates=['recording_start', 'recording_end'],
+                       dtype=dict(recordings_start_wav=int))
+
+
+def _read_intervals():
+    return pd.read_csv('data/intervals.csv',
+                       parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
+                       dtype=dict(code_onset_wav=int))
+
+
+def test_make_intervals():
+    sub_recordings = _read_sub_recordings()
+    actual_intervals = make_intervals(sub_recordings)
+    expected_intervals = _read_intervals()
+
+    assert_frame_equal(expected_intervals, actual_intervals)
