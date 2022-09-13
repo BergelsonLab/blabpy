@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pympi
 
+from blabpy.eaf import EafPlus
 from blabpy.utils import OutputExistsError
 from blabpy.vihi.intervals import templates
 from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
@@ -66,10 +66,10 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
 #  of backwards.
 def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
     """
-    Adds annotation intervals to an Eaf object. The input is list of *full* intervals - including the context.
-    :param eaf: pympi.Eaf objects with tiers added, assumed to be empty
+    Adds annotation intervals to an EafPlus object. The input is list of *full* intervals - including the context.
+    :param eaf: EafPlus objects with tiers added, assumed to be empty
     :param context_intervals_list: list of (context_onset, context_offset) tuples
-    :return: Eaf object with intervals added.
+    :return: EafPlus object with intervals added.
     """
     for i, (context_onset, context_offset) in enumerate(context_intervals_list):
         code_onset = context_onset + CONTEXT_BEFORE
@@ -84,12 +84,12 @@ def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
 
 def prepare_eaf_from_template(etf_template_path):
     """
-    Loads eaf template, adds empty tiers and returns an Eaf object ready for inserting annotation interval data.
+    Loads eaf template, adds empty tiers and returns an EafPlus object ready for inserting annotation interval data.
     :param etf_template_path:
-    :return: Eaf object
+    :return: EafPlus object
     """
     # Load
-    eaf = pympi.Eaf(etf_template_path)
+    eaf = EafPlus(etf_template_path)
 
     # Add tiers
     transcription_type = "transcription"
@@ -102,9 +102,9 @@ def prepare_eaf_from_template(etf_template_path):
 
 def prepare_eaf_for_age(age_in_days):
     """
-    Finds age-appropriate template and returns an Eaf object ready for inserting annotation intervals data.
+    Finds age-appropriate template and returns an EafPlus object ready for inserting annotation intervals data.
     :param age_in_days: int
-    :return: an Eaf object
+    :return: an EafPlus object
     """
     etf_template_path, _ = templates.choose_template(age_in_days)
     return prepare_eaf_from_template(etf_template_path)
@@ -116,7 +116,7 @@ def create_eaf_from_template(etf_template_path, context_intervals_list):
     :param etf_template_path: path to the .etf template file
     :param context_intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the
     context.
-    :return: a pympi.Eaf objects with the code, code_num, on_off, and context annotations.
+    :return: an EafPlus objects with the code, code_num, on_off, and context annotations.
     code_num is the number of interval within the interval_list
     context onset and offset are those from the intervals_list - it includes the region to annotate
     """
