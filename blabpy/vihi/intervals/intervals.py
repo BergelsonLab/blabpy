@@ -401,7 +401,10 @@ def add_metric(intervals, vtc_data):
             .overlap_duration.sum()
             .rename(columns=dict(overlap_duration='vtc_total_speech_duration'))
             # And convert original columns from a multi-index to columns
-            .reset_index())
+            .reset_index()
+            # Covert to seconds for consistency with `blabr::get_vtc_speaker_stats`
+            .assign(vtc_total_speech_duration=lambda df: df.vtc_total_speech_duration / 1000)
+            )
 
 
 # TODO: update after switching from context to dataframes with all interval data (code, context, code_num, etc.)
