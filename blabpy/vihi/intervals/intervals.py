@@ -126,16 +126,6 @@ def prepare_eaf_from_template(etf_template_path):
     return eaf
 
 
-def prepare_eaf_for_age(age_in_days):
-    """
-    Finds age-appropriate template and returns an EafPlus object ready for inserting annotation intervals data.
-    :param age_in_days: int
-    :return: an EafPlus object
-    """
-    etf_template_path, _ = templates.choose_template(age_in_days)
-    return prepare_eaf_from_template(etf_template_path)
-
-
 def create_eaf_from_template(etf_template_path, context_intervals_list):
     """
     Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
@@ -215,7 +205,7 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     timestamps.sort(key=lambda tup: tup[0])
 
     # retrieve correct templates for the age
-    etf_template_path, pfsx_template_path = templates.choose_template(age)
+    etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age)
 
     # create an eaf object with the selected regions
     eaf = create_eaf_from_template(etf_template_path, timestamps)

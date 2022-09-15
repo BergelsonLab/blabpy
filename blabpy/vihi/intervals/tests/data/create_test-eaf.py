@@ -5,8 +5,9 @@ from blabpy.vihi.intervals.tests.test_intervals import PRE_EXISTING_CODE_INTERVA
 from blabpy.vihi.tests.test_pipeline import TEST_FULL_RECORDING_ID
 
 age_in_days = int(TEST_FULL_RECORDING_ID.split('_')[-1])
-age = int(age_in_days // 30.25)
-etf_template_path, pfsx_template_path = templates.choose_template(290 // 30.25)
+# TODO: check if this is correct. Here, it is fine anyway but would be good to know.
+age_in_months = int(age_in_days // 30.25)
+etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age_in_months)
 # Convert from code intervals to context intervals
 context_intervals_list = [(code_onset - CONTEXT_BEFORE,
                            code_offset + CONTEXT_AFTER)
