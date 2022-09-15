@@ -29,3 +29,15 @@ class EafPlus(Eaf):
         timeslots = [(self.timeslots[begin_ts], self.timeslots[end_ts]) for begin_ts, end_ts in timeslot_ids]
 
         return timeslots
+
+    def get_values(self, tier_id):
+        """
+        Get values from a tier.
+        :param tier_id:
+        :return: list of values
+        """
+        # Same logic as in get_time_intervals
+        aligned_annotations = self.tiers[tier_id][0]
+        values = [value for _, _, value, _ in aligned_annotations.values()]
+
+        return values

@@ -423,3 +423,27 @@ def select_best_intervals(intervals, existing_code_intervals=None):
     )
 
     return best_intervals
+
+
+def _extract_interval_info(eaf: EafPlus):
+    """
+    Extracts info from all ACLEW tiers for all intervals already in eaf.
+    :param eaf: eaf to extract info from
+    :return: pd.DataFrame with the following columns: code_onset, code_offset, context_onset, context_offset, code_num, on_off
+    """
+    code_intervals = eaf.get_time_intervals('code')
+    code_onsets, code_offsets = zip(*code_intervals)
+
+    context_intervals = eaf.get_time_intervals('context')
+    context_onsets, context_offsets = zip(*context_intervals)
+
+    code_nums = eaf.get_values('code_num')
+    on_offs = eaf.get_values('on_off')
+
+    return pd.DataFrame.from_dict(dict(
+        code_onset=code_onsets,
+        code_offset=code_offsets,
+        context_onset=context_onsets,
+        context_offset=context_offsets,
+        code_num=code_nums,
+        on_off=on_offs))
