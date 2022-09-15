@@ -67,11 +67,12 @@ def _load_eaf(full_recording_id: Path):
 
 # TODO: this function should handle both random and high-volubility sampling
 def add_intervals_for_annotation(full_recording_id):
-    # TODO: fill in the metric in the docstring below (and also everywhere else) once we select one.
     """
-    For a given recording, finds the intervals that maximize <metric> and add them to the corresponding eaf file.
+    For a given recording, finds the intervals that maximize vtc_total_speech_duration - total duration of all speech
+    segments as classified by VTC.
+    Then adds them to the corresponding eaf file.
     :param full_recording_id: full recording id, string
-    :return:
+    :return: None
     """
     # Prepare intervals to select from
     intervals = make_intervals(sub_recordings=gather_recordings(full_recording_id))
@@ -83,7 +84,7 @@ def add_intervals_for_annotation(full_recording_id):
     intervals_info = _extract_interval_info(eaf)
     existing_code_intervals = list(intervals_info[['code_onset', 'code_offset']].to_records(index=False))
 
-    # Select the metric-maximizing intervals
+    # Select intervals that maximize vtc_total_speech_duration
     best_intervals = select_best_intervals(intervals, existing_code_intervals=existing_code_intervals)
     # TODO: best intervals is self-contained, everything should be calucalted only using data in it, not reapplying the
     #  constants

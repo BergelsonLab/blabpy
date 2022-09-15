@@ -2,23 +2,18 @@ from pathlib import Path
 
 from blabpy.vihi import pipeline
 from blabpy.vihi.pipeline import add_intervals_for_annotation
-from blabpy.vtc import read_rttm
 from blabpy.vihi import paths as vihi_paths
 from blabpy.vihi.intervals import intervals as intervals_module
 
 
-from blabpy.vihi.intervals.tests.test_intervals import _read_intervals_with_metric, _read_sub_recordings
-
+from blabpy.vihi.intervals.tests.test_intervals import _read_intervals_with_fake_metric, _read_sub_recordings, \
+    _read_intervals, _read_test_vtc_data
 
 TEST_FULL_RECORDING_ID = 'TEST_123_290'
 
 
 def _get_test_eaf_path(*args, **kwargs):
     return Path('data/test_eaf.eaf')
-
-
-def _get_test_vtc_data(*args, **kwargs):
-    return read_rttm('data/test_all.rttm')
 
 
 def _get_expected_eaf_path():
@@ -48,10 +43,10 @@ def test_add_intervals_for_annotation(monkeypatch, tmpdir):
     # TODO: that's way too much monkeypatching, break down add_intervals_for_annotation into parts
     monkeypatch.setattr(pipeline, '_region_output_files', __test_region_output_files)
     monkeypatch.setattr(pipeline, 'get_eaf_path', _get_test_eaf_path)
-    monkeypatch.setattr(pipeline, 'get_vtc_data', _get_test_vtc_data)
-    monkeypatch.setattr(pipeline, 'make_intervals', lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, 'get_vtc_data', _read_test_vtc_data)
+    monkeypatch.setattr(pipeline, 'make_intervals', lambda *args, **kwargs: _read_intervals())
     monkeypatch.setattr(pipeline, 'gather_recordings', lambda *args, **kwargs: _read_sub_recordings())
-    monkeypatch.setattr(pipeline, 'add_metric', lambda *args, **kwargs: _read_intervals_with_metric())
+    monkeypatch.setattr(pipeline, 'add_metric', lambda *args, **kwargs: _read_intervals_with_fake_metric())
     monkeypatch.setattr(vihi_paths, 'POPULATIONS', ['TEST'])
     monkeypatch.setattr(intervals_module, 'INTERVALS_FOR_ANNOTATION_COUNT', 3)
 

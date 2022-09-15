@@ -14,10 +14,6 @@ _ms_in_a_minute = 60 * 10**3
 CONTEXT_BEFORE = 2 * _ms_in_a_minute
 CODE_REGION = 2 * _ms_in_a_minute
 CONTEXT_AFTER = 1 * _ms_in_a_minute
-
-# Metric that is maximized when selecting high-volubility intervals
-# TODO: use an actual metric
-METRIC_TO_MAXIMIZE = 'fake_metric'
 INTERVALS_FOR_ANNOTATION_COUNT = 15
 
 
@@ -365,35 +361,62 @@ def make_intervals(sub_recordings):
 
 def add_metric(intervals, vtc_data):
     """
-    For a given set of intervals calculates a metric based on VTC (.rttm) data. Works for a single recording only.
-
-    Assumptions that might become parameters later:
-
-    - the data source is vtc data for a single recording,
-    - the metric is hard-coded.
+    For a given set of intervals calculates vtc_total_speech_duration. Works for a single recording only.
 
     :param intervals: a dataframe with columns `onset`, `offset`, `onset_wav` (see, e.g., `make_intervals`)
-    :param vtc_data: a dataframe with enough information to calculate the metric for a single recording.
-    :return: copy of intervals with a new column containing the metric and being named after that metric
+    :param vtc_data: a dataframe with VTC output for the corresponding recording
+    :return: copy of intervals with a new column containing the new column 'vtc_total_speech_duration'
 
     Note: we already calculate energy here, now this metric, it might be a good idea to have a separate `metrics`
     module if we add more metrics.
     """
-    # TODO: implement an actual metric
-    return intervals.assign(**{METRIC_TO_MAXIMIZE: [2, 4, 3, 5, 1]})
+    # VTC knows nothing about no local time or sub-recordings, just the wav time. So we'll need to know when
+    # intervals start and end with respect to the beginning of the wav file.
+    original_columns = intervals.columns.to_list()  # we'll need them later to remove all the extra columns
+    intervals = intervals.assign(
+        duration_ms=lambda df: (df.code_offset - df.code_onset).astype(int) // 10 ** 6,
+        code_offset_wav=lambda df: df.code_onset_wav + df.duration_ms)
+
+    vtc_data = (vtc_data
+                # We only need the speech segments
+                .loc[lambda df: df.voice_type == 'SPEECH']
+                # The vtc_data dataframe has 'onset' and 'duration' in seconds and these columns are of type str.
+                # We'll need to parse them to floats and convert to ms.
+                .assign(vtc_segment_onset_wav=lambda df: (df.onset.astype(float) * 1000).astype(int),
+                        duration_ms=lambda df: (df.duration.astype(float) * 1000).astype(int),
+                        # Now we can calculate the segment offset in ms
+                        vtc_segment_offset_wav=lambda df: df.vtc_segment_onset_wav + df.duration_ms))
+
+    # We'll do a full cartesian product of intervals and VTC segments and then remove pairs that don't overlap.
+    return (pd.merge(intervals, vtc_data, how='cross')
+            # Keep only overlapping pairs of intervals and segments
+            .loc[lambda df: (df.code_onset_wav < df.vtc_segment_offset_wav)
+                 & (df.code_offset_wav > df.vtc_segment_onset_wav)]
+            # We only want to count the duration of the overlapping part towards the total duration in an interval.
+            .assign(overlap_duration=lambda df:
+                    df[['code_offset_wav', 'vtc_segment_offset_wav']].min(axis='columns')
+                    - df[['code_onset_wav', 'vtc_segment_onset_wav']].max(axis='columns'))
+            # Finally, we'll add up durations of the overlapping parts
+            .groupby(original_columns, as_index=False)
+            .overlap_duration.sum()
+            .rename(columns=dict(overlap_duration='vtc_total_speech_duration'))
+            # And convert original columns from a multi-index to columns
+            .reset_index())
 
 
 # TODO: update after switching from context to dataframes with all interval data (code, context, code_num, etc.)
 def select_best_intervals(intervals, existing_code_intervals=None):
     """
     Select INTERVALS_FOR_ANNOTATION_COUNT intervals, potentially non-overlapping with existing intervals.
-    :param intervals: a dataframe with code intervals with metric calculated
+    :param intervals: a dataframe with code intervals with vtc_total_speech_duration calculated
     :param existing_code_intervals: list of (onset_wav, offset_wav) that selected intervals shouldn't overlap with
     :return: (context_intervals, ranks) where
       context_intervals - list of selected intervals as (context_onset, context_offset) tuples sorted by onsets.
       ranks - list of ranks of selected intervals. If there is no overlap with existing_code_intervals, this should be a
       list of numbers from 1 to INTERVALS_FOR_ANNOTATION_COUNT in order corresponding to context_intervals.
     """
+    metric_to_maximize = 'vtc_total_speech_duration'
+
     # Mark intervals that do not overlap with existing_code_intervals
     if existing_code_intervals is not None:
         is_not_overlapping = (
@@ -414,11 +437,11 @@ def select_best_intervals(intervals, existing_code_intervals=None):
     best_intervals = (
         intervals[is_not_overlapping]
         .copy()
-        .assign(maximized_metric=METRIC_TO_MAXIMIZE,
-                value=lambda df: df[METRIC_TO_MAXIMIZE],
-                rank=lambda df: df[METRIC_TO_MAXIMIZE].rank(method='first', ascending=False))
+        .assign(maximized_metric=metric_to_maximize,
+                value=lambda df: df[metric_to_maximize],
+                rank=lambda df: df[metric_to_maximize].rank(method='first', ascending=False))
         .loc[lambda df: df['rank'] <= INTERVALS_FOR_ANNOTATION_COUNT]
-        .drop(columns=METRIC_TO_MAXIMIZE)
+        .drop(columns=metric_to_maximize)
         .reset_index(drop=True)
     )
 

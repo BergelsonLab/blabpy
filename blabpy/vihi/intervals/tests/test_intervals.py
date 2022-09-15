@@ -11,7 +11,7 @@ from blabpy.utils import OutputExistsError, text_file_checksum
 from blabpy.vihi.intervals.intervals import calculate_energy_in_all_intervals, create_files_with_random_regions, \
     batch_create_files_with_random_regions, make_intervals, select_best_intervals, add_metric
 from blabpy.vihi.paths import compose_full_recording_id
-
+from blabpy.vtc import read_rttm
 
 DATA_PATH = Path(__file__).parent / 'data'
 # Intervals already in eaf before we add high-volubility ones
@@ -129,17 +129,27 @@ def test_make_intervals():
     assert_frame_equal(expected_intervals, actual_intervals)
 
 
-def _read_intervals_with_metric():
-    return pd.read_csv(f'{DATA_PATH}/intervals_with_metric.csv',
+def _read_intervals_with_fake_metric():
+    return pd.read_csv(f'{DATA_PATH}/intervals_with_fake_metric.csv',
                        parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
                        dtype=dict(code_onset_wav=int))
 
 
+def _read_intervals_with_vtc_total_speech_duration():
+    return pd.read_csv(f'{DATA_PATH}/intervals_with_vtc_total_speech_duration.csv',
+                       parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
+                       dtype=dict(code_onset_wav=int))
+
+
+def _read_test_vtc_data(*args, **kwargs):
+    return read_rttm(Path(f'{DATA_PATH}/test_all.rttm'))
+
+
 def test_add_metric():
     intervals = _read_intervals()
-    # TODO: use vtc data instead of None
-    actual_intervals_with_metric = add_metric(intervals, None)
-    expected_intervals_with_metric = _read_intervals_with_metric()
+    vtc_data = _read_test_vtc_data()
+    actual_intervals_with_metric = add_metric(intervals, vtc_data)
+    expected_intervals_with_metric = _read_intervals_with_vtc_total_speech_duration()
     assert_frame_equal(actual_intervals_with_metric, expected_intervals_with_metric)
 
 
@@ -153,10 +163,7 @@ def test_select_best_intervals(monkeypatch):
     # We'll only be sampling 3 intervals here
     monkeypatch.setattr(intervals_module, 'INTERVALS_FOR_ANNOTATION_COUNT', 3)
 
-    # Read the input
-    intervals = _read_intervals()
-    # TODO: use vtc data instead of None
-    intervals_with_metric = add_metric(intervals, None)
+    intervals_with_metric = _read_intervals_with_fake_metric()
 
     # Test when there are no pre-existing interval
     actual_best_intervals_1 = select_best_intervals(intervals_with_metric)

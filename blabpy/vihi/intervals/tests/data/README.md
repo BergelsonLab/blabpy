@@ -17,3 +17,9 @@ If we select the best of these intervals then depending on whether there are alr
 
 - best_intervals_01.csv
 - best_intervals_02.csv
+
+And if we want to calculat the real deal, we'll need
+- `test_all.rttm` - the VTC data to calculate vtc_total_speech_duration for the intervals above.
+  Partial copy of an actual .rttm file for the same recording that was used to create sub-recordings above.
+  Most of the segments outside these modified sub-recordings were manually removed.
+  Also, the recording id was replaced by the test one.
