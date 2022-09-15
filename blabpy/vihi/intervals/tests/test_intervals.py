@@ -1,3 +1,4 @@
+from pathlib import Path
 from random import seed
 
 import pandas as pd
@@ -10,6 +11,11 @@ from blabpy.utils import OutputExistsError, text_file_checksum
 from blabpy.vihi.intervals.intervals import calculate_energy_in_all_intervals, create_files_with_random_regions, \
     batch_create_files_with_random_regions, make_intervals, select_best_intervals, add_metric
 from blabpy.vihi.paths import compose_full_recording_id
+
+
+DATA_PATH = Path(__file__).parent / 'data'
+# Intervals already in eaf before we add high-volubility ones
+PRE_EXISTING_CODE_INTERVALS = [(353000, 473000), (1200000, 1320000)]
 
 
 def test_calculate_energy_in_all_intervals():
@@ -104,13 +110,13 @@ def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
 
 
 def _read_sub_recordings():
-    return pd.read_csv('data/sub_recordings.csv',
+    return pd.read_csv(f'{DATA_PATH}/sub_recordings.csv',
                        parse_dates=['recording_start', 'recording_end'],
                        dtype=dict(recordings_start_wav=int))
 
 
 def _read_intervals():
-    return pd.read_csv('data/intervals.csv',
+    return pd.read_csv(f'{DATA_PATH}/intervals.csv',
                        parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
                        dtype=dict(code_onset_wav=int))
 
@@ -124,7 +130,7 @@ def test_make_intervals():
 
 
 def _read_intervals_with_metric():
-    return pd.read_csv(f'data/intervals_with_metric.csv',
+    return pd.read_csv(f'{DATA_PATH}/intervals_with_metric.csv',
                        parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
                        dtype=dict(code_onset_wav=int))
 
@@ -138,7 +144,7 @@ def test_add_metric():
 
 
 def _read_best_intervals(version: int):
-    return pd.read_csv(f'data/best_intervals_{version:02}.csv',
+    return pd.read_csv(f'{DATA_PATH}/best_intervals_{version:02}.csv',
                        parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
                        dtype=dict(code_onset_wav=int))
 
@@ -158,8 +164,7 @@ def test_select_best_intervals(monkeypatch):
     assert_frame_equal(actual_best_intervals_1, expected_best_intervals_1)
 
     # And when there are some
-    pre_existing_intervals = [(353000, 473000), (1200000, 1320000)]
     actual_best_intervals_2 = select_best_intervals(intervals_with_metric,
-                                                    not_overlapping_with=pre_existing_intervals)
+                                                    not_overlapping_with=PRE_EXISTING_CODE_INTERVALS)
     expected_best_intervals_2 = _read_best_intervals(2)
     assert_frame_equal(actual_best_intervals_2, expected_best_intervals_2)
