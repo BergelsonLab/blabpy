@@ -142,31 +142,8 @@ def create_eaf_from_template(etf_template_path, intervals):
     context onset and offset are those from the intervals_list - it includes the region to annotate
     """
     eaf = prepare_eaf_from_template(etf_template_path)
-    eaf, _ = add_annotation_intervals_to_eaf(eaf=eaf, intervals=intervals)
-    return eaf
-
-
-# TODO: This shouldn't be decoupled from creating the corresponding tiers. Do you want contradictory data? Because
-#  that's how you get contradictory data.
-# TODO: we'll want to use it for high-volubility regions too.
-def create_selected_regions_df(full_recording_id, context_intervals_list, code_nums):
-    """
-    Creates a dataframe with all the interval data added to an eaf - for logging purposes.
-    :param full_recording_id: full recording id
-    :param context_intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the
-    context.
-    :param code_nums: list of code_num tier values
-    :return:
-    """
-    selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
-    for ts, code_num in zip(context_intervals_list, code_nums):
-        selected = selected.append({'id': full_recording_id,
-                                    'clip_num': code_num,
-                                    'onset': ts[0] + CONTEXT_BEFORE,
-                                    'offset': ts[1] - CONTEXT_AFTER},
-                                   ignore_index=True)
-    selected[['clip_num', 'onset', 'offset']] = selected[['clip_num', 'onset', 'offset']].astype(int)
-    return selected
+    eaf, intervals = add_annotation_intervals_to_eaf(eaf=eaf, intervals=intervals)
+    return eaf, intervals
 
 
 def _region_output_files(full_recording_id):
@@ -220,7 +197,7 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age)
 
     # create an eaf object with the selected regions
-    eaf = create_eaf_from_template(etf_template_path, intervals)
+    eaf, intervals = create_eaf_from_template(etf_template_path, intervals)
 
     # create the output files
     # eaf with intervals added
@@ -228,9 +205,7 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     # copy the pfsx template
     shutil.copy(pfsx_template_path, output_file_paths['pfsx'])
     # csv with the list of selected regions
-    selected_regions_df = create_selected_regions_df(full_recording_id, timestamps,
-                                                     code_nums=range(1, len(timestamps) + 1))
-    selected_regions_df.to_csv(output_file_paths['csv'], index=False)
+    intervals.to_csv(output_file_paths['csv'], index=False)
 
 
 def batch_create_files_with_random_regions(info_spreadsheet_path, seed=None):

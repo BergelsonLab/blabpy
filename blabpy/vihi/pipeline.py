@@ -7,8 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
-    select_best_intervals, CONTEXT_BEFORE, CODE_REGION, CONTEXT_AFTER, _extract_interval_info, \
-    create_selected_regions_df
+    select_best_intervals, _extract_interval_info
 from ..its import Its
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path
 from ..utils import df_to_list_of_tuples
