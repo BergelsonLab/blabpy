@@ -377,7 +377,7 @@ def add_metric(intervals, vtc_data):
     # intervals start and end with respect to the beginning of the wav file.
     original_columns = intervals.columns.to_list()  # we'll need them later to remove all the extra columns
     intervals = intervals.assign(
-        duration_ms=lambda df: (df.code_offset - df.code_onset).astype(int) // 10 ** 6,
+        duration_ms=lambda df: (df.code_offset - df.code_onset).dt.total_seconds() * 1000,
         code_offset_wav=lambda df: df.code_onset_wav + df.duration_ms)
 
     vtc_data = (vtc_data
