@@ -83,6 +83,9 @@ def add_intervals_for_annotation(full_recording_id):
     # Load existing intervals
     eaf = _load_eaf(full_recording_id)
     existing_intervals = _extract_interval_info(eaf)
+    if len(existing_intervals) > 15:
+        raise ValueError(f'{full_recording_id} has more than 15 intervals already. Likely, you are adding intervals'
+                         f' to it for the second time.')
     existing_code_intervals = df_to_list_of_tuples(existing_intervals[['code_onset_wav', 'code_offset_wav']])
 
     # Select intervals that maximize vtc_total_speech_duration
