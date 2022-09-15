@@ -91,7 +91,7 @@ class Its(object):
         # Each element's items are (key, value) tuples which we'll convert to a dict
         recordings_list = [dict(element.items()) for element in recordings_elements]
         recordings = pd.DataFrame.from_records(recordings_list)
-        assert recordings.columns.to_list() == ['num', 'startClockTime', 'endClockTime', 'startTime', 'endTime']
+        assert set(recordings.columns) == {'num', 'startClockTime', 'endClockTime', 'startTime', 'endTime'}
         # num - order number
         # *ClockTime - UTC time when recordings started/ended
         # *Time - ISO-formatted duration of time from the start of the wav to the start/end of the recording
