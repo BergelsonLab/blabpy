@@ -384,18 +384,18 @@ def add_metric(intervals, vtc_data):
 
 
 # TODO: update after switching from context to dataframes with all interval data (code, context, code_num, etc.)
-def select_best_intervals(intervals, not_overlapping_with=None):
+def select_best_intervals(intervals, existing_code_intervals=None):
     """
     Select INTERVALS_FOR_ANNOTATION_COUNT intervals, potentially non-overlapping with existing intervals.
     :param intervals: a dataframe with code intervals with metric calculated
-    :param not_overlapping_with: list of (onset_wav, offset_wav) that selected intervals shouldn't overlap with
+    :param existing_code_intervals: list of (onset_wav, offset_wav) that selected intervals shouldn't overlap with
     :return: (context_intervals, ranks) where
       context_intervals - list of selected intervals as (context_onset, context_offset) tuples sorted by onsets.
-      ranks - list of ranks of selected intervals. If there is no overlap with not_overlapping_with, this should be a
+      ranks - list of ranks of selected intervals. If there is no overlap with existing_code_intervals, this should be a
       list of numbers from 1 to INTERVALS_FOR_ANNOTATION_COUNT in order corresponding to context_intervals.
     """
-    # Mark intervals that do not overlap with not_overlapping_with
-    if not_overlapping_with is not None:
+    # Mark intervals that do not overlap with existing_code_intervals
+    if existing_code_intervals is not None:
         is_not_overlapping = (
             intervals
             .assign(code_offset_wav=lambda df: df.code_onset_wav + CODE_REGION)
@@ -403,8 +403,8 @@ def select_best_intervals(intervals, not_overlapping_with=None):
                    all(row.code_offset_wav <= existing_onset
                        or row.code_onset_wav >= existing_offset
                        for (existing_onset, existing_offset)
-                       in not_overlapping_with),
-            axis='columns'))
+                       in existing_code_intervals),
+                   axis='columns'))
     else:
         is_not_overlapping = pd.Series([True] * intervals.shape[0])
 

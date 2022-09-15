@@ -165,6 +165,6 @@ def test_select_best_intervals(monkeypatch):
 
     # And when there are some
     actual_best_intervals_2 = select_best_intervals(intervals_with_metric,
-                                                    not_overlapping_with=PRE_EXISTING_CODE_INTERVALS)
+                                                    existing_code_intervals=PRE_EXISTING_CODE_INTERVALS)
     expected_best_intervals_2 = _read_best_intervals(2)
     assert_frame_equal(actual_best_intervals_2, expected_best_intervals_2)
