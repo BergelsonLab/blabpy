@@ -10,7 +10,7 @@ import pandas as pd
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
     select_best_intervals, _extract_interval_info, INTERVALS_FOR_ANNOTATION_COUNT, INTERVALS_EXTRA_COUNT
 from ..its import Its
-from .paths import get_its_path, parse_full_recording_id, get_eaf_path
+from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path
 from ..utils import df_to_list_of_tuples
 from ..vtc import read_rttm
 from ..eaf import EafPlus
@@ -33,11 +33,11 @@ def get_vtc_data(full_recording_id):
     :param full_recording_id: a string of '{population}_{subject}_{recording_id}' format.
     :return: a pandas dataframe with all the data from the VTC outputs (.rttm files).
     """
-    rttm_path = get_vtc_data(**parse_full_recording_id(full_recording_id))
+    rttm_path = get_rttm_path(**parse_full_recording_id(full_recording_id))
     return read_rttm(rttm_path)
 
 
-def get_eaf_path(full_recording_id):
+def get_eaf_path_from_full_recording_id(full_recording_id):
     """
     Find annotations eaf for a given recording.
     :param full_recording_id:
@@ -57,7 +57,7 @@ def _load_eaf(full_recording_id: Path):
     :return: a blabpy.eaf.EafPlus object
     :raises: NoPreviousEaf
     """
-    eaf_path = get_eaf_path(full_recording_id)
+    eaf_path = get_eaf_path_from_full_recording_id(full_recording_id)
     try:
         eaf = EafPlus(eaf_path)
     except FileNotFoundError as e:

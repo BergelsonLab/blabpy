@@ -159,7 +159,7 @@ def _region_output_files(full_recording_id):
     output_filenames = {
         'eaf': f'{full_recording_id}.eaf',
         'pfsx': f'{full_recording_id}.pfsx',
-        'csv': f'{full_recording_id}_selected-regions.csv'
+        'csv': f'selected_regions.csv'
     }
     return {extension: Path(output_dir) / filename
             for extension, filename in output_filenames.items()}

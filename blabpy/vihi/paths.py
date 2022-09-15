@@ -156,11 +156,9 @@ def get_rttm_path(population, subject_id, recording_id):
     _check_id_string(subject_id)
     _check_id_string(recording_id)
 
-    subject_dir = get_lena_subject_path(population, subject_id)
-    assert subject_dir.exist(), 'Can\'t find the subject folder. Check the arguments.'
-
+    lena_path = get_lena_path()
     full_recording_id = compose_full_recording_id(population, subject_id, recording_id)
-    rttm_path = subject_dir / 'derivatives' / 'vtc' / 'separated' / full_recording_id / 'all.rttm'
+    rttm_path = lena_path / 'derivatives' / 'vtc' / 'separated' / full_recording_id / 'all.rttm'
 
     return rttm_path
 
@@ -178,9 +176,9 @@ def get_eaf_path(population, subject_id, recording_id):
     _check_id_string(recording_id)
 
     subject_dir = get_lena_subject_path(population, subject_id)
-    assert subject_dir.exist(), 'Can\'t find the subject folder. Check the arguments.'
+    assert subject_dir.exists(), 'Can\'t find the subject folder. Check the arguments.'
 
     full_recording_id = compose_full_recording_id(population, subject_id, recording_id)
-    eaf_path = subject_dir / f'{full_recording_id}.eaf'
+    eaf_path = subject_dir / full_recording_id / f'{full_recording_id}.eaf'
 
     return eaf_path
