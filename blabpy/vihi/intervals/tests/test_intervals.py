@@ -192,16 +192,8 @@ def test_add_annotation_intervals_to_eaf(tmpdir):
     eaf = EafPlus(_get_test_eaf_path())
     best_intervals = _read_best_intervals(2)
 
-    # This is copied verbatim from test_add_intervals_for_annotation. Not great but hopefully will go anyway when we
-    # switch from context_intervals_list to the full dataframe
-    context_intervals_list = [
-        (code_onset_wav - CONTEXT_BEFORE,
-         code_onset_wav + CODE_REGION + CONTEXT_AFTER)
-        for code_onset_wav
-        in best_intervals.code_onset_wav]
-
     # Add once
-    eaf = add_annotation_intervals_to_eaf(eaf, context_intervals_list)
+    eaf, _ = add_annotation_intervals_to_eaf(eaf, best_intervals)
 
     actual_eaf_path = Path(tmpdir / 'actual.eaf')
     eaf.to_file(actual_eaf_path)
@@ -210,4 +202,4 @@ def test_add_annotation_intervals_to_eaf(tmpdir):
 
     # Add a second time
     with pytest.raises(AssertionError):
-        add_annotation_intervals_to_eaf(eaf, context_intervals_list)
+        add_annotation_intervals_to_eaf(eaf, best_intervals)

@@ -60,3 +60,7 @@ def modified_environ(*remove, **update):
     finally:
         env.update(update_after)
         [env.pop(k) for k in remove_after]
+
+
+def df_to_list_of_tuples(df):
+    return list(df.to_records(index=False))

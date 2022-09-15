@@ -9,6 +9,7 @@ from blabpy.eaf import EafPlus
 from blabpy.utils import OutputExistsError
 from blabpy.vihi.intervals import templates
 from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
+from blabpy.utils import df_to_list_of_tuples
 
 _ms_in_a_minute = 60 * 10**3
 CONTEXT_BEFORE = 2 * _ms_in_a_minute
@@ -76,36 +77,39 @@ def two_lists_of_intervals_overlap(list1, list2):
 
 # TODO: this function should take a list/dataframe with both code and context region boundaries, the current way is kind
 #  of backwards.
-def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
+def add_annotation_intervals_to_eaf(eaf, intervals):
     """
     Adds annotation intervals to an EafPlus object. The input is list of *full* intervals - including the context.
     :param eaf: EafPlus objects with tiers added, assumed to be empty
-    :param context_intervals_list: list of (context_onset, context_offset) tuples
+    :param intervals: dataframe with at least the following columns:
+        'code_onset_wav', 'code_offset_wav', 'context_onset_wav', 'context_offset_wav'
     :return: EafPlus object with intervals added.
     """
     # Check for overlaps with existing code intervals
     existing_code_intervals_list = eaf.get_time_intervals('code')
-    new_code_intervals_list = [(context_onset + CONTEXT_BEFORE, context_offset - CONTEXT_AFTER)
-                               for context_onset, context_offset
-                               in context_intervals_list]
+    new_code_intervals_list = df_to_list_of_tuples(intervals[['code_onset_wav', 'code_offset_wav']])
     assert not two_lists_of_intervals_overlap(existing_code_intervals_list, new_code_intervals_list)
 
     # Figure out which code_num we should start with (it is last_code_num + 1)
-    code_nums = [int(code_num) for code_num in eaf.get_values('code_num')]
-    last_code_num = 0 if len(code_nums) == 0 else max(code_nums)
+    existing_code_nums = [int(code_num) for code_num in eaf.get_values('code_num')]
+    last_code_num = 0 if len(existing_code_nums) == 0 else max(existing_code_nums)
+    n_intervals_to_add = intervals.shape[0]
+    new_code_nums = list(range(last_code_num + 1, last_code_num + n_intervals_to_add + 1))
 
-    # Sort new intervals by onset
-    context_intervals_list = sorted(context_intervals_list)
+    # Sort new intervals by onset and assign code_num
+    intervals = (intervals
+                 .sort_values(by=['code_onset_wav', 'code_offset_wav'])
+                 .assign(code_num=new_code_nums,
+                         on_off=lambda df: df.code_onset_wav.astype(str) + '_' + df.code_offset_wav.astype(str)))
 
-    for i, (context_onset, context_offset) in enumerate(context_intervals_list, last_code_num + 1):
-        code_onset = context_onset + CONTEXT_BEFORE
-        code_offset = context_offset - CONTEXT_AFTER
-        eaf.add_annotation("code", code_onset, code_offset)
-        eaf.add_annotation("code_num", code_onset, code_offset, value=str(i))
-        eaf.add_annotation("on_off", code_onset, code_offset, value="{}_{}".format(code_onset, code_offset))
-        eaf.add_annotation("context", context_onset, context_offset)
+    # Add intervals
+    for _, row in intervals.iterrows():
+        eaf.add_annotation("code", row.code_onset_wav, row.code_offset_wav)
+        eaf.add_annotation("code_num", row.code_onset_wav, row.code_offset_wav, value=str(row.code_num))
+        eaf.add_annotation("on_off", row.code_onset_wav, row.code_offset_wav, value=row.on_off)
+        eaf.add_annotation("context", row.context_onset_wav, row.context_offset_wav)
 
-    return eaf
+    return eaf, intervals
 
 
 def prepare_eaf_from_template(etf_template_path):
@@ -126,18 +130,18 @@ def prepare_eaf_from_template(etf_template_path):
     return eaf
 
 
-def create_eaf_from_template(etf_template_path, context_intervals_list):
+def create_eaf_from_template(etf_template_path, intervals):
     """
     Writes an eaf file <id>.eaf to the output_dir by adding intervals to the etf template at etf_path.
     :param etf_template_path: path to the .etf template file
-    :param context_intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the
-    context.
+    :param intervals: dataframe with at least the following columns:
+        'code_onset_wav', 'code_offset_wav', 'context_onset_wav', 'context_offset_wav'
     :return: an EafPlus objects with the code, code_num, on_off, and context annotations.
     code_num is the number of interval within the interval_list
     context onset and offset are those from the intervals_list - it includes the region to annotate
     """
     eaf = prepare_eaf_from_template(etf_template_path)
-    eaf = add_annotation_intervals_to_eaf(eaf=eaf, context_intervals_list=context_intervals_list)
+    eaf, _ = add_annotation_intervals_to_eaf(eaf=eaf, intervals=intervals)
     return eaf
 
 
@@ -204,12 +208,18 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     timestamps = select_intervals_randomly(int(length_of_recording), n=INTERVALS_FOR_ANNOTATION_COUNT)
     timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
     timestamps.sort(key=lambda tup: tup[0])
+    context_onsets, context_offsets = zip(*timestamps)
+    intervals = pd.DataFrame.from_dict(dict(context_onset_wav=context_onsets, context_offset_wav=context_offsets))
+    intervals.insert(0, 'code_onset_wav', intervals.context_onset_wav + CONTEXT_BEFORE)
+    intervals.insert(1, 'code_offset_wav', intervals.context_offset_wav - CONTEXT_AFTER)
+    intervals.insert(0, 'full_recording_id', full_recording_id)
+    intervals['sampling_type'] = 'random'
 
     # retrieve correct templates for the age
     etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age)
 
     # create an eaf object with the selected regions
-    eaf = create_eaf_from_template(etf_template_path, timestamps)
+    eaf = create_eaf_from_template(etf_template_path, intervals)
 
     # create the output files
     # eaf with intervals added

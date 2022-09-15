@@ -87,17 +87,9 @@ def add_intervals_for_annotation(full_recording_id):
 
     # Select intervals that maximize vtc_total_speech_duration
     best_intervals = select_best_intervals(intervals, existing_code_intervals=existing_code_intervals)
-    # TODO: best intervals is self-contained, everything should be calculated only using data in it, not reapplying the
-    #  constants
-    context_intervals_list = [
-        (code_onset_wav - CONTEXT_BEFORE,
-         code_onset_wav + CODE_REGION + CONTEXT_AFTER)
-        for code_onset_wav
-        in best_intervals.code_onset_wav]
-    eaf = add_annotation_intervals_to_eaf(eaf, context_intervals_list)
+    eaf, _ = add_annotation_intervals_to_eaf(eaf, best_intervals)
     all_intervals = _extract_interval_info(eaf)
 
-    # Save files
     output_file_paths = _region_output_files(full_recording_id=full_recording_id)
     eaf.to_file(output_file_paths['eaf'])
 
