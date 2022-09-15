@@ -144,18 +144,19 @@ def create_eaf_from_template(etf_template_path, context_intervals_list):
 # TODO: This shouldn't be decoupled from creating the corresponding tiers. Do you want contradictory data? Because
 #  that's how you get contradictory data.
 # TODO: we'll want to use it for high-volubility regions too.
-def create_selected_regions_df(full_recording_id, context_intervals_list):
+def create_selected_regions_df(full_recording_id, context_intervals_list, code_nums):
     """
     Creates a dataframe with all the interval data added to an eaf - for logging purposes.
     :param full_recording_id: full recording id
     :param context_intervals_list: a list of (onset, offset) pairs corresponding to the whole interval, including the
     context.
+    :param code_nums: list of code_num tier values
     :return:
     """
     selected = pd.DataFrame(columns=['id', 'clip_num', 'onset', 'offset'], dtype=int)
-    for i, ts in enumerate(context_intervals_list):
+    for ts, code_num in zip(context_intervals_list, code_nums):
         selected = selected.append({'id': full_recording_id,
-                                    'clip_num': i + 1,
+                                    'clip_num': code_num,
                                     'onset': ts[0] + CONTEXT_BEFORE,
                                     'offset': ts[1] - CONTEXT_AFTER},
                                    ignore_index=True)
@@ -216,7 +217,9 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     # copy the pfsx template
     shutil.copy(pfsx_template_path, output_file_paths['pfsx'])
     # csv with the list of selected regions
-    create_selected_regions_df(full_recording_id, timestamps).to_csv(output_file_paths['csv'], index=False)
+    selected_regions_df = create_selected_regions_df(full_recording_id, timestamps,
+                                                     code_nums=range(1, len(timestamps) + 1))
+    selected_regions_df.to_csv(output_file_paths['csv'], index=False)
 
 
 def batch_create_files_with_random_regions(info_spreadsheet_path, seed=None):

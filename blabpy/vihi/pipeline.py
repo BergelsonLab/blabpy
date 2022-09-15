@@ -5,7 +5,8 @@ other function are supposed to be pure. That is not true at all at this time tho
 from pathlib import Path
 
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
-    select_best_intervals, CONTEXT_BEFORE, CODE_REGION, CONTEXT_AFTER, _extract_interval_info
+    select_best_intervals, CONTEXT_BEFORE, CODE_REGION, CONTEXT_AFTER, _extract_interval_info, \
+    create_selected_regions_df
 from ..its import Its
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path
 from ..vtc import read_rttm
@@ -86,7 +87,7 @@ def add_intervals_for_annotation(full_recording_id):
 
     # Select intervals that maximize vtc_total_speech_duration
     best_intervals = select_best_intervals(intervals, existing_code_intervals=existing_code_intervals)
-    # TODO: best intervals is self-contained, everything should be calucalted only using data in it, not reapplying the
+    # TODO: best intervals is self-contained, everything should be calculated only using data in it, not reapplying the
     #  constants
     context_intervals_list = [
         (code_onset_wav - CONTEXT_BEFORE,
@@ -99,4 +100,8 @@ def add_intervals_for_annotation(full_recording_id):
     # Save files
     output_file_paths = _region_output_files(full_recording_id=full_recording_id)
     eaf.to_file(output_file_paths['eaf'])
-    all_intervals.to_csv(output_file_paths['csv'])
+
+    all_context_intervals = list(all_intervals[['context_onset', 'context_offset']].to_records(index=False))
+    selected_regions_df = create_selected_regions_df(full_recording_id, context_intervals_list=all_context_intervals,
+                                                     code_nums=all_intervals.code_num.to_list())
+    selected_regions_df.to_csv(output_file_paths['csv'], index=False)
