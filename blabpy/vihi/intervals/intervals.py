@@ -61,9 +61,9 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
-# TODO: this function should handle non-empty eafs too
 # TODO: this function should take a list/dataframe with both code and context region boundaries, the current way is kind
 #  of backwards.
+# TODO: check for overlaps
 def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
     """
     Adds annotation intervals to an EafPlus object. The input is list of *full* intervals - including the context.
@@ -71,11 +71,18 @@ def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
     :param context_intervals_list: list of (context_onset, context_offset) tuples
     :return: EafPlus object with intervals added.
     """
-    for i, (context_onset, context_offset) in enumerate(context_intervals_list):
+    # Figure out which code_num we should start with (it is last_code_num + 1)
+    code_nums = [int(code_num) for code_num in eaf.get_values('code_num')]
+    last_code_num = 0 if len(code_nums) == 0 else max(code_nums)
+
+    # Sort new intervals by onset
+    context_intervals_list = sorted(context_intervals_list)
+
+    for i, (context_onset, context_offset) in enumerate(context_intervals_list, last_code_num + 1):
         code_onset = context_onset + CONTEXT_BEFORE
         code_offset = context_offset - CONTEXT_AFTER
         eaf.add_annotation("code", code_onset, code_offset)
-        eaf.add_annotation("code_num", code_onset, code_offset, value=str(i + 1))
+        eaf.add_annotation("code_num", code_onset, code_offset, value=str(i))
         eaf.add_annotation("on_off", code_onset, code_offset, value="{}_{}".format(code_onset, code_offset))
         eaf.add_annotation("context", context_onset, context_offset)
 
