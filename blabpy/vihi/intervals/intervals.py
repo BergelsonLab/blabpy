@@ -16,6 +16,7 @@ CONTEXT_BEFORE = 2 * _ms_in_a_minute
 CODE_REGION = 2 * _ms_in_a_minute
 CONTEXT_AFTER = 1 * _ms_in_a_minute
 INTERVALS_FOR_ANNOTATION_COUNT = 15
+INTERVALS_EXTRA_COUNT = 5
 
 
 def _overlap(onset1, onset2, width):
@@ -434,11 +435,11 @@ def convert_df_to_wav_time(df):
     return df.drop(columns=datetime_columns)
 
 
-# TODO: update after switching from context to dataframes with all interval data (code, context, code_num, etc.)
-def select_best_intervals(intervals, existing_code_intervals=None):
+def select_best_intervals(intervals, n_to_select, existing_code_intervals=None):
     """
     Select INTERVALS_FOR_ANNOTATION_COUNT intervals, potentially non-overlapping with existing intervals.
     :param intervals: a dataframe with code intervals with vtc_total_speech_duration calculated
+    :param n_to_select: how many intervals should be selected
     :param existing_code_intervals: list of (onset_wav, offset_wav) that selected intervals shouldn't overlap with
     :return: (context_intervals, ranks) where
       context_intervals - list of selected intervals as (context_onset, context_offset) tuples sorted by onsets.
@@ -462,7 +463,7 @@ def select_best_intervals(intervals, existing_code_intervals=None):
         is_not_overlapping = pd.Series([True] * intervals.shape[0])
 
     # Check that we have enough intervals to sample from
-    assert is_not_overlapping.sum() >= INTERVALS_FOR_ANNOTATION_COUNT
+    assert is_not_overlapping.sum() >= n_to_select
 
     best_intervals = (
         intervals
@@ -475,7 +476,7 @@ def select_best_intervals(intervals, existing_code_intervals=None):
                 metric_value=lambda df: df[metric_to_maximize],
                 # rank2 will be used to select best intervals after removing overlapping ones
                 rank2=lambda df: df[metric_to_maximize].rank(method='first', ascending=False))
-        .loc[lambda df: df['rank2'] <= INTERVALS_FOR_ANNOTATION_COUNT]
+        .loc[lambda df: df['rank2'] <= n_to_select]
         .drop(columns=[metric_to_maximize, 'rank2'])
         .reset_index(drop=True)
     )

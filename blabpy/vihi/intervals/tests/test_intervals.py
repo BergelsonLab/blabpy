@@ -170,12 +170,12 @@ def test_select_best_intervals(monkeypatch):
     intervals_with_metric = _read_intervals_with_fake_metric()
 
     # Test when there are no pre-existing interval
-    actual_best_intervals_1 = select_best_intervals(intervals_with_metric)
+    actual_best_intervals_1 = select_best_intervals(intervals_with_metric, n_to_select=3)
     expected_best_intervals_1 = _read_best_intervals(1)
     assert_frame_equal(actual_best_intervals_1, expected_best_intervals_1)
 
     # And when there are some
-    actual_best_intervals_2 = select_best_intervals(intervals_with_metric,
+    actual_best_intervals_2 = select_best_intervals(intervals_with_metric, n_to_select=3,
                                                     existing_code_intervals=PRE_EXISTING_CODE_INTERVALS)
     expected_best_intervals_2 = _read_best_intervals(2)
     assert_frame_equal(actual_best_intervals_2, expected_best_intervals_2)
@@ -191,6 +191,10 @@ def _get_selected_regions_path():
 
 def _get_expected_eaf_path():
     return Path(f'{DATA_PATH}/expected.eaf')
+
+
+def _get_expected_with_extra_eaf_path():
+    return Path(f'{DATA_PATH}/expected-with-extra.eaf')
 
 
 def test_add_annotation_intervals_to_eaf(tmpdir):
