@@ -479,13 +479,18 @@ def select_best_intervals(intervals, existing_code_intervals=None):
     assert is_not_overlapping.sum() >= INTERVALS_FOR_ANNOTATION_COUNT
 
     best_intervals = (
-        intervals[is_not_overlapping]
+        intervals
+        # We'll rank the intervals before removing the overlapping ones so that we have information about how many we
+        # had to skip.
+        .assign(rank=lambda df: df[metric_to_maximize].rank(method='first', ascending=False))
+        .loc[is_not_overlapping]
         .copy()
         .assign(maximized_metric=metric_to_maximize,
                 value=lambda df: df[metric_to_maximize],
-                rank=lambda df: df[metric_to_maximize].rank(method='first', ascending=False))
-        .loc[lambda df: df['rank'] <= INTERVALS_FOR_ANNOTATION_COUNT]
-        .drop(columns=metric_to_maximize)
+                # rank2 will be used to select best intervals after removing overlapping ones
+                rank2=lambda df: df[metric_to_maximize].rank(method='first', ascending=False))
+        .loc[lambda df: df['rank2'] <= INTERVALS_FOR_ANNOTATION_COUNT]
+        .drop(columns=[metric_to_maximize, 'rank2'])
         .reset_index(drop=True)
     )
 

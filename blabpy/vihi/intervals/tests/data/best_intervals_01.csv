@@ -1,4 +1,4 @@
-code_onset_wav,code_offset_wav,context_onset_wav,context_offset_wav,maximized_metric,value,rank
-323000,443000,203000,503000,vtc_total_speech_duration,4,2.0
-443000,563000,323000,623000,vtc_total_speech_duration,3,3.0
-563000,683000,443000,743000,vtc_total_speech_duration,5,1.0
+code_onset_wav,code_offset_wav,context_onset_wav,context_offset_wav,rank,maximized_metric,value
+323000,443000,203000,503000,2.0,vtc_total_speech_duration,4
+443000,563000,323000,623000,3.0,vtc_total_speech_duration,3
+563000,683000,443000,743000,1.0,vtc_total_speech_duration,5
