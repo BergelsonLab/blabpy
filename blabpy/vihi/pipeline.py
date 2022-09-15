@@ -4,11 +4,14 @@ other function are supposed to be pure. That is not true at all at this time tho
 """
 from pathlib import Path
 
+import pandas as pd
+
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
     select_best_intervals, CONTEXT_BEFORE, CODE_REGION, CONTEXT_AFTER, _extract_interval_info, \
     create_selected_regions_df
 from ..its import Its
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path
+from ..utils import df_to_list_of_tuples
 from ..vtc import read_rttm
 from ..eaf import EafPlus
 
@@ -82,18 +85,21 @@ def add_intervals_for_annotation(full_recording_id):
 
     # Load existing intervals
     eaf = _load_eaf(full_recording_id)
-    intervals_info = _extract_interval_info(eaf)
-    existing_code_intervals = list(intervals_info[['code_onset', 'code_offset']].to_records(index=False))
+    existing_intervals = _extract_interval_info(eaf)
+    existing_code_intervals = df_to_list_of_tuples(existing_intervals[['code_onset_wav', 'code_offset_wav']])
 
     # Select intervals that maximize vtc_total_speech_duration
     best_intervals = select_best_intervals(intervals, existing_code_intervals=existing_code_intervals)
-    eaf, _ = add_annotation_intervals_to_eaf(eaf, best_intervals)
-    all_intervals = _extract_interval_info(eaf)
+    eaf, best_intervals = add_annotation_intervals_to_eaf(eaf, best_intervals)
 
+    # Save eaf
     output_file_paths = _region_output_files(full_recording_id=full_recording_id)
     eaf.to_file(output_file_paths['eaf'])
 
-    all_context_intervals = list(all_intervals[['context_onset', 'context_offset']].to_records(index=False))
-    selected_regions_df = create_selected_regions_df(full_recording_id, context_intervals_list=all_context_intervals,
-                                                     code_nums=all_intervals.code_num.to_list())
-    selected_regions_df.to_csv(output_file_paths['csv'], index=False)
+    # Save log
+    old_log = pd.read_csv(output_file_paths['csv'])
+    best_intervals.insert(0, 'full_recording_id', full_recording_id)
+    best_intervals['sampling_type'] = 'high-volubility'
+    # TODO: add selected_regions to the test
+    selected_regions = pd.concat([old_log, best_intervals], ignore_index=True)
+    selected_regions.to_csv(output_file_paths['csv'], index=False)

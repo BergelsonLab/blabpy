@@ -496,7 +496,7 @@ def select_best_intervals(intervals, existing_code_intervals=None):
         .loc[is_not_overlapping]
         .copy()
         .assign(maximized_metric=metric_to_maximize,
-                value=lambda df: df[metric_to_maximize],
+                metric_value=lambda df: df[metric_to_maximize],
                 # rank2 will be used to select best intervals after removing overlapping ones
                 rank2=lambda df: df[metric_to_maximize].rank(method='first', ascending=False))
         .loc[lambda df: df['rank2'] <= INTERVALS_FOR_ANNOTATION_COUNT]
@@ -523,9 +523,9 @@ def _extract_interval_info(eaf: EafPlus):
     on_offs = eaf.get_values('on_off')
 
     return pd.DataFrame.from_dict(dict(
-        code_onset=code_onsets,
-        code_offset=code_offsets,
-        context_onset=context_onsets,
-        context_offset=context_offsets,
+        code_onset_wav=code_onsets,
+        code_offset_wav=code_offsets,
+        context_onset_wav=context_onsets,
+        context_offset_wav=context_offsets,
         code_num=code_nums,
         on_off=on_offs))

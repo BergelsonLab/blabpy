@@ -1,0 +1,3 @@
+full_recording_id,code_onset_wav,code_offset_wav,context_onset_wav,context_offset_wav,code_num,on_off,sampling_type
+TEST_123_290,353000,473000,233000,533000,1,353000_473000,random
+TEST_123_290,1200000,1320000,1080000,1380000,2,1200000_1320000,random

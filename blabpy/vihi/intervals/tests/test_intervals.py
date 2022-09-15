@@ -53,6 +53,8 @@ def test_create_files_with_random_regions(monkeypatch, tmp_path):
     expected_filenames = ['TD_666_222_selected-regions.csv', 'TD_666_222.eaf', 'TD_666_222.pfsx']
     assert all(recording_path.joinpath(filename).exists for filename in expected_filenames)
 
+    # TODO: check file contents too.
+
     # Trying to run again should raise an error
     with pytest.raises(OutputExistsError):
         run()
@@ -181,6 +183,10 @@ def test_select_best_intervals(monkeypatch):
 
 def _get_test_eaf_path(*args, **kwargs):
     return Path(f'{DATA_PATH}/test_eaf.eaf')
+
+
+def _get_selected_regions_path():
+    return Path(f'{DATA_PATH}/selected_regions.csv')
 
 
 def _get_expected_eaf_path():

@@ -1,4 +1,5 @@
 from pathlib import Path
+from shutil import copy2
 
 from blabpy.vihi import pipeline
 from blabpy.vihi.pipeline import add_intervals_for_annotation
@@ -7,7 +8,7 @@ from blabpy.vihi.intervals import intervals as intervals_module
 
 
 from blabpy.vihi.intervals.tests.test_intervals import _read_intervals_with_fake_metric, _read_sub_recordings, \
-    _read_intervals, _read_test_vtc_data, _get_test_eaf_path, _get_expected_eaf_path
+    _read_intervals, _read_test_vtc_data, _get_test_eaf_path, _get_expected_eaf_path, _get_selected_regions_path
 
 TEST_FULL_RECORDING_ID = 'TEST_123_290'
 
@@ -41,6 +42,9 @@ def test_add_intervals_for_annotation(monkeypatch, tmpdir):
     monkeypatch.setattr(pipeline, 'add_metric', lambda *args, **kwargs: _read_intervals_with_fake_metric())
     monkeypatch.setattr(vihi_paths, 'POPULATIONS', ['TEST'])
     monkeypatch.setattr(intervals_module, 'INTERVALS_FOR_ANNOTATION_COUNT', 3)
+
+    # Copy "selected_regions.csv" to
+    copy2(_get_selected_regions_path(), region_output_files['csv'])
 
     # Add intervals
     add_intervals_for_annotation(TEST_FULL_RECORDING_ID)
