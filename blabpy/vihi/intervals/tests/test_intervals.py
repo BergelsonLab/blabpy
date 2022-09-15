@@ -80,10 +80,10 @@ def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
     batch_create_files_with_random_regions(info_spreadsheet_path_1, seed=7)
     
     # Compare the output files
-    expected_file_checksums = [('VI_666_924/VI_666_924.eaf', 1320053869),
+    expected_file_checksums = [('VI_666_924/VI_666_924.eaf', 580209740),
                                ('VI_666_924/VI_666_924.pfsx', 1301328091),
                                ('VI_666_924/VI_666_924_selected-regions.csv', 840067697),
-                               ('VI_777_234/VI_777_234.eaf', 2643756015),
+                               ('VI_777_234/VI_777_234.eaf', 1824613251),
                                ('VI_777_234/VI_777_234.pfsx', 3383994712),
                                ('VI_777_234/VI_777_234_selected-regions.csv', 1291151865)]
 
@@ -197,6 +197,7 @@ def test_add_annotation_intervals_to_eaf(tmpdir):
     # Load inputs
     eaf = EafPlus(_get_test_eaf_path())
     best_intervals = _read_best_intervals(2)
+    best_intervals.insert(1, 'sampling_type', 'high-volubility')
 
     # Add once
     eaf, _ = add_annotation_intervals_to_eaf(eaf, best_intervals)

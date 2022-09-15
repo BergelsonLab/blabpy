@@ -90,6 +90,7 @@ def add_intervals_for_annotation(full_recording_id):
 
     # Select intervals that maximize vtc_total_speech_duration
     best_intervals = select_best_intervals(intervals, existing_code_intervals=existing_code_intervals)
+    best_intervals.insert(0, 'sampling_type', 'high-volubility')
     eaf, best_intervals = add_annotation_intervals_to_eaf(eaf, best_intervals)
 
     # Save eaf

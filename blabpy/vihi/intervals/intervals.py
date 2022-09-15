@@ -82,7 +82,7 @@ def add_annotation_intervals_to_eaf(eaf, intervals):
     Adds annotation intervals to an EafPlus object. The input is list of *full* intervals - including the context.
     :param eaf: EafPlus objects with tiers added, assumed to be empty
     :param intervals: dataframe with at least the following columns:
-        'code_onset_wav', 'code_offset_wav', 'context_onset_wav', 'context_offset_wav'
+        'code_onset_wav', 'code_offset_wav', 'context_onset_wav', 'context_offset_wav', 'sampling_type'
     :return: EafPlus object with intervals added.
     """
     # Check for overlaps with existing code intervals
@@ -108,6 +108,7 @@ def add_annotation_intervals_to_eaf(eaf, intervals):
         eaf.add_annotation("code_num", row.code_onset_wav, row.code_offset_wav, value=str(row.code_num))
         eaf.add_annotation("on_off", row.code_onset_wav, row.code_offset_wav, value=row.on_off)
         eaf.add_annotation("context", row.context_onset_wav, row.context_offset_wav)
+        eaf.add_annotation("sampling_type", row.code_onset_wav, row.code_offset_wav, value=row.sampling_type)
 
     return eaf, intervals
 
@@ -123,7 +124,7 @@ def prepare_eaf_from_template(etf_template_path):
 
     # Add tiers
     transcription_type = "transcription"
-    tier_ids = ('code', 'context', 'code_num', 'on_off')
+    tier_ids = ('code', 'context', 'code_num', 'on_off', 'sampling_type')
     for tier_id in tier_ids:
         eaf.add_tier(tier_id=tier_id, ling=transcription_type)
 
@@ -213,7 +214,7 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     intervals.insert(0, 'code_onset_wav', intervals.context_onset_wav + CONTEXT_BEFORE)
     intervals.insert(1, 'code_offset_wav', intervals.context_offset_wav - CONTEXT_AFTER)
     intervals.insert(0, 'full_recording_id', full_recording_id)
-    intervals['sampling_type'] = 'random'
+    intervals.insert(1, 'sampling_type', 'random')
 
     # retrieve correct templates for the age
     etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age)
@@ -521,8 +522,10 @@ def _extract_interval_info(eaf: EafPlus):
 
     code_nums = eaf.get_values('code_num')
     on_offs = eaf.get_values('on_off')
+    sampling_types = eaf.get_values('sampling_type')
 
     return pd.DataFrame.from_dict(dict(
+        sampling_type=sampling_types,
         code_onset_wav=code_onsets,
         code_offset_wav=code_offsets,
         context_onset_wav=context_onsets,
