@@ -18,8 +18,13 @@ If we select the best of these intervals then depending on whether there are alr
 - best_intervals_01.csv
 - best_intervals_02.csv
 
-And if we want to calculat the real deal, we'll need
+And if we want to calculate the real deal, we'll need
 - `test_all.rttm` - the VTC data to calculate vtc_total_speech_duration for the intervals above.
   Partial copy of an actual .rttm file for the same recording that was used to create sub-recordings above.
   Most of the segments outside these modified sub-recordings were manually removed.
   Also, the recording id was replaced by the test one.
+
+Finally, we will add the best intervals to an existing eaf and compare to what we should expect:
+- `test_eaf.eaf` - the eaf to which the intervals will be added.
+- `create_test-eaf.py` - can be used to recreate `test_eaf.eaf`.
+- `expected.eaf` - what we should get after adding intervals.

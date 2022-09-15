@@ -57,9 +57,25 @@ def select_intervals_randomly(total_duration, n=5, t=5, start=30, end=10):
     return [(onset, onset + t) for onset in selected_onsets]
 
 
+def two_lists_of_intervals_overlap(list1, list2):
+    """
+    Checks whether two lists of intervals (order tuples of numbers)
+    :param list1: list 1
+    :param list2: list 2
+    :return: boolean
+    """
+    def overlaps_with_list2(start1, end1):
+        return any(start1 < end2 and end1 > start2
+                   for start2, end2
+                   in list2)
+
+    return any(overlaps_with_list2(start1, end1)
+               for start1, end1
+               in list1)
+
+
 # TODO: this function should take a list/dataframe with both code and context region boundaries, the current way is kind
 #  of backwards.
-# TODO: check for overlaps
 def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
     """
     Adds annotation intervals to an EafPlus object. The input is list of *full* intervals - including the context.
@@ -67,6 +83,13 @@ def add_annotation_intervals_to_eaf(eaf, context_intervals_list):
     :param context_intervals_list: list of (context_onset, context_offset) tuples
     :return: EafPlus object with intervals added.
     """
+    # Check for overlaps with existing code intervals
+    existing_code_intervals_list = eaf.get_time_intervals('code')
+    new_code_intervals_list = [(context_onset + CONTEXT_BEFORE, context_offset - CONTEXT_AFTER)
+                               for context_onset, context_offset
+                               in context_intervals_list]
+    assert not two_lists_of_intervals_overlap(existing_code_intervals_list, new_code_intervals_list)
+
     # Figure out which code_num we should start with (it is last_code_num + 1)
     code_nums = [int(code_num) for code_num in eaf.get_values('code_num')]
     last_code_num = 0 if len(code_nums) == 0 else max(code_nums)

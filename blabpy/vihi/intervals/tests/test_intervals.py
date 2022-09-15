@@ -7,9 +7,11 @@ import pytest
 from pydub.generators import WhiteNoise
 
 import blabpy.vihi.intervals.intervals as intervals_module
+from blabpy.eaf import EafPlus
 from blabpy.utils import OutputExistsError, text_file_checksum
 from blabpy.vihi.intervals.intervals import calculate_energy_in_all_intervals, create_files_with_random_regions, \
-    batch_create_files_with_random_regions, make_intervals, select_best_intervals, add_metric
+    batch_create_files_with_random_regions, make_intervals, select_best_intervals, add_metric, \
+    add_annotation_intervals_to_eaf, CONTEXT_BEFORE, CODE_REGION, CONTEXT_AFTER
 from blabpy.vihi.paths import compose_full_recording_id
 from blabpy.vtc import read_rttm
 
@@ -175,3 +177,37 @@ def test_select_best_intervals(monkeypatch):
                                                     existing_code_intervals=PRE_EXISTING_CODE_INTERVALS)
     expected_best_intervals_2 = _read_best_intervals(2)
     assert_frame_equal(actual_best_intervals_2, expected_best_intervals_2)
+
+
+def _get_test_eaf_path(*args, **kwargs):
+    return Path(f'{DATA_PATH}/test_eaf.eaf')
+
+
+def _get_expected_eaf_path():
+    return Path(f'{DATA_PATH}/expected.eaf')
+
+
+def test_add_annotation_intervals_to_eaf(tmpdir):
+    # Load inputs
+    eaf = EafPlus(_get_test_eaf_path())
+    best_intervals = _read_best_intervals(2)
+
+    # This is copied verbatim from test_add_intervals_for_annotation. Not great but hopefully will go anyway when we
+    # switch from context_intervals_list to the full dataframe
+    context_intervals_list = [
+        (code_onset_wav - CONTEXT_BEFORE,
+         code_onset_wav + CODE_REGION + CONTEXT_AFTER)
+        for code_onset_wav
+        in best_intervals.code_onset_wav]
+
+    # Add once
+    eaf = add_annotation_intervals_to_eaf(eaf, context_intervals_list)
+
+    actual_eaf_path = Path(tmpdir / 'actual.eaf')
+    eaf.to_file(actual_eaf_path)
+    expected_eaf_path = _get_expected_eaf_path()
+    assert actual_eaf_path.read_text() == expected_eaf_path.read_text()
+
+    # Add a second time
+    with pytest.raises(AssertionError):
+        add_annotation_intervals_to_eaf(eaf, context_intervals_list)
