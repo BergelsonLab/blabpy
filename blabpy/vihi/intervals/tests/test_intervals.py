@@ -157,8 +157,8 @@ def test_add_metric():
 
 def _read_best_intervals(version: int):
     return pd.read_csv(f'{DATA_PATH}/best_intervals_{version:02}.csv',
-                       parse_dates=['code_onset', 'code_offset', 'context_onset', 'context_offset'],
-                       dtype=dict(code_onset_wav=int))
+                       dtype=dict(code_onset_wav=int, code_offset_wav=int,
+                                  context_onset_wav=int, context_offset_wav=int))
 
 
 def test_select_best_intervals(monkeypatch):

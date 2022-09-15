@@ -423,6 +423,31 @@ def add_metric(intervals, vtc_data):
             )
 
 
+def convert_column_to_wav_time(datetimes: pd.Series, code_onset: pd.Series, code_onset_wav: pd.Series):
+    """
+    Converts datetimes to time in milliseconds from the wav file start.
+    :param datetimes: datetimes to convert
+    :param code_onset: datetimes for which we now their wav-based version
+    :param code_onset_wav: that's code_onset's wav-based version
+    :return: pd.Series of integer values
+    """
+    ms_since_code_onset = ((datetimes - code_onset).dt.total_seconds() * 1000).astype(int)
+    return code_onset_wav + ms_since_code_onset
+
+
+def convert_df_to_wav_time(df):
+    """
+    Converts 'code_onset', 'code_offset', 'context_onset', 'context_offset' to their *_wav versions and removes them.
+    :param df:
+    :return:
+    """
+    datetime_columns = ['code_onset', 'code_offset', 'context_onset', 'context_offset']
+    for column in datetime_columns:
+        df[f'{column}_wav'] = convert_column_to_wav_time(df[column], df.code_onset, df.code_onset_wav)
+
+    return df.drop(columns=datetime_columns)
+
+
 # TODO: update after switching from context to dataframes with all interval data (code, context, code_num, etc.)
 def select_best_intervals(intervals, existing_code_intervals=None):
     """
@@ -434,13 +459,13 @@ def select_best_intervals(intervals, existing_code_intervals=None):
       ranks - list of ranks of selected intervals. If there is no overlap with existing_code_intervals, this should be a
       list of numbers from 1 to INTERVALS_FOR_ANNOTATION_COUNT in order corresponding to context_intervals.
     """
+    intervals = convert_df_to_wav_time(intervals)
     metric_to_maximize = 'vtc_total_speech_duration'
 
     # Mark intervals that do not overlap with existing_code_intervals
     if existing_code_intervals is not None:
         is_not_overlapping = (
             intervals
-            .assign(code_offset_wav=lambda df: df.code_onset_wav + CODE_REGION)
             .apply(lambda row:
                    all(row.code_offset_wav <= existing_onset
                        or row.code_onset_wav >= existing_offset
