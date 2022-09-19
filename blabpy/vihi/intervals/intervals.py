@@ -92,7 +92,8 @@ def add_annotation_intervals_to_eaf(eaf, intervals):
     assert not two_lists_of_intervals_overlap(existing_code_intervals_list, new_code_intervals_list)
 
     # Figure out which code_num we should start with (it is last_code_num + 1)
-    existing_code_nums = [int(code_num) for code_num in eaf.get_values('code_num')]
+    # (in a few cases, code_num was '10.', hence the int(float())
+    existing_code_nums = [int(float(code_num)) for code_num in eaf.get_values('code_num')]
     last_code_num = 0 if len(existing_code_nums) == 0 else max(existing_code_nums)
     n_intervals_to_add = intervals.shape[0]
     new_code_nums = list(range(last_code_num + 1, last_code_num + n_intervals_to_add + 1))
