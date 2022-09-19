@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 from strenum import StrEnum
 
-from ..paths import get_lena_path, _recording_prefix, _parse_recording_prefix, get_lena_recording_path, get_vihi_path
+from ..paths import get_lena_path, compose_full_recording_id, parse_full_recording_id, get_lena_recording_path, get_vihi_path
 
 # Strings to match literally, and re.Pattern objects to match in the sense of re.match. Add $ to match the full name.
 IGNORED = [re.compile(r'~.*\.docx$'), '.DS_Store', '.git']
@@ -48,17 +48,17 @@ def audit_recording_folder(folder_path: Path, population: str, subject_id: str, 
     :return: a dataframe with the status of each file in folder in `path`
     """
     assert folder_path.is_dir()
-    recording_id = _recording_prefix(population, subject_id, recording_id)
-    assert folder_path.name == recording_id
+    full_recording_id = compose_full_recording_id(population, subject_id, recording_id)
+    assert folder_path.name == full_recording_id
 
     expected_objects = [
-        f'{recording_id}.eaf',
-        f'{recording_id}.its',
-        f'{recording_id}.wav',
-        f'{recording_id}.pfsx',
-        f'{recording_id}.upl',
-        f'{recording_id}_lena5min.csv',
-        f'VIHI_Coding_Issues_{recording_id}.docx'
+        f'{full_recording_id}.eaf',
+        f'{full_recording_id}.its',
+        f'{full_recording_id}.wav',
+        f'{full_recording_id}.pfsx',
+        f'{full_recording_id}.upl',
+        f'{full_recording_id}_lena5min.csv',
+        f'VIHI_Coding_Issues_{full_recording_id}.docx'
     ]
 
     objects_statuses = list()
@@ -94,7 +94,7 @@ def audit_all_recordings():
     """
     recordings_list = pd.read_csv(get_vihi_path().joinpath('vihi_data_check', 'recordings.csv'))
     recordings_list[['population', 'subject_id', 'recording_id']] = pd.DataFrame(
-        recordings_list.recording.apply(_parse_recording_prefix).to_list())
+        recordings_list.recording.apply(parse_full_recording_id).to_list())
 
     # Check the folder presence at population, subject, and recording levels
     lena_dir = get_lena_path()

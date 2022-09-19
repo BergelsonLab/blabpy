@@ -5,7 +5,7 @@
 from pathlib import Path
 
 from blabpy.paths import PN_OPUS, get_pn_opus_path
-from blabpy.vihi.paths import get_lena_recording_path, _parse_recording_prefix
+from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
 from blabpy.vihi.intervals.cli import cli_batch_create_files_with_random_regions
 from blabpy.utils import modified_environ
 
@@ -21,7 +21,7 @@ zhenya_pn_opus_mock = Path('/Volumes/pn-opus/VIHI/WorkingFiles/zhenya')
 
 pn_opus_path = get_pn_opus_path()
 for row in info_spreadsheet.itertuples():
-    path = get_lena_recording_path(**_parse_recording_prefix(row.id))
+    path = get_lena_recording_path(**parse_full_recording_id(row.id))
     zhenya_pn_opus_mock.joinpath(path.relative_to(pn_opus_path)).mkdir(exist_ok=True, parents=True)
 
 # Works fine
