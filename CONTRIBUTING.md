@@ -1,5 +1,12 @@
 # After version bump
 
+## Update repo after implementing a change
+
+- Edit version in `setup.py`.
+- Commit.
+- Merge branch into master (or do nothing if the change is a single commit done directly on master).
+- Push.
+
 ## Update PyPI
 
 ```shell
