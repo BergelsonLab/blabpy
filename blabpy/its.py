@@ -7,6 +7,10 @@ from xml.etree.ElementTree import ElementTree, XMLParser
 import pandas as pd
 
 
+class ItsNoTimeZoneInfo(Exception):
+    pass
+
+
 class Its(object):
     """
     Container for the parsed xml from a single .its file.
@@ -39,7 +43,11 @@ class Its(object):
 
     def get_timezone_info(self):
         timezone_xml_path = './ProcessingUnit/UPL_Header/TransferredUPL/RecordingInformation/Audio/TimeZone'
-        timezone_info = dict(self.xml.find(timezone_xml_path).items())
+        timezone_element = self.xml.find(timezone_xml_path)
+        if timezone_element is None:
+            raise ItsNoTimeZoneInfo('I wasn\'t able to locate timezone info in this .its file')
+
+        timezone_info = dict(timezone_element.items())
         return timezone_info
 
     def convert_utc_to_local(self, clock_time: pd.Series):

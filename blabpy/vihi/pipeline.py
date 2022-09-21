@@ -9,7 +9,7 @@ import pandas as pd
 
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
     select_best_intervals, _extract_interval_info, INTERVALS_FOR_ANNOTATION_COUNT, INTERVALS_EXTRA_COUNT
-from ..its import Its
+from ..its import Its, ItsNoTimeZoneInfo
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path
 from ..utils import df_to_list_of_tuples
 from ..vtc import read_rttm
@@ -22,7 +22,10 @@ def gather_recordings(full_recording_id):
     """
     its_path = get_its_path(**parse_full_recording_id(full_recording_id))
     its = Its.from_path(its_path)
-    return its.gather_recordings()
+    try:
+        return its.gather_recordings()
+    except ItsNoTimeZoneInfo as e:
+        raise ItsNoTimeZoneInfo(f'No timezone info in \n{its_path}') from e
 
 
 # TODO: these function don't need to exist. Just add full_recording_id as an alternative argument to all the get_*
