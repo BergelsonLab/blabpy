@@ -113,7 +113,6 @@ def add_intervals_for_annotation(full_recording_id):
     # Save log
     old_log = pd.read_csv(output_file_paths['csv'])
     best_intervals.insert(0, 'full_recording_id', full_recording_id)
-    best_intervals['sampling_type'] = 'high-volubility'
     # TODO: add selected_regions to the test
     selected_regions = pd.concat([old_log, best_intervals], ignore_index=True)
     selected_regions.to_csv(output_file_paths['csv'], index=False)
