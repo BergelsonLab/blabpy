@@ -15,40 +15,61 @@ class Its(object):
     """
     Container for the parsed xml from a single .its file.
     """
-    def __init__(self, xml_parsed: ElementTree):
+    def __init__(self, xml_parsed: ElementTree, forced_timezone=None):
+        """
+        :param xml_parsed: Parsed xml from an its file.
+        :param forced_timezone: if forced_timezone is not None, the timezone in the file will be ignored and this
+        one will be used instead. Useful for files with incorrect timezone information or without any information at
+        all. The format is:
+        dict(seconds_offset=<offset from UTC in seconds>, uses_dst=<True if DST was used, False otherwise>)
+        """
         self.xml: ElementTree = xml_parsed
+        if forced_timezone is not None:
+            self._check_timezone(forced_timezone)
+        self.forced_timezone = forced_timezone
+
+    @staticmethod
+    def _check_timezone(timezone_dict):
+        assert type(timezone_dict) is dict
+        assert 'seconds_offset' in timezone_dict and type(timezone_dict['seconds_offset']) is int
+        assert 'uses_dst' in timezone_dict and type(timezone_dict['uses_dst']) is bool
 
     @classmethod
-    def from_string(cls, its_contents: str):
+    def from_string(cls, its_contents: str, forced_timezone=None):
         """
         Parses a string with .its file contents.
         :param its_contents: single string containing contents of an its file.
+        :param forced_timezone: see __init__'s docstring
         :return: Its object with its_contents parsed
         """
         parser = XMLParser()
         parser.feed(its_contents)
         xml_parsed = parser.close()
 
-        return Its(xml_parsed=xml_parsed)
+        return Its(xml_parsed=xml_parsed, forced_timezone=forced_timezone)
 
     @classmethod
-    def from_path(cls, its_path):
+    def from_path(cls, its_path, forced_timezone=None):
         """
         Reads and parses an its file.
         :param its_path: path to an its file as a string or as a pathlib.Path object
+        :param forced_timezone: see __init__'s docstring
         :return: Its object
         """
         its_path = Path(its_path)
-        return cls.from_string(its_contents=its_path.read_text())
+        return cls.from_string(its_contents=its_path.read_text(), forced_timezone=forced_timezone)
 
     def get_timezone_info(self):
+        if self.forced_timezone is not None:
+            return self.forced_timezone
+
         timezone_xml_path = './ProcessingUnit/UPL_Header/TransferredUPL/RecordingInformation/Audio/TimeZone'
         timezone_element = self.xml.find(timezone_xml_path)
         if timezone_element is None:
             raise ItsNoTimeZoneInfo('I wasn\'t able to locate timezone info in this .its file')
 
         timezone_info = dict(timezone_element.items())
-        return timezone_info
+        return dict(seconds_offset=timezone_info['StandardSecondsOffset'], uses_dst=timezone_info['UsesDST'])
 
     def convert_utc_to_local(self, clock_time: pd.Series):
         """
@@ -63,10 +84,10 @@ class Its(object):
         # Apply the timezone difference
         # Note: I didn't figure out how to use 'GMT-05:00' that is in timezone_info['ZoneNameShort']
         timezone_info = self.get_timezone_info()
-        datetimes += pd.Timedelta(seconds=int(timezone_info['StandardSecondsOffset']))
+        datetimes += pd.Timedelta(seconds=int(timezone_info['seconds_offset']))
 
         # Add an hour if there is daylight savings time used
-        if timezone_info['UsesDST'] == '1':
+        if timezone_info['uses_dst']:
             datetimes += pd.Timedelta(hours=1)
 
         return datetimes

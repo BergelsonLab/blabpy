@@ -16,12 +16,12 @@ from ..vtc import read_rttm
 from ..eaf import EafPlus
 
 
-def gather_recordings(full_recording_id):
+def gather_recordings(full_recording_id, forced_timezone=False):
     """
     Gets sub-recordings for a given single recording. See Its.gather_recordings for details.
     """
     its_path = get_its_path(**parse_full_recording_id(full_recording_id))
-    its = Its.from_path(its_path)
+    its = Its.from_path(its_path, forced_timezone=forced_timezone)
     try:
         return its.gather_recordings()
     except ItsNoTimeZoneInfo as e:
@@ -70,16 +70,17 @@ def _load_eaf(full_recording_id: Path):
 
 
 # TODO: this function should handle both random and high-volubility sampling
-def add_intervals_for_annotation(full_recording_id):
+def add_intervals_for_annotation(full_recording_id, forced_timezone=None):
     """
     For a given recording, finds the intervals that maximize vtc_total_speech_duration - total duration of all speech
     segments as classified by VTC.
     Then adds them to the corresponding eaf file.
+    :param forced_timezone: in case where timezone info was removed from its or its has incorrect info. See Its.__init__
     :param full_recording_id: full recording id, string
     :return: None
     """
     # Prepare intervals to select from
-    intervals = make_intervals(sub_recordings=gather_recordings(full_recording_id))
+    intervals = make_intervals(sub_recordings=gather_recordings(full_recording_id, forced_timezone=forced_timezone))
     vtc_data = get_vtc_data(full_recording_id)
     intervals = add_metric(intervals=intervals, vtc_data=vtc_data)
 
