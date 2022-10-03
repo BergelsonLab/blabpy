@@ -44,10 +44,13 @@ def _normalize_child_month(child, month):
     return child_str, month_str
 
 
+def get_subject_files_folder():
+    return get_seedlings_path() / 'Subject_Files'
+
+
 def _get_home_visit_folder(child, month):
-    seedlings_path = get_seedlings_path()
     child, month = _normalize_child_month(child=child, month=month)
-    child_month_dir = seedlings_path / 'Subject_Files' / child / f'{child}_{month}'
+    child_month_dir = get_subject_files_folder() / child / f'{child}_{month}'
     return child_month_dir / 'Home_Visit'
 
 
@@ -128,6 +131,26 @@ def get_basic_level_path(child, month, modality):
         raise FileNotFoundError(path.absolute())
 
     return path
+
+
+def get_lena_5min_csv_path(child, month):
+    """
+    Returns path to lena5min.csv - a LENA-create file with automatic metrics for each consecutive five-minute interval.
+    :return: Path object
+    """
+    child, month = _normalize_child_month(child=child, month=month)
+    filename = f'{child}_{month}_lena5min.csv'
+
+    if int(month) in (6, 7):
+        return get_subject_files_folder() / 'lena5min' / filename
+    elif int(month) in (8, 9, 10, 11, 12, 13, 14, 15, 16, 17):
+        return _get_home_visit_folder(child, month) / 'Processing' / 'Audio_Files' / filename
+
+
+@lru_cache(maxsize=None)  # do this just once
+def get_all_lena_5min_csv_paths():
+    return _get_all_paths(get_single_file_function=get_lena_5min_csv_path,
+                          missing_child_month_combinations=MISSING_AUDIO_RECORDINGS)
 
 
 def _parse_out_child_and_month(file_path_or_name):
