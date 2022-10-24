@@ -291,7 +291,7 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
           'SubjectFiles.')
 
 
-def scatter_updated_basic_level_files(working_folder=None):
+def scatter_updated_basic_level_files(working_folder=None, skip_backups_if_exist=False):
     """
     Checks for missing basic level data in updated sparse_code csv files.
     If there are none, copies the files to their place on PN-OPUS, making a backup there first.
@@ -321,7 +321,8 @@ def scatter_updated_basic_level_files(working_folder=None):
 
     for modality in (AUDIO, VIDEO):
         copy_all_basic_level_files_to_subject_files(
-            updated_basic_level_folder=merged_folders[modality], modality=modality, backup=True)
+            updated_basic_level_folder=merged_folders[modality], modality=modality, backup=False,
+            skip_backups_if_exist=skip_backups_if_exist)
 
 
 def make_updated_all_basic_level_here():

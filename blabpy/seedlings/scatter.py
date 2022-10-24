@@ -8,7 +8,7 @@ from .paths import _parse_out_child_and_month, get_basic_level_path, _check_moda
 from .merge import read_annotations_csv
 
 
-def backup_to_old_files(file_path: Path):
+def backup_to_old_files(file_path: Path, skip_backup_if_exists=False):
     """
     Move file at file_path to the folder "Old_Files" at the same level adding date in the format "_YYYY-MM-DD". The
     "Old_Files" will be created if necessary.
@@ -26,11 +26,14 @@ def backup_to_old_files(file_path: Path):
     backup_path.parent.mkdir(exist_ok=True)
 
     if backup_path.exists():
-        raise FileExistsError('Can\'t back up\n'
-                              f'\t{file_path.absolute()}\n'
-                              '\tto\n'
-                              f'\t{backup_path.absolute()}\n'
-                              '\tbecause the second path already exists.')
+        if skip_backup_if_exists:
+            return
+        else:
+            raise FileExistsError('Can\'t back up\n'
+                                  f'\t{file_path.absolute()}\n'
+                                  '\tto\n'
+                                  f'\t{backup_path.absolute()}\n'
+                                  '\tbecause the second path already exists.')
 
     copy2(file_path, backup_path)
 
@@ -57,7 +60,8 @@ def sort_basic_level_df(df, modality):
         return df.loc[sorting_index]
 
 
-def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True):
+def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True,
+                                      skip_backup_if_exists=False):
     """
     Copies the basic level file at file_path to the corresponding folder in the Seedlings folder. The correspondence is
     established based on the child and month number in the filename and the modality argument. The older version is
@@ -83,13 +87,14 @@ def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True):
     # Backup the current version
     basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
     if backup:
-        backup_to_old_files(basic_level_path)
+        backup_to_old_files(basic_level_path, skip_backup_if_exists=skip_backup_if_exists)
 
     # Copy the new version
     copy2(file_path, basic_level_path)
 
 
-def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path, modality, backup=True):
+def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path, modality, backup=True,
+                                                skip_backups_if_exist=False):
     """
     Runs copy_basic_level_to_subject_files on all csv files in a folder.
     :param updated_basic_level_folder: folder with the basic level files
@@ -99,4 +104,5 @@ def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path
     :return: None
     """
     for basic_level_path in updated_basic_level_folder.glob('*.csv'):
-        copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality, backup=backup)
+        copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality, backup=backup,
+                                          skip_backup_if_exists=skip_backups_if_exist)
