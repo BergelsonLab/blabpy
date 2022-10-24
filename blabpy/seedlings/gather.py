@@ -17,7 +17,7 @@ COLUMN_NAME_MAPPER = {
 }
 
 COLUMNS_BY_MODALITY = {
-    AUDIO: ["tier", "object", "utterance_type", "object_present",
+    AUDIO: ["ordinal", "tier", "object", "utterance_type", "object_present",
             "speaker", "timestamp", "basic_level", "annotid", 'pho'],
     VIDEO: ["ordinal", "onset", "offset",
             "object", "utterance_type", "object_present",
