@@ -589,9 +589,9 @@ class Parser:
         with open(self.output_file, "w") as output:
             writer = csv.writer(output)
             writer.writerow(
-                ["order", "tier", "word", "utterance_type", "object_present", "speaker", "annotid", "timestamp",
+                ["ordinal", "tier", "word", "utterance_type", "object_present", "speaker", "annotid", "timestamp",
                  "basic_level", "comment", "pho"])
-            for order, entry in enumerate(self.words, start=1):
+            for ordinal, entry in enumerate(self.words, start=1):
                 transcription = self._get_transcription(word=entry)
 
                 # check to make sure there are comments left on the queue
@@ -604,7 +604,7 @@ class Parser:
 
                 if com == curr_comment[1]:
                     writer.writerow([
-                                    order,
+                                    ordinal,
                                     entry[0],
                                     entry[1],
                                     entry[2],
@@ -618,7 +618,7 @@ class Parser:
 
                 else:
                     writer.writerow([
-                                    order,
+                                    ordinal,
                                     entry[0],
                                     entry[1],
                                     entry[2],

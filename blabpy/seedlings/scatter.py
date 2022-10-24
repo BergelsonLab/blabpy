@@ -38,28 +38,6 @@ def backup_to_old_files(file_path: Path, skip_backup_if_exists=False):
     copy2(file_path, backup_path)
 
 
-def sort_basic_level_df(df, modality):
-    """
-    Sorts a dataframe read from an individual basic level file (sparse_code csv)
-    :param df: a pandas dataframe
-    :param modality: Audio/Video
-    :return: df sorted
-    """
-    _check_modality(modality)
-    # TODO: sort all files by "ordinal" column once it is added to the cha export. Probably kill this function while at
-    # it.
-    if modality == VIDEO:
-        return df.sort_values(by='labeled_object.ordinal')
-    elif modality == AUDIO:
-        # Sort by onset, offset, annotid. Onsets and offsets have to be extracted first.
-        sorting_index = (pd.concat([df.timestamp.str.extract(r'(?P<onset>\d+)_(?P<offset>\d+)').astype(int),
-                                    df.annotid],
-                                   axis='columns')
-                         .sort_values(by=['onset', 'offset', 'annotid'])
-                         .index)
-        return df.loc[sorting_index]
-
-
 def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True,
                                       skip_backup_if_exists=False):
     """
@@ -81,8 +59,8 @@ def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True,
     # And modality in its name (something like '01_06_audio_sparse_code.csv')
     assert modality.lower() in file_path.name.lower()
 
-    # Sort the rows in the source file and overwrite it
-    sort_basic_level_df(df=read_annotations_csv(file_path), modality=modality).to_csv(file_path, index=False)
+    # Sort the rows in the source file and overwrite it. Annotators will sometimes re-sort files in Excel.
+    read_annotations_csv(file_path).sort_values(by='ordinal').to_csv(file_path, index=False)
 
     # Backup the current version
     basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
