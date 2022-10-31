@@ -209,13 +209,15 @@ class OPFDataFrame(object):
 
 def export_opf_to_csv(opf_path, csv_path):
     """
-    Emulate datavyu export
+    Emulates datavyu export, additionally checks that ids are unique in the file.
     :param opf_path: Path to the opf
     :param csv_path: Path to the output csv
     :return:
     """
     # Load the data
     df = OPFDataFrame(OPFFile(opf_path)).df
+
+    assert not df['id'].duplicated().any(), 'There are duplicate ids in the data, export aborted'
 
     # Make sure the index is 1, 2, 3 and make it a column
     df = df.reset_index(drop=True).reset_index()
