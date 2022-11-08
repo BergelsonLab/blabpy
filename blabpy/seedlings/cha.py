@@ -6,6 +6,8 @@ import os
 import collections
 from pathlib import Path
 
+from blabpy.seedlings.annotid import ANNOTID_REGEX
+
 
 class Parser:
 
@@ -35,7 +37,7 @@ class Parser:
         re7 = '(_+)'	                # _
         re8 = '((?:[a-z][a-z0-9]*))'    # speaker
         re81 = '(_+)?'
-        re82 = '(0x[a-z0-9]{6})?'       # annotid
+        re82 = rf'({ANNOTID_REGEX})?'       # annotid
 
         # incorrect regexes (for typos and formatting issues)
         self.entry_regx = re.compile(re1+re2+re3+re4+re5+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
