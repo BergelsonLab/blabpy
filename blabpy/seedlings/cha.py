@@ -26,34 +26,37 @@ class Parser:
             self.error_file = os.path.join(output, error_path)
 
         # correct regex for annotations
-        re1 = '((?:[a-z][a-z0-9_+]*))'  # the word
-        re2 = '(\\s+)'	                # whitespace
-        re3 = '(&=)'	                # &=
-        re4 = '(.)'	                    # utterance_type
-        re5 = '(_+)'	                # _
-        re6 = '(.)'	                    # object_present
-        re7 = '(_+)'	                # _
-        re8 = '((?:[a-z][a-z0-9]*))'    # speaker
-        re81 = '(_+)?'
-        re82 = '(0x[a-z0-9]{6})?'       # annotid
+        word = '((?:[a-z][a-z0-9_+]*))'
+        whitespaces = '(\\s+)'
+        and_equals = '(&=)'
+        anything = '(.)'
+        any_number_of_underscores = '(_+)'
+        speaker = '((?:[a-z][a-z0-9]*))'
+        annotid = '(0x[a-z0-9]{6})?'
+
 
         # incorrect regexes (for typos and formatting issues)
-        self.entry_regx = re.compile(re1+re2+re3+re4+re5+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
-        self.old_entry_regx = re.compile(re1+re2+'(&)'+re4+'(\\|)'+re6+'(\\|)'+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.entry_regx = re.compile(
+            word + whitespaces + and_equals + anything + any_number_of_underscores + anything +
+            any_number_of_underscores + speaker + any_number_of_underscores + annotid,
+            re.IGNORECASE | re.DOTALL)
+        self.old_entry_regx = re.compile(
+            word + whitespaces + '(&)' + anything + '(\\|)' + anything + '(\\|)' + speaker + any_number_of_underscores + annotid,
+            re.IGNORECASE | re.DOTALL)
         self.interval_regx = re.compile("(\025\d+_\d+)")
 
         self.joined_num_regx = re.compile("(_[yn]_[a-z0-9]{3}\d+)", re.IGNORECASE | re.DOTALL)
         self.joined_entry_wrdcount = re.compile("(_[yn]_[a-z0-9]{3}&=w)", re.IGNORECASE | re.DOTALL)
         # for new format:
         # self.joined_entry_wrdcount = re.compile("([a-f0-9]{6}&=w)", re.IGNORECASE | re.DOTALL)
-        self.just_ampersand_regx = re.compile(re1+re2+'(&)'+'([qdiursn])'+re5+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.just_ampersand_regx = re.compile(word+whitespaces+'(&)'+'([qdiursn])'+any_number_of_underscores+anything+any_number_of_underscores+speaker+any_number_of_underscores+annotid, re.IGNORECASE | re.DOTALL)
 
         # someword &=d-y-MOT
-        self.dash_not_underscore_all = re.compile(re1+re2+re3+re4+'(-+)'+re6+'(-+)'+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.dash_not_underscore_all = re.compile(word+whitespaces+and_equals+anything+'(-+)'+anything+'(-+)'+speaker+any_number_of_underscores+annotid, re.IGNORECASE | re.DOTALL)
         # someword &=d-y_MOT
-        self.dash_not_underscore_first = re.compile(re1+re2+re3+re4+'(-+)'+re6+re7+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.dash_not_underscore_first = re.compile(word+whitespaces+and_equals+anything+'(-+)'+anything+any_number_of_underscores+speaker+any_number_of_underscores+annotid, re.IGNORECASE | re.DOTALL)
         # someword &=d_y-MOT
-        self.dash_not_underscore_second = re.compile(re1+re2+re3+re4+re5+re6+'(-+)'+re8+re81+re82, re.IGNORECASE | re.DOTALL)
+        self.dash_not_underscore_second = re.compile(word+whitespaces+and_equals+anything+any_number_of_underscores+anything+'(-+)'+speaker+any_number_of_underscores+annotid, re.IGNORECASE | re.DOTALL)
 
         re9 = '((?:[a-z][a-z]+))'  # Word 1
         re10 = '(\\s+)'            # White Space 1
@@ -68,15 +71,15 @@ class Parser:
         # tummy &=w
         self.missing_code_just_word_andcount = re.compile('(\\s+)'+re9+re10+'(&=w)',re.IGNORECASE|re.DOTALL)
 
-        self.one_missing_code_first = re.compile(re1+re2+re3+re5+'([yn])'+re7+re8+re81+re82, re.IGNORECASE|re.DOTALL)
-        self.one_missing_code_second = re.compile(re1+re2+re3+re4+re5+re7+re8+re81+re82, re.IGNORECASE|re.DOTALL)
-        self.one_missing_code_third = re.compile(re1+re2+re3+'([qdiursn])'+re5+'([yn])'+re7+'(\\s+)',
+        self.one_missing_code_first = re.compile(word+whitespaces+and_equals+any_number_of_underscores+'([yn])'+any_number_of_underscores+speaker+any_number_of_underscores+annotid, re.IGNORECASE|re.DOTALL)
+        self.one_missing_code_second = re.compile(word+whitespaces+and_equals+anything+any_number_of_underscores+any_number_of_underscores+speaker+any_number_of_underscores+annotid, re.IGNORECASE|re.DOTALL)
+        self.one_missing_code_third = re.compile(word+whitespaces+and_equals+'([qdiursn])'+any_number_of_underscores+'([yn])'+any_number_of_underscores+'(\\s+)',
                                                  re.IGNORECASE|re.DOTALL)  # TODO
-        self.one_missing_code_third_joined_count = re.compile(re1+re2+re3+'([qdiursn])'+re5+'([yn])'+re7+'(&=w)',
+        self.one_missing_code_third_joined_count = re.compile(word+whitespaces+and_equals+'([qdiursn])'+any_number_of_underscores+'([yn])'+any_number_of_underscores+'(&=w)',
                                                               re.IGNORECASE|re.DOTALL)  #TODO
 
-        self.missing_underscore_first = re.compile(re3+'([qdiursn])'+'([yn])'+re5+re8+re81+re82, re.IGNORECASE|re.DOTALL)
-        self.missing_underscore_second = re.compile(re3+'([qdiursn])'+re5+'([yn])'+re8+re81+re82, re.IGNORECASE|re.DOTALL)
+        self.missing_underscore_first = re.compile(and_equals+'([qdiursn])'+'([yn])'+any_number_of_underscores+speaker+any_number_of_underscores+annotid, re.IGNORECASE|re.DOTALL)
+        self.missing_underscore_second = re.compile(and_equals+'([qdiursn])'+any_number_of_underscores+'([yn])'+speaker+any_number_of_underscores+annotid, re.IGNORECASE|re.DOTALL)
 
         # self.scrub_regx = re.compile()
 
