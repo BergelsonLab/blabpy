@@ -217,7 +217,7 @@ def export_opf_to_csv(opf_path, csv_path):
     # Load the data
     df = OPFDataFrame(OPFFile(opf_path)).df
 
-    assert not df['id'].duplicated().any(), 'There are duplicate ids in the data, export aborted'
+    assert not (df['id'].duplicated() & df['id'].ne('')).any(), 'There are duplicate ids in the data, export aborted'
 
     # Make sure the index is 1, 2, 3 and make it a column
     df = df.reset_index(drop=True).reset_index()
