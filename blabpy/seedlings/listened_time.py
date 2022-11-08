@@ -1,35 +1,19 @@
-""" Functions in this module check how much time in each audio recording has been listened to for annotation purposes.
-They start with the outputs produced by recap_regions_listen_time_compute.py in the `annot_distr` repository
-(https://github.com/SeedlingsBabylab/annot_distr/). More specifically, here we use the region boundaries extracted
-from each cha file and put into output/cha_structures/<child>_<month>_sparse_code.cha.txt that look approximately like
-this:
+"""
+Functions in this module check how much time in each audio recording has been listened to for annotation purposes.
 
-    subregion starts 1200
-    subregion ends 2400
-    ...
-    surplus starts 4500
-    surplus end 5000
-
-    Position: 1, Rank: 1
-    Position: 2, Rank: 5
-    Position: 3, Rank: 2
-    Position: 4, Rank: 4
-    Position: 5, Rank: 3
-
-Recordings for months 6 and 7 do not have the subregion information and are already assessed in the annot_distr repo,
-so we do not work with them here.
-
-For each subregion, we calculate the amount of time listened to within that subregion accounting for skips and silences.
-Starting from the subregion ranked the first on talkativeness, we then assign makeup and extra regions to each subregion
-until the total listened time is not at least an hour.
+The main worker function is listen_time_stats_for_report. It also calls
 """
 from enum import Enum
 import re
 
 import pandas as pd
 
-# Two recordings have four subregions, all the other one have five
+# Our default rule says that a subregion has been listened to if it has at least one annotation. However, several
+# subregions do not have any codeable words but they have been listened to. For these, we add a special comment within
+# them so that we can correctly count them as listened to.
 NO_CODEABLE_WORDS_BUT_LISTENED_COMMENT = 'subregion has been listened to but contains no codeable words'
+
+# Two recordings have four subregions, all the other ones have five
 DEFAULT_SUBREGION_COUNT = 5
 RECORDINGS_WITH_FOUR_SUBREGIONS = ((21, 14), (45, 10))
 
@@ -278,9 +262,9 @@ def _account_for_region_overlaps(regions):
     """
     Removes some subregions, modifies some other regions so that the resulting regions do not overlap and can be counted
     towards total listened time.
-    1. Removes any subregions that overlap with any surplus region.
-    2. Removes any subregions that contain in them nested makeup/surplus regions.
-    3. Removes overlaps starting by removing overlaps with silences, then with skips, etc.
+    1. Removes any subregions that overlap with any makeup/surplus region.
+    2. Whenever two regions overlap, cuts out the overlap from one of them in order of dominance, see
+       dominant_region_types.
     :param regions: a regions dataframe such as the one output by _read_cha_structure
     :return:
     """
