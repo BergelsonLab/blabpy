@@ -13,7 +13,8 @@ from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SU
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
-    ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path
+    ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
+    _normalize_child_month
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -445,3 +446,45 @@ def calculate_listen_time_stats_for_all_cha_files():
         index=pd.Index(data=[cha_path.name for cha_path in cha_paths], name='filename'),
         data=stats,
         columns=expected_keys).reset_index()
+
+
+def export_and_add_basic_level(subject, month, modality):
+    """
+    Extracts the relevant information from the cha file and merges it with the basic level annotations. Creates two
+    files in the current working directory:
+    - <subj>_<month>_sparse_code_processed.csv - the exported file,
+    - <subj>_<month>_audio_sparse_code.csv - the merged file.
+    :param subject: int/str, subject id
+    :param month: int/str, month
+    :param modality: str, modality, one of 'Audio', 'Video'
+    :return: path to the merged file
+    """
+    _check_modality(modality)
+    subject, month = _normalize_child_month(subject, month)
+
+    # export to csv
+    exported_file_path = f'{subject}_{month}_sparse_code_processed.csv'
+    if modality == AUDIO:
+        mode = 'audio'
+        cha_path = get_cha_path(subject, month)
+        export_cha_to_csv(cha_path, '.')
+    elif modality == VIDEO:
+        mode = 'video'
+        opf_path = get_opf_path(subject, month)
+        export_opf_to_csv(opf_path, Path(exported_file_path))
+
+    # merge with the current sparse_code_csv
+    file_new = f'{subject}_{month}_sparse_code_processed.csv'
+    file_old = get_basic_level_path(subject, month, modality)
+    file_merged = f'{file_old.name}'
+    create_merged(file_new=file_new, file_old=file_old, file_merged=file_merged, mode=mode)
+
+    return file_merged
+
+
+def export_and_add_basic_level_audio(subject, month):
+    return export_and_add_basic_level(subject, month, AUDIO)
+
+
+def export_and_add_basic_level_video(subject, month):
+    return export_and_add_basic_level(subject, month, VIDEO)
