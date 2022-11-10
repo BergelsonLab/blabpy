@@ -8,16 +8,16 @@ import pandas as pd
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
-from .listened_time import listen_time_stats_for_report, RECORDINGS_WITH_FOUR_SUBREGIONS, _get_subregion_count, \
-    _preprocess_region_info
+from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
-    _normalize_child_month
+    _normalize_child_month, get_lena_5min_csv_path
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
+from .regions import recreate_subregions_from_lena5min
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -488,3 +488,23 @@ def export_and_add_basic_level_audio(subject, month):
 
 def export_and_add_basic_level_video(subject, month):
     return export_and_add_basic_level(subject, month, VIDEO)
+
+
+def _load_lena5min_csv(lena5min_path):
+    return (
+        pd.read_csv(lena5min_path, index_col=False, usecols=['CTC.Actual', 'CVC.Actual'])
+            .rename(columns={'CTC.Actual': 'ctc', 'CVC.Actual': 'cvc'}))
+
+
+def recreate_subregions(subject, month):
+    """
+    Recreates the subregions for given subject and month. See blabpy.seedlings.regions.recreate_subregions_from_lena5min
+     for details.
+    :param subject: int/str, subject id
+    :param month: int/str, month
+    :return: see blabpy.seedlings.regions.recreate_subregions_from_lena5min
+    """
+    subject, month = _normalize_child_month(subject, month)
+    lena5min_df = _load_lena5min_csv(get_lena_5min_csv_path(subject, month))
+    subregions = recreate_subregions_from_lena5min(lena5min_df)
+    return subregions
