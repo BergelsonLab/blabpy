@@ -60,7 +60,8 @@ def copy_basic_level_to_subject_files(file_path: Path, modality, backup=True,
     assert modality.lower() in file_path.name.lower()
 
     # Sort the rows in the source file and overwrite it. Annotators will sometimes re-sort files in Excel.
-    read_annotations_csv(file_path).sort_values(by='ordinal').to_csv(file_path, index=False)
+    ordinal = 'ordinal' if modality == AUDIO else 'labeled_object.ordinal'
+    read_annotations_csv(file_path).sort_values(by=ordinal).to_csv(file_path, index=False)
 
     # Backup the current version
     basic_level_path = get_basic_level_path(**_parse_out_child_and_month(file_path), modality=modality)
