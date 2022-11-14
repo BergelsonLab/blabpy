@@ -17,7 +17,7 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
-from .regions import recreate_subregions_from_lena5min
+from .regions import get_processed_audio_regions as _get_processed_audio_regions
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -496,15 +496,19 @@ def _load_lena5min_csv(lena5min_path):
             .rename(columns={'CTC.Actual': 'ctc', 'CVC.Actual': 'cvc'}))
 
 
-def recreate_subregions(subject, month):
+def get_processed_audio_regions(subject, month):
     """
-    Recreates the subregions for given subject and month. See blabpy.seedlings.regions.recreate_subregions_from_lena5min
-     for details.
+    Extract regions from the cha file and processes them - removes overlaps in favor of the more important region of the
+    two. See blabpy.seedlings.regions.get_processed_audio_regions for details.
     :param subject: int/str, subject id
     :param month: int/str, month
-    :return: see blabpy.seedlings.regions.recreate_subregions_from_lena5min
+    :return: see blabpy.seedlings.regions.get_processed_audio_regions
     """
     subject, month = _normalize_child_month(subject, month)
-    lena5min_df = _load_lena5min_csv(get_lena_5min_csv_path(subject, month))
-    subregions = recreate_subregions_from_lena5min(lena5min_df)
-    return subregions
+    cha_path = get_cha_path(subject, month)
+    if month in ('06', '07'):
+        lena5min_df = _load_lena5min_csv(get_lena_5min_csv_path(subject, month))
+    else:
+        lena5min_df = None
+
+    return _get_processed_audio_regions(cha_path=cha_path, lena5min_df=lena5min_df)

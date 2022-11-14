@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from blabpy.seedlings.listened_time import RegionType, _account_for_region_overlaps
+
 
 def recreate_subregions_from_lena5min(lena5min_df):
     """
@@ -65,3 +67,74 @@ def recreate_subregions_from_lena5min(lena5min_df):
                      .reset_index(drop=True))
 
     return subregions_df
+
+
+def get_processed_audio_regions(cha_path, lena5min_df=None):
+    """
+    Extracts and processes regions from the audio annotations in order to output regions suitable for calculating
+    listened time and assigning tokens to top3/top4/surplus.
+
+    There is a number of region types in cha files: subregion, makeup, extra, silence, etc. These regions have a
+    hierarchy: e.g., time in makeup is considered to be only belonging to this makeu region and not the subregion it
+    is in. This is necessary for calculating time that was listened to by annotators. But we will also use it here,
+    because we want tokens within skips not to be counted as belonging to the subregion they are in, etc. We refer to
+    the regions that have any overlaps removed according to this hierarchy as "processed" regions.
+
+    The code that reads and processes these regions is in blabpy.seedlings.listen_time. It won't work as is for
+    assigning tokens to surplus/top3/top4 regions, because it assumes that months 6 and 7 have no subregions. So we
+    will have to do some of the processing ourselves.
+
+    Special cases:
+    - 20_02: subregion with rank (and coincidentally position) 3 was skip during annotation.
+    Effectively it was treated as a subregion with rank 5 while subregions ranked 4 and 5 were treated as subregions
+    with ranks 3 and 4. So, we will pretend as if these were the actual ranks.
+    - 06_07, 22_07: all subregions minus
+    silent part don't add up to four hours. We will manually add "extra" time to them.
+    """
+    # TODO: Importing is done here to avoid circular imports/name collisions. Restructure regions/listened_time/pipeline
+    #  instead
+    from blabpy.seedlings.pipeline import preprocess_region_info
+    regions_raw, regions_processed, subregion_ranks, listened_but_empty = preprocess_region_info(cha_path)
+
+    # Datatype conversion to avoid integers becoming floats in the presence of NAs
+    regions_raw = regions_raw.convert_dtypes()
+    regions_processed = regions_processed.convert_dtypes()
+
+    # Extract month from cha_path
+    month = cha_path.name.split('_')[1]
+    # We will need lena5min_df for and only for months 06 and 07
+    assert (month in ('06', '07')) == (lena5min_df is not None)
+
+    # Months 06 and 07 have no subregions, so we will have to create and process them here
+    if month in ('06', '07'):
+        subregions = (recreate_subregions_from_lena5min(lena5min_df)
+                      .drop(columns='ctc_cvc_avg')
+                      # rename columns to match the ones in regions_raw
+                      .rename(columns={'onset': 'start', 'offset': 'end'})
+                      .assign(region_type=RegionType.SUBREGION.value)
+                      .convert_dtypes())
+
+        # Skips in months 06 and 07 were listened to and can be ignored
+        regions_raw = regions_raw[~regions_raw.region_type.eq(RegionType.SKIP.value)]
+        regions_processed = _account_for_region_overlaps(pd.concat([regions_raw, subregions], ignore_index=True))
+        # Drop the annotation_count column - we don't have that information in subregions.csv so it is all NAs
+        regions_processed.drop(columns='annotation_count', inplace=True)
+
+    elif month in (f'{m:02}' for m in range(8, 17+1)):
+        # Columns in subregion_ranks are strings due to Zhenya's negligence. Won't change preprocess_region_info now to
+        # avoid breaking things.
+        subregion_ranks = subregion_ranks.astype(int).convert_dtypes()
+        # Add subregion ranks
+        regions_processed = regions_processed.merge(
+            subregion_ranks
+            .astype(int)
+            .assign(region_type=RegionType.SUBREGION.value)
+            .convert_dtypes(),
+            on=['region_type', 'position'], how='left')
+        # Check that regions have ranks iff they are subregions
+        assert (regions_processed.subregion_rank.notnull()
+                == regions_processed.region_type.eq(RegionType.SUBREGION.value)).all()
+
+    regions_processed = regions_processed.sort_values(by=['start', 'end']).reset_index(drop=True)
+
+    return regions_processed
