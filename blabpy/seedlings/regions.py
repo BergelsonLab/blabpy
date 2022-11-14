@@ -1,7 +1,12 @@
+import os
+
 import numpy as np
 import pandas as pd
+import pkg_resources
 
 from blabpy.seedlings.listened_time import RegionType, _account_for_region_overlaps
+
+SPECIAL_CASES = ('20_12', '06_07', '22_07')
 
 
 def recreate_subregions_from_lena5min(lena5min_df):
@@ -138,3 +143,37 @@ def get_processed_audio_regions(cha_path, lena5min_df=None):
     regions_processed = regions_processed.sort_values(by=['start', 'end']).reset_index(drop=True)
 
     return regions_processed
+
+
+def _load_data_for_special_cases(subj_month):
+    """
+    Loads data for special cases: the three audio recordings for which cha/lena5min weren't enough to extract the
+    regions data.
+
+    :param subj_month: '20_12', '06_07', '22_07'
+    Returns: (regions_processed_original, regions_processed_amended) - pandas DataFrames with the original and amended
+    regions data.
+    """
+    assert subj_month in SPECIAL_CASES
+    special_cases_dir = f'data/regions_special-cases/{subj_month}'
+    regions_processed_original_path = os.path.join(special_cases_dir, 'regions_processed_original.csv')
+    regions_processed_amended_path = os.path.join(special_cases_dir, 'regions_processed_amended.csv')
+
+    def load_csv(relative_path):
+        dtypes = {'subj_month': pd.StringDtype(),
+                  'start': pd.Int64Dtype(),
+                  'end': pd.Int64Dtype(),
+                  'subregion_rank': pd.Int64Dtype(),
+                  'position': pd.Int64Dtype(),
+                  'region_type': pd.StringDtype()}
+        stream = pkg_resources.resource_stream(__name__, relative_path)
+
+        df = pd.read_csv(stream, dtype=dtypes, encoding='utf-8')
+
+        assert df.subj_month.eq(subj_month).all()
+        return df.drop(columns='subj_month')
+
+    regions_processed_original = load_csv(regions_processed_original_path)
+    regions_processed_amended = load_csv(regions_processed_amended_path)
+
+    return regions_processed_original, regions_processed_amended
