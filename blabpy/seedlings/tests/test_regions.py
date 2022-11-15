@@ -1,6 +1,6 @@
 import pytest
 
-from blabpy.seedlings.regions import _load_data_for_special_cases, _get_amended_regions
+from blabpy.seedlings.regions.regions import _load_data_for_special_cases, _get_amended_regions
 
 SPECIAL_CASES_SUBJ_MONTHS = ('20_12', '06_07', '22_07')
 
