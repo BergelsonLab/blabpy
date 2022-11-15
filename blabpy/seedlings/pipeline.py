@@ -17,7 +17,8 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
-from .regions import get_processed_audio_regions as _get_processed_audio_regions
+from .regions import get_processed_audio_regions as _get_processed_audio_regions, SPECIAL_CASES as AUDIO_SPECIAL_CASES, \
+    _get_amended_regions
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -496,16 +497,36 @@ def _load_lena5min_csv(lena5min_path):
             .rename(columns={'CTC.Actual': 'ctc', 'CVC.Actual': 'cvc'}))
 
 
-def get_processed_audio_regions(subject, month):
+def get_amended_audio_regions(subject, month):
+    """
+    For the three audio recordings for which processed regions had to be manually amended, returns the amended version.
+    :param subject: str/int, subject
+    :param month: str/int, month
+    :return: a pandas dataframe with the amended processed regions
+    """
+    subject, month = _normalize_child_month(subject, month)
+    subj_month = f'{subject}_{month}'
+    assert subj_month in AUDIO_SPECIAL_CASES, f'Not a special case: {subj_month}'
+
+    processed_regions_auto = get_processed_audio_regions(subject, month, amend_special_cases=False)
+    return _get_amended_regions(subj_month, processed_regions_auto)
+
+
+def get_processed_audio_regions(subject, month, amend_special_cases=False):
     """
     Extract regions from the cha file and processes them - removes overlaps in favor of the more important region of the
     two. See blabpy.seedlings.regions.get_processed_audio_regions for details.
     :param subject: int/str, subject id
     :param month: int/str, month
+    :param amend_special_cases: bool, whether to use manually amended regions for the three special cases, see
     :return: see blabpy.seedlings.regions.get_processed_audio_regions
     """
     subject, month = _normalize_child_month(subject, month)
     cha_path = get_cha_path(subject, month)
+
+    if amend_special_cases is True and f'{subject}_{month}' in AUDIO_SPECIAL_CASES:
+        return get_amended_audio_regions(subject, month)
+
     if month in ('06', '07'):
         lena5min_df = _load_lena5min_csv(get_lena_5min_csv_path(subject, month))
     else:
