@@ -30,6 +30,6 @@ def test_get_processed_audio_regions():
     except Exception as e:
         pytest.fail(f"Failed to get processed audio regions for 08_12: {e}")
 
-    special_case_regions_auto = get_processed_audio_regions(20, 12, amend_special_cases=False)
-    special_case_regions_amended = get_processed_audio_regions(20, 12, amend_special_cases=True)
+    special_case_regions_auto = get_processed_audio_regions(20, 12, amend_if_special_case=False)
+    special_case_regions_amended = get_processed_audio_regions(20, 12, amend_if_special_case=True)
     assert not special_case_regions_auto.equals(special_case_regions_amended)

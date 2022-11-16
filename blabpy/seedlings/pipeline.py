@@ -508,23 +508,27 @@ def get_amended_audio_regions(subject, month):
     subj_month = f'{subject}_{month}'
     assert subj_month in AUDIO_SPECIAL_CASES, f'Not a special case: {subj_month}'
 
-    processed_regions_auto = get_processed_audio_regions(subject, month, amend_special_cases=False)
+    processed_regions_auto = get_processed_audio_regions(subject, month, amend_if_special_case=False)
     return _get_amended_regions(subj_month, processed_regions_auto)
 
 
-def get_processed_audio_regions(subject, month, amend_special_cases=False):
+# TODO: get_amended_audio_regions and this function both call each other. It works, but it's fragile.
+#  Separate get_processed_audio_regions(subject, month, amend_if_special_case=False) into two functions:
+#  - _get_processed_audio_regions(subject, month)  # amend_if_special_case=False
+#  - get_processed_audio_regions(subject, month, amend_if_special_case)  # don't supply default value
+def get_processed_audio_regions(subject, month, amend_if_special_case=False):
     """
     Extract regions from the cha file and processes them - removes overlaps in favor of the more important region of the
     two. See blabpy.seedlings.regions.get_processed_audio_regions for details.
     :param subject: int/str, subject id
     :param month: int/str, month
-    :param amend_special_cases: bool, whether to use manually amended regions for the three special cases, see
+    :param amend_if_special_case: bool, whether to use manually amended regions for the three special cases, see
     :return: see blabpy.seedlings.regions.get_processed_audio_regions
     """
     subject, month = _normalize_child_month(subject, month)
     cha_path = get_cha_path(subject, month)
 
-    if amend_special_cases is True and f'{subject}_{month}' in AUDIO_SPECIAL_CASES:
+    if amend_if_special_case is True and f'{subject}_{month}' in AUDIO_SPECIAL_CASES:
         return get_amended_audio_regions(subject, month)
 
     if month in ('06', '07'):
