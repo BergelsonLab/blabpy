@@ -4,7 +4,7 @@ from itertools import product
 import pytest
 
 from blabpy.seedlings.pipeline import make_updated_all_basic_level_here, get_amended_audio_regions, \
-    get_processed_audio_regions
+    get_processed_audio_regions, get_top3_top4_surplus_regions
 
 
 def test_make_updated_all_basic_level_here(tmpdir):
@@ -33,3 +33,8 @@ def test_get_processed_audio_regions():
     special_case_regions_auto = get_processed_audio_regions(20, 12, amend_if_special_case=False)
     special_case_regions_amended = get_processed_audio_regions(20, 12, amend_if_special_case=True)
     assert not special_case_regions_auto.equals(special_case_regions_amended)
+
+
+@pytest.mark.parametrize('subject, month', [(6, 7), (8, 9), (10, 14)])
+def test_get_top3_top4_surplus_regions(subject, month):
+    get_top3_top4_surplus_regions(subject, month)
