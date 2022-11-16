@@ -17,8 +17,8 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
-from .regions import get_processed_audio_regions as _get_processed_audio_regions, SPECIAL_CASES as AUDIO_SPECIAL_CASES, \
-    _get_amended_regions
+from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
+    SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -537,3 +537,15 @@ def get_processed_audio_regions(subject, month, amend_if_special_case=False):
         lena5min_df = None
 
     return _get_processed_audio_regions(cha_path=cha_path, lena5min_df=lena5min_df)
+
+
+def get_top3_top4_surplus_regions(subject, month):
+    """
+    For the audio recordings, assigns each processed region as either belonging to top3, top4, or surplus.
+    :param subject: int/str, subject id
+    :param month: int/str, month
+    :return: a pandas dataframe with processed regions and their top3/top4/surplus status
+    """
+    subject, month = _normalize_child_month(subject, month)
+    processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
+    return _get_top3_top4_surplus_regions(processed_regions, month)
