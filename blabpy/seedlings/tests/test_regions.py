@@ -34,9 +34,13 @@ def top3_top4_surplus_data_dir():
     return Path(__file__).parent / 'data' / 'top3_top4_surplus'
 
 
+def load_test_data(top3_top4_surplus_data_dir, filename):
+    return pd.read_csv(top3_top4_surplus_data_dir / filename).convert_dtypes()
+
+
 @pytest.fixture(scope='module')
 def processed_regions(top3_top4_surplus_data_dir):
-    return pd.read_csv(top3_top4_surplus_data_dir / 'input_processed_regions.csv')
+    return load_test_data(top3_top4_surplus_data_dir, 'input_processed_regions.csv')
 
 
 @pytest.mark.parametrize('month', ['06', '08', '14'])
@@ -47,8 +51,7 @@ def test_get_top_n_regions(processed_regions, month, n_hours, top3_top4_surplus_
         return
 
     actual = get_top_n_regions(processed_regions=processed_regions, month=month, n_hours=n_hours)
-    expected_path = top3_top4_surplus_data_dir / f'output_month_{month}_top_{n_hours}.csv'
-    expected = pd.read_csv(expected_path)
+    expected = load_test_data(top3_top4_surplus_data_dir, f'output_month_{month}_top_{n_hours}.csv')
 
     assert actual.equals(expected)
 
@@ -56,16 +59,14 @@ def test_get_top_n_regions(processed_regions, month, n_hours, top3_top4_surplus_
 @pytest.mark.parametrize('month', ['06', '08'])
 def test_get_surplus_regions(processed_regions, month, top3_top4_surplus_data_dir):
     actual = get_surplus_regions(processed_regions=processed_regions, month=month)
-    expected_path = top3_top4_surplus_data_dir / f'output_month_{month}_surplus.csv'
-    expected = pd.read_csv(expected_path).convert_dtypes()
+    expected = load_test_data(top3_top4_surplus_data_dir, f'output_month_{month}_surplus.csv')
 
     assert actual.equals(expected)
 
 
 def test_get_top3_top4_surplus_regions(processed_regions, top3_top4_surplus_data_dir):
     actual = get_top3_top4_surplus_regions(processed_regions=processed_regions, month='08')
-    expected_path = top3_top4_surplus_data_dir / f'output_top3_top4_surplus.csv'
-    expected = pd.read_csv(expected_path).convert_dtypes()
+    expected = load_test_data(top3_top4_surplus_data_dir, f'output_top3_top4_surplus.csv')
 
     assert actual.equals(expected)
 
