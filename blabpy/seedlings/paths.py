@@ -169,3 +169,8 @@ def get_all_basic_level_paths(modality):
 
     return _get_all_paths(get_single_file_function=get_basic_level_path,
                           missing_child_month_combinations=missing_child_month_combinations, modality=modality)
+
+
+def get_its_path(child, month):
+    child, month = _normalize_child_month(child=child, month=month)
+    return _get_home_visit_folder(child=child, month=month) / 'Processing' / 'Audio_Files' / f'{child}_{month}.its'

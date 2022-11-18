@@ -13,12 +13,13 @@ from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
-    _normalize_child_month, get_lena_5min_csv_path
+    _normalize_child_month, get_lena_5min_csv_path, get_its_path
 
 # Placeholder value for words without the basic level information
 from .scatter import copy_all_basic_level_files_to_subject_files
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions
+from ..its import Its
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -549,3 +550,24 @@ def get_top3_top4_surplus_regions(subject, month):
     subject, month = _normalize_child_month(subject, month)
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
     return _get_top3_top4_surplus_regions(processed_regions, month)
+
+
+def get_lena_recordings(subject, month):
+    """
+    Get anonymized information about sub-recordings of the LENA recording for the given subject and month.
+
+    If there are pauses in LENA recordings, LENA still outputs one big wav file. This leads to confusion and errors, such
+    as when an interval spans multiple recordings.
+
+    :param subject: int/str, subject id
+    :param month: int/str, month
+    :return: a pandas dataframe with the LENA sub-recordings
+    """
+    its = Its.from_path(get_its_path(subject, month))
+    recordings = its.gather_recordings(anonymize=True)
+
+    # In a table with recordings only, it doesn't make sense to have each column to start with 'recording_', the way
+    # Its.gather_recordings() does.
+    recordings.columns = recordings.columns.str.replace('recording_', '')
+
+    return recordings
