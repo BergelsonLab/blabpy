@@ -254,3 +254,63 @@ def get_top3_top4_surplus_regions(processed_regions, month):
         get_top_n_regions(processed_regions, month, n_hours=3),
         get_top_n_regions(processed_regions, month, n_hours=4),
         get_surplus_regions(processed_regions, month)], ignore_index=True)
+
+
+def are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
+    """
+    Given a dataframe with tokens and a dataframe with top 3, top 4, and surplus regions, return a dataframe with
+    columns annotid, is_top_3_hours, is_top_4_hours, is_surplus. Depending on the month, some of those can be NA instead
+    of False.
+    """
+    # Find all annotids that are in top 3, top 4, or surplus regions. List them as (annotid, kind) pairs.
+    tokens_assigned_long = (
+        tokens
+        .rename(columns={'onset': 'onset_token'})
+        # take all combinations of tokens and regions
+        .merge(
+            (top3_top4_surplus_regions
+             [['kind', 'start', 'end']]
+             .rename(columns={'start': 'onset_region', 'end': 'offset_region'})),
+            how='cross')
+        # keep only those combination where the token is inside the region
+        .loc[lambda df: (df.onset_token >= df.onset_region) & (df.onset_token < df.offset_region)]
+        [['annotid', 'kind']]
+        # Add back tokens that didn't match any region (there shouldn't be any)
+        .pipe(lambda df: tokens[['annotid']].merge(df, how='left'))
+    )
+    assert not tokens_assigned_long.kind.isnull().any()
+
+    # Go wide - from (annotid, kind) pairs to annotid, is_top_3_hours, is_top_4_hours, is_surplus
+    tokens_assigned_pivot = (
+        tokens_assigned_long
+        .replace({TOP_3_KIND: 'is_top_3_hours',
+                  TOP_4_KIND: 'is_top_4_hours',
+                  SURPLUS_KIND: 'is_surplus'})
+        .assign(is_in=True)
+        .pivot(index='annotid', columns=['kind']))
+
+    # For months 13-17, top 4 hours are not available, so we'll add a NA-only column to have the same columns for all
+    # months.
+    if 14 <= int(month) <= 17:
+        tokens_assigned_pivot[('is_in', 'is_top_4_hours')] = pd.Series(None, dtype=pd.BooleanDtype())
+
+    # Clean it up: remove unnecessary index/column names levels, make annotid the column, etc.
+    tokens_assigned_wide = (
+        tokens_assigned_pivot
+        .droplevel(0, axis='columns')  # all is_* columns are under the top level name "is_in" - remove it
+        .rename_axis(None, axis='columns')  # is_* columns are labeled "kind" - remove it
+        .reset_index('annotid')  # annotid is an index - make it a column
+        [['annotid', 'is_top_3_hours', 'is_top_4_hours', 'is_surplus']]  # enforce the order of columns
+        .sort_values(by='annotid')  # sort for consistency
+        .convert_dtypes())  # convert to datatypes that support NAs
+
+    # Substitute NAs with False, unless the month is 14-17 and the column is is_top_4_hours, then it all should be NA
+    # because only three hours were annotated in months 14-17
+    tokens_assigned_wide.is_top_3_hours = tokens_assigned_wide.is_top_3_hours.fillna(False)
+    if 14 <= int(month) <= 17:
+        assert tokens_assigned_wide.is_top_4_hours.isnull().all()
+    else:
+        tokens_assigned_wide.is_top_4_hours = tokens_assigned_wide.is_top_4_hours.fillna(False)
+    tokens_assigned_wide.is_surplus = tokens_assigned_wide.is_surplus.fillna(False)
+
+    return tokens_assigned_wide

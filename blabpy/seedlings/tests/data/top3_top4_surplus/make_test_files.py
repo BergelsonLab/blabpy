@@ -1,6 +1,9 @@
+import pandas as pd
+
 from pathlib import Path
 
-from blabpy.seedlings.regions.top3_top4_surplus import get_top3_top4_surplus_regions, get_top_n_regions, get_surplus_regions
+from blabpy.seedlings.regions.top3_top4_surplus import get_top3_top4_surplus_regions, get_top_n_regions, \
+    get_surplus_regions, are_tokens_in_top3_top4_surplus, TOP_3_KIND, SURPLUS_KIND
 from blabpy.seedlings.pipeline import get_processed_audio_regions
 
 processed_regions = get_processed_audio_regions(2, 8)
@@ -30,3 +33,30 @@ for month in ('06', '08'):
 # all together
 top3_top4_surplus_regions = get_top3_top4_surplus_regions(processed_regions, month='08')
 top3_top4_surplus_regions.to_csv(test_dir / 'output_top3_top4_surplus.csv', index=False)
+
+
+# # Tokens
+global_basic_level_path = Path.home().joinpath('blab/one_time_scripts-separate-folders/ek_seedlings_nouns',
+                                               '20221003_seedlings_nouns/data/global-basic-level.csv')
+global_basic_level_audio = (
+    pd.read_csv(global_basic_level_path,
+                dtype=dict(ordinal=pd.Int64Dtype(), tier=str, pho=str, subj=str, month=str))
+    .loc[lambda df: df.audio_video == 'audio'])
+
+tokens = (global_basic_level_audio
+          .loc[lambda df: df.SubjectNumber == '02_08']
+          [['annotid', 'onset']]
+          .sample(frac=0.05, random_state=7))
+tokens.to_csv(test_dir / 'input_tokens.csv', index=False)
+
+
+assigned_tokens_month_13 = are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, '13')
+assigned_tokens_month_13.to_csv(test_dir / 'output_assigned_tokens_month_13.csv', index=False)
+
+# Months 14-17 are not supposed to have top-4 regions/tokens
+top3_surplus_regions = top3_top4_surplus_regions.loc[lambda df: df.kind.isin([TOP_3_KIND, SURPLUS_KIND])]
+top3_surplus_annotids = assigned_tokens_month_13.loc[lambda df: ~df.is_top_4_hours | df.is_top_3_hours].annotid
+top3_surplus_tokens = tokens.loc[lambda df: df.annotid.isin(top3_surplus_annotids)]
+
+assigned_tokens_month_14 = are_tokens_in_top3_top4_surplus(top3_surplus_tokens, top3_surplus_regions, '14')
+assigned_tokens_month_14.to_csv(test_dir / 'output_assigned_tokens_month_14.csv', index=False)
