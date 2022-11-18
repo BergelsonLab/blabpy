@@ -256,11 +256,16 @@ def get_top3_top4_surplus_regions(processed_regions, month):
         get_surplus_regions(processed_regions, month)], ignore_index=True)
 
 
-def are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
+def _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
     """
     Given a dataframe with tokens and a dataframe with top 3, top 4, and surplus regions, return a dataframe with
     columns annotid, is_top_3_hours, is_top_4_hours, is_surplus. Depending on the month, some of those can be NA instead
     of False.
+
+    :param tokens: tokens to assign to top3/top4/surplus, annotid, onset columns are required
+    :param top3_top4_surplus_regions: top3/top4/surplus regions
+    :param month: 6-17
+    :return: a dataframe with annotid, is_top_3_hours, is_top_4_hours, is_surplus
     """
     # Find all annotids that are in top 3, top 4, or surplus regions. List them as (annotid, kind) pairs.
     tokens_assigned_long = (
@@ -314,3 +319,41 @@ def are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
     tokens_assigned_wide.is_surplus = tokens_assigned_wide.is_surplus.fillna(False)
 
     return tokens_assigned_wide
+
+
+def _check_tokens_assigned(tokens_assigned, tokens, month):
+    """
+    Runs some sanity checks on the tokens assigned to top3/top4/surplus regions.
+    :param tokens: tokens to
+    :param tokens_assigned:
+    :return:
+    """
+    ta = tokens_assigned
+    is_month_06_13 = 6 <= int(month) <= 13
+    is_month_14_17 = 14 <= int(month) <= 17
+    assert is_month_06_13 | is_month_14_17
+
+    # is_surplus, is_top_3_hours should be not-null for all tokens, is_top_4_hours - for tokens from months 06-13 and
+    # only fot them.
+    assert ta[['is_surplus', 'is_top_3_hours']].notnull().all().all()
+    assert ta.is_top_4_hours.notnull().all() == is_month_06_13
+    assert ta.is_top_4_hours.isnull().all() == is_month_14_17
+
+    # All top-3 tokens should also be top-4 tokens for months 06-13 (for months 14-17 top-4 is undefined)
+    if is_month_06_13:
+        assert not (ta.is_top_3_hours & ~ta.is_top_4_hours).any()
+
+    # All tokens are either surplus or top-3/top-4 but not both
+    assert not (ta.is_surplus & (ta.is_top_3_hours | ta.is_top_4_hours)).any()
+
+    # All tokens are something
+    assert not (ta.is_surplus | ta.is_top_3_hours | ta.is_top_4_hours).isna().any()
+
+    # Tokens haven't changed
+    assert set(ta.annotid.values) == set(tokens.annotid.values)
+
+
+def are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
+    tokens_assigned = _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month)
+    _check_tokens_assigned(tokens_assigned, tokens, month)
+    return tokens_assigned
