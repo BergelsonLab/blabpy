@@ -16,7 +16,7 @@ from ..vtc import read_rttm
 from ..eaf import EafPlus
 
 
-def gather_recordings(full_recording_id, forced_timezone=False):
+def gather_recordings(full_recording_id, forced_timezone=None):
     """
     Gets sub-recordings for a given single recording. See Its.gather_recordings for details.
     """
