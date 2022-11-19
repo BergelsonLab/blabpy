@@ -8,17 +8,18 @@ import pandas as pd
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
-from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info
+from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, AUDIO, VIDEO, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
     _normalize_child_month, get_lena_5min_csv_path, get_its_path
-
-# Placeholder value for words without the basic level information
-from .scatter import copy_all_basic_level_files_to_subject_files
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
-    SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions
+    SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
+    are_tokens_in_top3_top4_surplus
+# Placeholder value for words without the basic level information
+from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
+from .scatter import copy_all_basic_level_files_to_subject_files
 from ..its import Its
 
 
@@ -571,3 +572,60 @@ def get_lena_recordings(subject, month):
     recordings.columns = recordings.columns.str.replace('recording_', '')
 
     return recordings
+
+
+def gather_recording_seedlings_nouns(modality, subject, month, global_basic_level_for_recording):
+    """
+    Gathers all the data needed to update seedlings_nouns for one recording. For video, the global basic level data
+    is all there is. For audio, we will need to additionally:
+
+    - gather processed subregions (listened to parts only) and top3/top4/surplus regions (much of the time will be
+      listed multiple times)
+    - add top3/top4/surplus status for each token to global_basic_level_for_recording,
+    - gather LENA sub-recordings info with time of day and time within the wav file
+    - calculate total recorded time,
+    - calculate total listened time.
+
+    To update seedlings_nouns, we'll just concatenate all of these.
+
+    :param modality: AUDIO or VIDEO
+    :param subject: subject id, str or int
+    :param month: month number, str or int
+    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :return:
+    """
+    _check_modality(modality)
+    month = f'{month:02d}'
+
+    if modality == VIDEO:
+        # We want to return the same number of items, hence the None's
+        return (global_basic_level_for_recording,) + (None,) * 4
+
+    # modality == AUDIO
+    # Regions
+    processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
+    top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month)
+    regions_for_seedlings_nouns = pd.concat([processed_regions
+                                             .loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)],
+                                             top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
+                                            axis='rows', ignore_index=True)
+
+    # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
+    tokens_assigned = are_tokens_in_top3_top4_surplus(tokens=global_basic_level_for_recording,
+                                                      top3_top4_surplus_regions=top3_top4_surplus_regions,
+                                                      month=month)
+    # tokens_assigned contains only annotid, is_top_3_hours, is_top_4_hours, is_surplus columns. Let's add them
+    # to global_basic_level_for_recording.
+    tokens_full = global_basic_level_for_recording.merge(tokens_assigned, on='annotid', how='inner')
+
+    # Sub-recordings and time totals
+    recordings = get_lena_recordings(subject, month)
+    total_recorded_time = calculate_total_recorded_time_ms(recordings=recordings)
+    total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
+                                                           recordings=recordings)
+
+    return (regions_for_seedlings_nouns,
+            tokens_full,
+            recordings.rename(columns={'start_wav': 'start_position_ms'}),
+            total_listened_time,
+            total_recorded_time)
