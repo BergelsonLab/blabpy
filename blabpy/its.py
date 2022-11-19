@@ -133,7 +133,8 @@ class Its(object):
                 recording_start=lambda df: self.convert_utc_to_local(df.startClockTime),
                 recording_end=lambda df: self.convert_utc_to_local(df.endClockTime),
                 recording_start_wav=lambda df: self.convert_iso_duration_to_ms(df.startTime))
-            [['recording_start', 'recording_end', 'recording_start_wav']])
+            [['recording_start', 'recording_end', 'recording_start_wav']]
+            .convert_dtypes())
 
         if anonymize is True:
             # Aid anonymization by shifting the dates to 1920-01-01
