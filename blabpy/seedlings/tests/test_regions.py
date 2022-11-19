@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
@@ -28,11 +26,6 @@ def test_get_amended_regions(subj_month):
 
     with pytest.raises(AssertionError):
         _get_amended_regions(subj_month, regions_processed_auto=regions_processed_amended.iloc[:-1])
-
-
-@pytest.fixture(scope='module')
-def top3_top4_surplus_data_dir():
-    return Path(__file__).parent / 'data' / 'top3_top4_surplus'
 
 
 def load_test_data(top3_top4_surplus_data_dir, filename, dtype=None):
