@@ -196,3 +196,47 @@ def _get_amended_regions(subj_month, regions_processed_auto):
     assert regions_processed_auto.equals(regions_processed_original), msg
 
     return regions_processed_amended
+
+
+def calculate_total_recorded_time_ms(recordings):
+    """
+    Calculates total recorded time in milliseconds for a given recording by adding the durations of all the
+    sub-recordings.
+    :param recordings: pandas DataFrame with the recordings data
+    :return: total recorded time in milliseconds
+    """
+    total_recording_time_object = (recordings.end - recordings.start).sum()
+    total_recording_time_ms = round(total_recording_time_object.total_seconds() * 1000)
+    return total_recording_time_ms
+
+
+def calculate_total_listened_time_ms(processed_regions, month, recordings):
+    """
+    Calculates total listened time in milliseconds for a given recording by adding the durations of all the regions
+    that were listened to. By the time this function is called, the regions data has already been processed and only
+    filtering and adding up time is left to be done.
+    :param processed_regions: regions processed by get_processed_audio_regions
+    :param month: int/str, month of the recording
+    :param recordings: sub-recordings info
+    :return: int, total listened time in milliseconds
+    """
+    if int(month) in (6, 7):
+        total_recorded_time_ms = calculate_total_recorded_time_ms(recordings)
+        total_silence_time_ms = (processed_regions
+                                 .loc[lambda df: df.region_type.eq(RegionType.SILENCE.value)]
+                                 .assign(duration=lambda df: df.end - df.start)
+                                 .duration.sum())
+        total_listened_time_ms = total_recorded_time_ms - total_silence_time_ms
+
+    elif int(month) in range(8, 17+1):
+        listened_to_regions = (RegionType.SUBREGION.value,
+                               RegionType.MAKEUP.value,
+                               RegionType.EXTRA.value)
+        total_listened_time_ms = (processed_regions
+                                  .loc[lambda df: df.region_type.isin(listened_to_regions)]
+                                  .assign(duration=lambda df: df.end - df.start)
+                                  .duration.sum()
+                                  # convert from numpy.int64 to int
+                                  .item())
+
+    return total_listened_time_ms
