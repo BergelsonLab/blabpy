@@ -1,16 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
 
+from . import AUDIO, VIDEO, CHILDREN_INT, MONTHS_INT, ANNOTATION_FILE_COUNT, MISSING_AUDIO_RECORDINGS, \
+    MISSING_VIDEO_RECORDINGS
 from ..paths import get_pn_opus_path
-
-AUDIO = 'Audio'
-VIDEO = 'Video'
-DROPPED_CHILDREN = (5, 24)
-ALL_CHILDREN = tuple(child for child in range(1, 46 + 1) if child not in DROPPED_CHILDREN)
-ALL_MONTHS = range(6, 17 + 1)
-ANNOTATION_FILE_COUNT = 527
-MISSING_AUDIO_RECORDINGS = ((22, 9),)
-MISSING_VIDEO_RECORDINGS = ((17, 6),)
 
 
 def ensure_folder_exists_and_empty(folder_path):
@@ -102,7 +95,7 @@ def _get_all_paths(get_single_file_function, missing_child_month_combinations, *
     :return: list of Path objects
     """
     paths = [get_single_file_function(child=child, month=month, **kwargs)
-             for child in ALL_CHILDREN for month in ALL_MONTHS
+             for child in CHILDREN_INT for month in MONTHS_INT
              if (child, month) not in missing_child_month_combinations]
     assert len(paths) == ANNOTATION_FILE_COUNT
 

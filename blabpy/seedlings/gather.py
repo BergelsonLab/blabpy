@@ -3,9 +3,8 @@ from csv import QUOTE_NONNUMERIC
 import pandas as pd
 import numpy as np
 
-from . import VALID_UTTERANCE_TYPE_CODES, VALID_OBJECT_PRESENT_CODES
-from .paths import _check_modality, get_all_basic_level_paths, VIDEO, AUDIO
-
+from . import UTTERANCE_TYPE_CODES, OBJECT_PRESENT_CODES, AUDIO, VIDEO
+from .paths import _check_modality, get_all_basic_level_paths
 
 # Maps columns names in basic level files to standardized names.
 COLUMN_NAME_MAPPER = {
@@ -160,8 +159,8 @@ def check_for_errors(all_basic_level_df: pd.DataFrame):
     duplicates = df[df.duplicated(subset=['annotid'], keep=False)]
 
     # Invalid codes
-    invalid_utterance_type = df[~df.utterance_type.isin(VALID_UTTERANCE_TYPE_CODES)]
-    invalid_object_present = df[~df.object_present.isin(VALID_OBJECT_PRESENT_CODES)]
+    invalid_utterance_type = df[~df.utterance_type.isin(UTTERANCE_TYPE_CODES)]
+    invalid_object_present = df[~df.object_present.isin(OBJECT_PRESENT_CODES)]
 
     all_errors = pd.concat(
         objs=[duplicates, invalid_utterance_type, invalid_object_present],
