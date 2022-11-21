@@ -3,8 +3,10 @@ import warnings
 from itertools import product
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
+from . import AUDIO, VIDEO
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
@@ -13,8 +15,7 @@ from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
-    _normalize_child_month, get_lena_5min_csv_path, get_its_path
-from . import AUDIO, VIDEO
+    _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     are_tokens_in_top3_top4_surplus
@@ -575,7 +576,7 @@ def get_lena_recordings(subject, month):
     return recordings
 
 
-def gather_recording_seedlings_nouns(modality, subject, month, global_basic_level_for_recording):
+def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
     """
     Gathers all the data needed to update seedlings_nouns for one recording. For video, the global basic level data
     is all there is. For audio, we will need to additionally:
@@ -589,14 +590,15 @@ def gather_recording_seedlings_nouns(modality, subject, month, global_basic_leve
 
     To update seedlings_nouns, we'll just concatenate all of these.
 
-    :param modality: AUDIO or VIDEO
-    :param subject: subject id, str or int
-    :param month: month number, str or int
+    :param recording_id: full recording id, e.g. 'Video_01_16'
     :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
-    :return:
+    :return: (top3/top4/surplus regions,
+              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              LENA recordings,
+              total recorded time,
+              total listened time)
     """
-    _check_modality(modality)
-    month = f'{month:02d}'
+    modality, subject, month = split_recording_id(recording_id)
 
     if modality == VIDEO:
         # We want to return the same number of items, hence the None's

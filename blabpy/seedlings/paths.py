@@ -59,6 +59,18 @@ def _check_modality(modality):
     assert modality in (AUDIO, VIDEO), f'Modality must be either Audio or Video but was {modality} instead'
 
 
+def _check_subject_and_month(modality, subject, month):
+    _check_modality(modality)
+    if modality == AUDIO:
+        missing = MISSING_AUDIO_RECORDINGS
+    elif modality == VIDEO:
+        missing = MISSING_VIDEO_RECORDINGS
+
+    assert int(subject) in CHILDREN_INT
+    assert int(month) in MONTHS_INT
+    assert (subject, month) not in missing, f'No {modality} data for subject {subject} and month {month}'
+
+
 def _get_annotation_path(child, month, modality):
     """
     Finds path to the opf/cha files
@@ -150,6 +162,19 @@ def _parse_out_child_and_month(file_path_or_name):
     file_name = Path(file_path_or_name).name
     child, month, *_ = file_name.split('_')
     return dict(child=int(child), month=int(month))
+
+
+def split_recording_id(recording_id):
+    """
+    'Audio_06_12' -> 'Audio', '06', '12'
+    :param recording_id: full recording id (e.g. Audio_06_12)
+    :return: (str, str, str) tuple
+    """
+    modality, subject, month = recording_id.split('_')
+    subject, month = _normalize_child_month(child=subject, month=month)
+    _check_modality(modality)
+    _check_subject_and_month(modality, subject, month)
+    return modality, subject, month
 
 
 @lru_cache(maxsize=None)  # do this just once
