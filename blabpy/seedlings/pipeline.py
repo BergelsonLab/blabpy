@@ -657,34 +657,6 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
             total_recorded_time)
 
 
-# TODO: Codebooks should be written before the csvs are written, not after - so that there are no write/read
-#  inconsistencies.
-def _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir, new_seedlings_nouns_dir):
-    csv_paths = list(new_seedlings_nouns_dir.glob('*.csv'))
-    new_codebook_paths = [csv.with_suffix('.codebook.csv') for csv in csv_paths]
-
-    new_dataframes = []
-    new_variables = []
-    for csv_path, new_codebook_path in zip(csv_paths, new_codebook_paths):
-        codebook_template = make_codebook_template(blab_read_csv(csv_path))
-        old_codebook_path = old_seedlings_nouns_dir.joinpath(new_codebook_path.name)
-
-        if old_codebook_path.exists():
-            codebook_template = codebook_template.drop(columns='description')
-            auto_generated_columns = set(codebook_template.columns)
-            codebook_template = codebook_template.merge(
-                blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns-{'column'}),
-                on='column', how='left')
-            if codebook_template.description.isna().any():
-                new_variables.append(new_codebook_path)
-        else:
-            new_dataframes.append(new_codebook_path)
-
-        codebook_template.to_csv(new_codebook_path, index=False)
-
-    return new_dataframes, new_variables
-
-
 def _preprocess_global_basic_level(global_basic_level):
     """
     Preprocess global basic level for seedlings_nouns
@@ -753,10 +725,10 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
     # TODO: move to a separate function, e.g., in blabpy.utils.py
     def _concatenate_dataframes(dataframes):
         concatenated = (pd.concat(objs=dataframes,
-                          keys=recording_ids,
-                          names=['recording_id', 'sub_df_index'])
-                .reset_index('recording_id', drop=False)
-                .reset_index(drop=True))
+                                  keys=recording_ids,
+                                  names=['recording_id', 'sub_df_index'])
+                        .reset_index('recording_id', drop=False)
+                        .reset_index(drop=True))
         concatenated.recording_id = concatenated.recording_id.astype(pd.StringDtype())
         return concatenated
 
@@ -771,6 +743,63 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
          total_listened_time=all_total_listened_times)).convert_dtypes()
 
     return seedlings_nouns, regions, sub_recordings, recordings
+
+
+def _make_updated_codebook(df, old_codebook_path):
+    """
+    Creates a new codebook for a dataframe and merges it with the old one if it exists.
+    :param df: the dataframe
+    :param old_codebook_path: path to the old codebook (doesn't have to exist)
+    :return: codebook,
+             is_new_dataframe (no old codebook),
+             has_new_columns (some columns are new and missing descriptions)
+    """
+    codebook_template = make_codebook_template(df)
+
+    # Merge with the old codebook
+    is_new_dataframe, has_new_columns = False, False
+    if old_codebook_path.exists():
+        codebook_template = codebook_template.drop(columns='description')
+        # Load manually update columns from the old codebook
+        auto_generated_columns = set(codebook_template.columns)
+        old_codebook = blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns - {'column'})
+        codebook_template = codebook_template.merge(
+            blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns - {'column'}),
+            on='column', how='left')
+        has_new_columns = codebook_template.description.isna().any()
+    else:
+        is_new_dataframe = True
+
+    return codebook_template, is_new_dataframe, has_new_columns
+
+
+def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir):
+    """
+    For a given dataframe,
+    - creates/updates a codebook for it,
+    - writes the dataframe to a csv,
+    - writes the codebook to a csv.
+    :param df: The dataframe.
+    :param df_filename: Filename to use for the csv with the dataframe. Existing codebook will only be discovered if the
+    filename hasn't changed since the last update. Rename the files in the seedlings-nouns_private repo first if you
+    want new names.
+    :param output_dir: where to save the csv files
+    :param old_seedlings_nouns_dir: where to look for the old codebook
+    :return:
+    """
+    # Paths
+    new_df_path = output_dir / df_filename
+    new_codebook_path = new_df_path.with_suffix('.codebook.csv')
+    old_codebook_path = old_seedlings_nouns_dir / new_codebook_path.name
+
+    # New codebook
+    codebook, is_new_dataframe, has_new_columns = _make_updated_codebook(df, old_codebook_path)
+
+    # Save
+    df.pipe(blab_write_csv, new_df_path)
+    codebook.pipe(blab_write_csv, new_codebook_path)
+
+    return new_codebook_path, is_new_dataframe, has_new_columns
 
 
 def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
@@ -804,31 +833,32 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
 
 def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
     """
-    Write all the csvs and their codebooks to a given folder
+    Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
+    that contains existing codebooks.
     :param global_basiclevel_path:
     :param seedlings_nouns_dir:
     :param output_dir:
     :return: path of the output folder
     """
     ensure_folder_exists_and_empty(output_dir)
+
+    # Gather and write data
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path)
 
-    def _write_csv(df, filename):
-        df.pipe(blab_write_csv, output_dir / filename)
+    new_dataframes = []
+    new_variables = []
+    for df, filename in [(seedlings_nouns, 'seedlings-nouns.csv'),
+                            (regions, 'regions.csv'),
+                            (sub_recordings, 'sub-recordings.csv'),
+                            (recordings, 'recordings.csv')]:
+        new_codebook_path, is_new_dataframe, has_new_columns = _write_df_and_codebook(df, filename, output_dir,
+                                                                                      seedlings_nouns_dir)
+        if has_new_columns:
+            new_variables.append(new_codebook_path)
+        if is_new_dataframe:
+            new_dataframes.append(new_codebook_path)
 
-    _write_csv(seedlings_nouns, 'seedlings-nouns.csv')
-    _write_csv(regions, 'regions.csv')
-    _write_csv(sub_recordings, 'sub-recordings.csv')
-    _write_csv(recordings, 'recordings.csv')
-
-    # Codebooks
-    new_dataframes, new_variables = _write_seedlings_nouns_codebooks(
-        old_seedlings_nouns_dir=seedlings_nouns_dir,
-        new_seedlings_nouns_dir=output_dir)
-
-    # Instructions
-    _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
+    # Print instructions
+    _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
                                                new_seedlings_nouns_dir=output_dir,
                                                old_seedlings_nouns_dir=seedlings_nouns_dir)
-
-    return output_dir
