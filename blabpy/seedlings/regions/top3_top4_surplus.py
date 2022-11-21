@@ -277,8 +277,9 @@ def _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
              [['kind', 'start', 'end']]
              .rename(columns={'start': 'onset_region', 'end': 'offset_region'})),
             how='cross')
-        # keep only those combination where the token is inside the region
-        .loc[lambda df: (df.onset_token >= df.onset_region) & (df.onset_token < df.offset_region)]
+        # Keep only those combinations where the token is inside the region.
+        .loc[lambda df: (df.onset_token >= df.onset_region) & ((df.onset_token < df.offset_region)
+                                                               | df.offset_region.isna())]
         [['annotid', 'kind']]
         # Add back tokens that didn't match any region (there shouldn't be any)
         .pipe(lambda df: tokens[['annotid']].merge(df, how='left'))
