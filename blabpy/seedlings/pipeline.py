@@ -725,7 +725,7 @@ def _preprocess_global_basic_level(global_basic_level):
     return global_basic_level_preprocessed
 
 
-def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
+def _gather_corpus_seedlings_nouns(global_basiclevel_path):
     """
     Create all the csv for the seedlings_nouns dataset
     :param global_basiclevel_path: path to global_basiclevel.csv
@@ -733,8 +733,6 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
     :param output_dir: where to save the csv files, must be empty or not exist
     :return: None
     """
-    ensure_folder_exists_and_empty(output_dir)
-
     # Gather data for each recording and put into lists
     global_basic_level = (read_global_basic_level(global_basiclevel_path).pipe(_preprocess_global_basic_level))
     grouped = global_basic_level.groupby('recording_id', sort=False)
@@ -765,18 +763,36 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
                 .reset_index('recording_id', drop=False)
                 .reset_index(drop=True))
 
-    def _to_csv(dataframes, filename):
-        blab_write_csv(_concatenate_dataframes(dataframes), output_dir / filename)
-
-    _to_csv(all_seedlings_nouns, 'seedlings-nouns.csv')
-    _to_csv(all_regions, 'regions.csv')
-    _to_csv(all_sub_recordings, 'sub-recordings.csv')
+    seedlings_nouns = _concatenate_dataframes(all_seedlings_nouns)
+    regions = _concatenate_dataframes(all_regions)
+    sub_recordings = _concatenate_dataframes(all_sub_recordings)
 
     recordings = pd.DataFrame(data=dict(
          recording_id=recording_ids,
          total_recorded_time=all_total_recorded_times,
          total_listened_time=all_total_listened_times)).convert_dtypes()
-    blab_write_csv(recordings, output_dir / 'recordings.csv')
+
+    return seedlings_nouns, regions, sub_recordings, recordings
+
+
+def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
+    """
+    Write all the csvs and their codebooks to a given folder
+    :param global_basiclevel_path:
+    :param seedlings_nouns_dir:
+    :param output_dir:
+    :return: path of the output folder
+    """
+    ensure_folder_exists_and_empty(output_dir)
+    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path)
+
+    def _write_csv(df, filename):
+        df.pipe(blab_write_csv, output_dir / filename)
+
+    _write_csv(seedlings_nouns, 'seedlings-nouns.csv')
+    _write_csv(regions, 'regions.csv')
+    _write_csv(sub_recordings, 'sub-recordings.csv')
+    _write_csv(recordings, 'recordings.csv')
 
     # Codebooks
     _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir=seedlings_nouns_dir,
@@ -792,3 +808,5 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
           '2. Go to\n'
           f'{seedlings_nouns_dir}\n'
           'and follow the instructions in CONTRIBUTING.md to update the dataset.')
+
+    return output_dir
