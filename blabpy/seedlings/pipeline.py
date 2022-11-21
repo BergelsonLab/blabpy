@@ -703,9 +703,9 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
     def _to_csv(dataframes, filename):
         blab_write_csv(_concatenate_dataframes(dataframes), output_dir / filename)
 
-    _to_csv(all_seedlings_nouns, 'seedlings_nouns.csv')
+    _to_csv(all_seedlings_nouns, 'seedlings-nouns.csv')
     _to_csv(all_regions, 'regions.csv')
-    _to_csv(all_sub_recordings, 'sub_recordings.csv')
+    _to_csv(all_sub_recordings, 'sub-recordings.csv')
 
     recordings = pd.DataFrame(data=dict(
          recording_id=recording_ids,
