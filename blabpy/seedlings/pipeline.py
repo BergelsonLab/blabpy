@@ -578,6 +578,7 @@ def get_lena_recordings(subject, month):
     return recordings
 
 
+# TODO: return dict, returning a heterogeneous tuple has and will lead to errors
 def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
     """
     Gathers all the data needed to update seedlings_nouns for one recording. For video, the global basic level data
@@ -621,7 +622,7 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                                       month=month)
     # tokens_assigned contains only annotid, is_top_3_hours, is_top_4_hours, is_surplus columns. Let's add them
     # to global_basic_level_for_recording.
-    tokens_full = global_basic_level_for_recording.merge(tokens_assigned, on='annotid', how='inner')
+    recording_seedlings_nouns = global_basic_level_for_recording.merge(tokens_assigned, on='annotid', how='inner')
 
     # Sub-recordings and time totals
     # TOD0:
@@ -647,8 +648,8 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                            recordings=lena_recordings)
 
-    return (regions_for_seedlings_nouns,
-            tokens_full,
+    return (recording_seedlings_nouns,
+            regions_for_seedlings_nouns,
             lena_recordings,
             total_listened_time,
             total_recorded_time)
@@ -682,8 +683,8 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
                                          global_basic_level_for_recording=group.drop(columns='recording_id'))
         for recording_id, group
         in tqdm(grouped)]
-    (all_regions,
-     all_seedlings_nouns,
+    (all_seedlings_nouns,
+     all_regions,
      all_sub_recordings,
      all_total_listened_times,
      all_total_recorded_times) = zip(*everything)
