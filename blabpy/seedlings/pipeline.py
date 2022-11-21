@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from . import AUDIO, VIDEO
 from .cha import export_cha_to_csv
@@ -670,7 +671,7 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
                                          # new column "recording_id" added.
                                          global_basic_level_for_recording=group.drop(columns='recording_id'))
         for recording_id, group
-        in grouped]
+        in tqdm(grouped)]
     (all_regions,
      all_seedlings_nouns,
      all_sub_recordings,
