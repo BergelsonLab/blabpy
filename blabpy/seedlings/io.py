@@ -31,6 +31,21 @@ GLOBAL_BASICLEVEL_DTYPES = ALL_BASICLEVEL_DTYPES.copy()
 GLOBAL_BASICLEVEL_DTYPES.update(global_bl=pd.StringDtype())
 
 
+def _convert_subject_child_month(df):
+    """subject/child, month should always be read as categorical variables with string values"""
+    for column in ('subject', 'child', 'month'):
+        if column in df.columns:
+            # Convert to formatted string values
+            df[column] = (df[column].astype(int).apply(lambda subj: f'{subj:02d}'))
+            # Convert to categorical
+            if column in ('subject', 'child'):
+                df[column] = df[column].astype(pd.CategoricalDtype(categories=CHILDREN_STR))
+            elif column == 'month':
+                df[column] = df[column].astype(pd.CategoricalDtype(categories=MONTHS_STR))
+
+    return df
+
+
 def blab_read_csv(path, **kwargs):
     df = pd.read_csv(path, **kwargs).convert_dtypes()
     try:
@@ -40,6 +55,9 @@ def blab_read_csv(path, **kwargs):
             warnings.warn(f'Data types of column(s) {unspecified_columns} were not specified.')
     except KeyError:
         warnings.warn('No data types specified. This can lead to unexpected results.')
+
+    df = _convert_subject_child_month(df)
+
     return df
 
 
