@@ -722,7 +722,7 @@ def _preprocess_global_basic_level(global_basic_level):
     return global_basic_level_preprocessed
 
 
-def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
+def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
     """
     Create all the csv for the seedlings_nouns dataset
     :param global_basiclevel_path: path to global_basiclevel.csv
@@ -775,3 +775,14 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
     # Codebooks
     _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir=seedlings_nouns_dir,
                                      new_seedlings_nouns_dir=output_dir)
+
+    # Instructions
+    print('Check above for warnings about new dataframes and new variables without description. If there are any, fix'
+          f' them in the corresponding files in the following folder:\n{output_dir}\n\n'
+          'Once done:\n'
+          '1. Copy the csv files\n'
+          f'from: {output_dir}\n'
+          f'to:   {seedlings_nouns_dir}\n'
+          '2. Go to\n'
+          f'{seedlings_nouns_dir}\n'
+          'and follow the instructions in CONTRIBUTING.md to update the dataset.')
