@@ -752,11 +752,13 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
 
     # TODO: move to a separate function, e.g., in blabpy.utils.py
     def _concatenate_dataframes(dataframes):
-        return (pd.concat(objs=dataframes,
+        concatenated = (pd.concat(objs=dataframes,
                           keys=recording_ids,
                           names=['recording_id', 'sub_df_index'])
                 .reset_index('recording_id', drop=False)
                 .reset_index(drop=True))
+        concatenated.recording_id = concatenated.recording_id.astype(pd.StringDtype())
+        return concatenated
 
     seedlings_nouns = _concatenate_dataframes(all_seedlings_nouns)
     regions = _concatenate_dataframes(all_regions)
