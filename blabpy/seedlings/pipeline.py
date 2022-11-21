@@ -622,13 +622,21 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
     tokens_full = global_basic_level_for_recording.merge(tokens_assigned, on='annotid', how='inner')
 
     # Sub-recordings and time totals
-    recordings = get_lena_recordings(subject, month)
-    total_recorded_time = calculate_total_recorded_time_ms(recordings=recordings)
+    # TOD0: find 01_08.its and remove this bodge
+    missing_its = 'Audio_01_08'
+    if recording_id == missing_its:
+        lena_recordings = pd.DataFrame(
+            data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
+            dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
+        total_recorded_time = 57600125  # soxi -D 01_08.wav, not from the .its
+    else:
+        lena_recordings = get_lena_recordings(subject, month).rename(columns={'start_wav': 'start_position_ms'})
+        total_recorded_time = calculate_total_recorded_time_ms(recordings=lena_recordings)
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
-                                                           recordings=recordings)
+                                                           recordings=lena_recordings)
 
     return (regions_for_seedlings_nouns,
             tokens_full,
-            recordings.rename(columns={'start_wav': 'start_position_ms'}),
+            lena_recordings,
             total_listened_time,
             total_recorded_time)

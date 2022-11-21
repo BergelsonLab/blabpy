@@ -205,9 +205,8 @@ def calculate_total_recorded_time_ms(recordings):
     :param recordings: pandas DataFrame with the recordings data
     :return: total recorded time in milliseconds
     """
-    total_recording_time_object = (recordings.end - recordings.start).sum()
-    total_recording_time_ms = round(total_recording_time_object.total_seconds() * 1000)
-    return total_recording_time_ms
+    # `.values.sum()` is used instead of `.sum()` because the latter will return 0 if there NaT elements instead of NaT
+    return (recordings.end - recordings.start).values.sum() / np.timedelta64(1, 'ms')
 
 
 def calculate_total_listened_time_ms(processed_regions, month, recordings):
