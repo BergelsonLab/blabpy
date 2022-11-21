@@ -9,9 +9,10 @@ from tqdm import tqdm
 
 from . import AUDIO, VIDEO
 from .cha import export_cha_to_csv
+from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
-from .io import read_global_basic_level, blab_write_csv
+from .io import read_global_basic_level, blab_write_csv, blab_read_csv
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -655,6 +656,40 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
             total_recorded_time)
 
 
+# TODO: Codebooks should be written before the csvs are written, not after - so that there are no write/read
+#  inconsistencies.
+def _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir, new_seedlings_nouns_dir):
+    csv_paths = list(new_seedlings_nouns_dir.glob('*.csv'))
+    new_codebook_paths = [csv.with_suffix('.codebook.csv') for csv in csv_paths]
+
+    new_dataframes = []
+    new_variables = []
+    for csv_path, new_codebook_path in zip(csv_paths, new_codebook_paths):
+        codebook_template = make_codebook_template(blab_read_csv(csv_path))
+        old_codebook_path = old_seedlings_nouns_dir.joinpath(new_codebook_path.name)
+
+        if old_codebook_path.exists():
+            codebook_template = codebook_template.drop(columns='description')
+            auto_generated_columns = set(codebook_template.columns)
+            codebook_template = codebook_template.merge(
+                blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns-{'column'}),
+                on='column', how='left')
+            if codebook_template.description.isna().any():
+                new_variables.append(new_codebook_path)
+        else:
+            new_dataframes.append(new_codebook_path)
+
+        codebook_template.to_csv(new_codebook_path, index=False)
+
+    if new_dataframes:
+        warnings.warn('\nThese dataframes never had a codebook and need their "description" column filled:\n'
+                      + '\n'.join(str(path) for path in new_dataframes))
+
+    if new_variables:
+        warnings.warn('\nThese dataframes have some new variables without description:\n'
+                      + '\n'.join(str(path) for path in new_variables))
+
+
 def _preprocess_global_basic_level(global_basic_level):
     """
     Preprocess global basic level for seedlings_nouns
@@ -691,6 +726,7 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
     """
     Create all the csv for the seedlings_nouns dataset
     :param global_basiclevel_path: path to global_basiclevel.csv
+    :param seedlings_nouns_dir: path to the seedlings_nouns directory
     :param output_dir: where to save the csv files, must be empty or not exist
     :return: None
     """
@@ -735,3 +771,7 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
          total_recorded_time=all_total_recorded_times,
          total_listened_time=all_total_listened_times)).convert_dtypes()
     blab_write_csv(recordings, output_dir / 'recordings.csv')
+
+    # Codebooks
+    _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir=seedlings_nouns_dir,
+                                     new_seedlings_nouns_dir=output_dir)
