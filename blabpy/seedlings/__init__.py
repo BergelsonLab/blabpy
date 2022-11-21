@@ -1,12 +1,12 @@
-UTTERANCE_TYPE_CODES = ("d", "r", "q", "n", "s", "i", "u", "o")
-OBJECT_PRESENT_CODES = ("y", "n", "u", "o")
+UTTERANCE_TYPE_CODES = ("d", "i", "n", "q", "r", "s", "u", "o")
+OBJECT_PRESENT_CODES = ("n", "u", "y", "o")
 
 # "Audio" and "Video" are capitalized in the names of subject files folders. This was where I first worked with those
 # words in the code so they stayed capitalized. There is a lot of `modality.lower()` in blabpy. If anyone wants to fix
 # it - go for it.
 AUDIO = 'Audio'
 VIDEO = 'Video'
-MODALITIES = (AUDIO, VIDEO)
+MODALITIES = (VIDEO, AUDIO)
 
 DROPPED_CHILDREN = (5, 24)
 CHILDREN_INT = tuple(child for child in range(1, 46 + 1) if child not in DROPPED_CHILDREN)
@@ -25,6 +25,7 @@ SPEAKER_CODES = (
     'AFE', 'AM4', 'AM5', 'AMM', 'AU3', 'AU4', 'CFL', 'CM1', 'GRO', 'MMT', 'UN4', 'AF6', 'AF7', 'AF9', 'AFT', 'AMB',
     'AME', 'AMJ', 'CCU', 'CFP', 'CH1', 'GGM', 'GUN', 'SST', 'AFG', 'AFK', 'AMS', 'AMT', 'BSD', 'CFH', 'CM2', 'CMJ',
     'GGP', 'GMS', 'MC3', 'UAT', 'UAU', 'UTV', 'X10', 'X11', 'AFJ', 'BSC', 'BSL', 'CFB', 'CFM', 'CMM', 'UN3', 'X12',
+    'AMG', 'AMK', 'BSB', 'COU', 'GR2', 'GRF', 'MGG', 'SIU', 'UMT', 'ADM', 'AFY', 'AM6', 'BIS', 'CMT', 'FC3', 'FCU',
     'GRY', 'MST', 'MTO', 'SGP', 'BBT', 'CTY', 'FGA', 'MBT', 'X13'
 )
 TIERS = ('*CHF', '*CHN', '*CXF', '*CXN',

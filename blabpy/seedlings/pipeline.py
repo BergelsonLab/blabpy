@@ -711,13 +711,16 @@ def _preprocess_global_basic_level(global_basic_level):
         #  - don't do it here, apply to the seedlings_nouns dataframe,
         #  - the list should be a constant in seedlings.io, e.g., the keys of SEEDLINGS_NOUNS_DTYPES dict
         #  - don't forget `is_*` columns for seedlings_nouns.
-        [['recording_id', 'audio_video', 'child', 'month', 'subject_month',  # identify recording
+        [['recording_id', 'audio_video', 'subject_month', 'child', 'month',  # identify recording
           'onset', 'offset', 'annotid', 'ordinal',  # identify token
           'speaker', 'object', 'basic_level', 'global_basic_level', 'transcription',  # who said what
           'utterance_type', 'object_present',  # properties
           # 'is_top_3_hours', 'is_top_4_hours', 'is_surplus'  # regions info
           ]]
-        .sort_values(by='audio_video', ascending=False))
+        # TODO: sort by subject_month insteaf of month, subject. The order below is temporary and is done for
+        #  consistency with the first version of seedlings-nouns.csv. No idea why I did it this way that time.
+        .sort_values(by=['audio_video', 'month', 'child'])
+        .reset_index(drop=True))
 
     return global_basic_level_preprocessed
 
@@ -734,7 +737,7 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
 
     # Gather data for each recording and put into lists
     global_basic_level = (read_global_basic_level(global_basiclevel_path).pipe(_preprocess_global_basic_level))
-    grouped = global_basic_level.groupby('recording_id')
+    grouped = global_basic_level.groupby('recording_id', sort=False)
     everything = [
         gather_recording_seedlings_nouns(recording_id,
                                          # So that all the dataframes are later concatenated in the same way: with
