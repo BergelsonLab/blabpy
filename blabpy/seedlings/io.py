@@ -43,6 +43,11 @@ def blab_read_csv(path, **kwargs):
     return df
 
 
+def blab_write_csv(dataframe, path, **kwargs):
+    kwargs['index'] = kwargs.get('index', False)
+    dataframe.to_csv(path, **kwargs)
+
+
 def read_all_basic_level(path):
     return blab_read_csv(path, dtype=ALL_BASICLEVEL_DTYPES)
 

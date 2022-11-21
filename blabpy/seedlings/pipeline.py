@@ -10,6 +10,7 @@ from . import AUDIO, VIDEO
 from .cha import export_cha_to_csv
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
+from .io import read_global_basic_level, blab_write_csv
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -640,3 +641,62 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
             lena_recordings,
             total_listened_time,
             total_recorded_time)
+
+
+def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
+    """
+    Create all the csv for the seedlings_nouns dataset
+    :param global_basiclevel_path: path to global_basiclevel.csv
+    :param output_dir: where to save the csv files, must be empty or not exist
+    :return: None
+    """
+    ensure_folder_exists_and_empty(output_dir)
+
+    # Load global_basiclevel and do some minor processing
+    global_basic_level = (
+        read_global_basic_level(global_basiclevel_path)
+        .rename(columns={'subj': 'subject', 'audio_video': 'modality'})
+        # Modality is expected to be capitalized by gather_recording_seedlings_nouns
+        .assign(modality=lambda df: df.modality.str.capitalize())
+        .assign(recording_id=lambda df: df.modality.astype(str) + '_'
+                                        + df.subject.astype(str) + '_'
+                                        + df.month.astype(str)))
+
+    # Gather data for each recording and put into lists
+    grouped = global_basic_level.groupby('recording_id')
+    everything = [
+        gather_recording_seedlings_nouns(recording_id,
+                                         # So that all the dataframes are later concatenated in the same way: with
+                                         # new column "recording_id" added.
+                                         global_basic_level_for_recording=group.drop(columns='recording_id'))
+        for recording_id, group
+        in grouped]
+    (all_regions,
+     all_seedlings_nouns,
+     all_sub_recordings,
+     all_total_listened_times,
+     all_total_recorded_times) = zip(*everything)
+    recording_ids = [recording_id for recording_id, group in grouped]
+
+    # Aggregate the lists into dataframes and save to output_dir
+
+    # TODO: move to a separate function, e.g., in blabpy.utils.py
+    def _concatenate_dataframes(dataframes):
+        return (pd.concat(objs=dataframes,
+                          keys=recording_ids,
+                          names=['recording_id', 'sub_df_index'])
+                .reset_index('recording_id', drop=False)
+                .reset_index(drop=True))
+
+    def _to_csv(dataframes, filename):
+        blab_write_csv(_concatenate_dataframes(dataframes), output_dir / filename)
+
+    _to_csv(all_seedlings_nouns, 'seedlings_nouns.csv')
+    _to_csv(all_regions, 'regions.csv')
+    _to_csv(all_sub_recordings, 'sub_recordings.csv')
+
+    recordings = pd.DataFrame(data=dict(
+         recording_id=recording_ids,
+         total_recorded_time=all_total_recorded_times,
+         total_listened_time=all_total_listened_times)).convert_dtypes()
+    blab_write_csv(recordings, output_dir / 'recordings.csv')
