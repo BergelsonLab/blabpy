@@ -30,6 +30,33 @@ ALL_BASICLEVEL_DTYPES = {
 GLOBAL_BASICLEVEL_DTYPES = ALL_BASICLEVEL_DTYPES.copy()
 GLOBAL_BASICLEVEL_DTYPES.update(global_bl=pd.StringDtype())
 
+# Columns that are already in GLOBAL_BASICLEVEL_DTYPES are set to None and then will be updated all at once. Columns
+# that changed their names reference GLOBAL_BASICLEVEL_DTYPES directly in the definition.
+SEEDLINGS_NOUNS_DTYPES = {
+    'recording_id': pd.StringDtype(),
+    'audio_video': None,
+    'subject_month': pd.StringDtype(),
+    'child': GLOBAL_BASICLEVEL_DTYPES['subj'],
+    'month': None,
+    'onset': None,
+    'offset': None,
+    'annotid': None,
+    'ordinal': None,
+    'speaker': None,
+    'object': None,
+    'basic_level': None,
+    'global_basic_level': GLOBAL_BASICLEVEL_DTYPES['global_bl'],
+    # TODO: transcription should be in all_basiclevel already
+    'transcription': pd.StringDtype(),
+    'utterance_type': None,
+    'object_present': None,
+    'is_top_3_hours': pd.BooleanDtype(),
+    'is_top_4_hours': pd.BooleanDtype(),
+    'is_surplus': pd.BooleanDtype()}
+for column, dtype in SEEDLINGS_NOUNS_DTYPES.items():
+    if dtype is None:
+        SEEDLINGS_NOUNS_DTYPES[column] = GLOBAL_BASICLEVEL_DTYPES[column]
+
 
 def _convert_subject_child_month(df):
     """subject/child, month should always be read as categorical variables with string values"""
@@ -72,3 +99,7 @@ def read_all_basic_level(path):
 
 def read_global_basic_level(path):
     return blab_read_csv(path, dtype=GLOBAL_BASICLEVEL_DTYPES)
+
+
+def read_seedlings_nouns(path):
+    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_DTYPES)

@@ -13,7 +13,7 @@ from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
-from .io import read_global_basic_level, blab_write_csv, blab_read_csv
+from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -760,7 +760,8 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
         concatenated.recording_id = concatenated.recording_id.astype(pd.StringDtype())
         return concatenated
 
-    seedlings_nouns = _concatenate_dataframes(all_seedlings_nouns)
+    # TODO: Add dtypes constants for regions and sub_recordings too
+    seedlings_nouns = _concatenate_dataframes(all_seedlings_nouns).astype(SEEDLINGS_NOUNS_DTYPES)
     regions = _concatenate_dataframes(all_regions)
     sub_recordings = _concatenate_dataframes(all_sub_recordings)
 
