@@ -624,13 +624,23 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
     tokens_full = global_basic_level_for_recording.merge(tokens_assigned, on='annotid', how='inner')
 
     # Sub-recordings and time totals
-    # TOD0: find 01_08.its and remove this bodge
-    missing_its = 'Audio_01_08'
-    if recording_id == missing_its:
+    # TOD0:
+    # - move the list to blabpy.seedlings so that it isn't hidden in the code,
+    # - find 01_08.its and remove this bodge,
+    # - figure out why the other ones are missing timezone info.
+    problem_recordings_total_recorded_time = {'Audio_01_08': 57600125,  # missing its file
+                                              'Audio_12_17': 57600000,  # missing timezone info
+                                              'Audio_18_09': 43822125,  # missing timezone info
+                                              'Audio_20_13': 57600125,  # missing timezone info
+                                              'Audio_26_13': 57600125,  # missing timezone info
+                                              'Audio_29_16': 44096000,  # missing timezone info
+                                              }
+
+    if recording_id in problem_recordings_total_recorded_time:
         lena_recordings = pd.DataFrame(
             data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
             dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
-        total_recorded_time = 57600125  # soxi -D 01_08.wav, not from the .its
+        total_recorded_time = problem_recordings_total_recorded_time[recording_id]
     else:
         lena_recordings = get_lena_recordings(subject, month).rename(columns={'start_wav': 'start_position_ms'})
         total_recorded_time = calculate_total_recorded_time_ms(recordings=lena_recordings)
