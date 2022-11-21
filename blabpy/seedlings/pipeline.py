@@ -1,4 +1,5 @@
 import logging
+import sys
 import warnings
 from itertools import product
 from pathlib import Path
@@ -681,13 +682,7 @@ def _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir, new_seedlings_noun
 
         codebook_template.to_csv(new_codebook_path, index=False)
 
-    if new_dataframes:
-        warnings.warn('\nThese dataframes never had a codebook and need their "description" column filled:\n'
-                      + '\n'.join(str(path) for path in new_dataframes))
-
-    if new_variables:
-        warnings.warn('\nThese dataframes have some new variables without description:\n'
-                      + '\n'.join(str(path) for path in new_variables))
+    return new_dataframes, new_variables
 
 
 def _preprocess_global_basic_level(global_basic_level):
@@ -775,6 +770,35 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
     return seedlings_nouns, regions, sub_recordings, recordings
 
 
+def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
+                                               new_seedlings_nouns_dir, old_seedlings_nouns_dir):
+    # TODO: Remove from the message:
+    #  - /Users/ek221/blab/blabpy/repo/blabpy/seedlings/pipeline.py:777: UserWarning:
+    #  - warnings.warn(msg)
+    def _warn(msg):
+        msg = f'\n{msg}\n'
+        warnings.warn(msg)
+        sys.stderr.flush()
+
+    if new_dataframes:
+        _warn('These dataframes never had a codebook and need their "description" column filled:\n'
+              + '\n'.join(str(path) for path in new_dataframes))
+
+    if new_variables:
+        _warn('These dataframes have some new variables without description:\n'
+              + '\n'.join(str(path) for path in new_variables))
+
+    # Instructions
+    print('0. If there are warnings above about new dataframes or new variables, update descriptions in the'
+          f' corresponding codebooks in the following folder:\n{new_seedlings_nouns_dir}\n\n'
+          '1. Copy the csv files\n'
+          f'from: {new_seedlings_nouns_dir}\n'
+          f'to:   {old_seedlings_nouns_dir}\n\n'
+          '2. Go to\n'
+          f'{old_seedlings_nouns_dir}\n'
+          'and follow the instructions in CONTRIBUTING.md to update the dataset.\n')
+
+
 def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder
@@ -795,18 +819,13 @@ def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, ou
     _write_csv(recordings, 'recordings.csv')
 
     # Codebooks
-    _write_seedlings_nouns_codebooks(old_seedlings_nouns_dir=seedlings_nouns_dir,
-                                     new_seedlings_nouns_dir=output_dir)
+    new_dataframes, new_variables = _write_seedlings_nouns_codebooks(
+        old_seedlings_nouns_dir=seedlings_nouns_dir,
+        new_seedlings_nouns_dir=output_dir)
 
     # Instructions
-    print('Check above for warnings about new dataframes and new variables without description. If there are any, fix'
-          f' them in the corresponding files in the following folder:\n{output_dir}\n\n'
-          'Once done:\n'
-          '1. Copy the csv files\n'
-          f'from: {output_dir}\n'
-          f'to:   {seedlings_nouns_dir}\n'
-          '2. Go to\n'
-          f'{seedlings_nouns_dir}\n'
-          'and follow the instructions in CONTRIBUTING.md to update the dataset.')
+    _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
+                                               new_seedlings_nouns_dir=output_dir,
+                                               old_seedlings_nouns_dir=seedlings_nouns_dir)
 
     return output_dir
