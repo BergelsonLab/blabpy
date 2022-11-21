@@ -22,7 +22,7 @@ ALL_BASICLEVEL_DTYPES = {
     'subj':                 pd.CategoricalDtype(categories=CHILDREN_STR),
     'month':                pd.CategoricalDtype(categories=MONTHS_STR),
     'SubjectNumber':        pd.StringDtype(),
-    'audio_video':          pd.CategoricalDtype(categories=MODALITIES),
+    'audio_video':          pd.CategoricalDtype(categories=AUDIO_VIDEO),
     'tier':                 pd.CategoricalDtype(categories=TIERS),
     'pho':                  pd.StringDtype()
 }
