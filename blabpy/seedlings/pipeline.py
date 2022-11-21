@@ -741,6 +741,9 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
                                          # new column "recording_id" added.
                                          global_basic_level_for_recording=group.drop(columns='recording_id'))
         for recording_id, group
+        # TODO: video recordings don't require any processing, so they are iterated through almost instantly. Which
+        #  makes tqdm's progressbar less useful because it goes immediately to 50% and then underestimates ETA. Consider
+        #  breaking it down into audio and video.
         in tqdm(grouped)]
     (all_seedlings_nouns,
      all_regions,
