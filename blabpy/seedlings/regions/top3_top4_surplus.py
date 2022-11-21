@@ -291,18 +291,23 @@ def _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
         .replace({TOP_3_KIND: 'is_top_3_hours',
                   TOP_4_KIND: 'is_top_4_hours',
                   SURPLUS_KIND: 'is_surplus'})
+        # We need a column with values to populate the pivot table. Values in the pivot table will be True iff the
+        # (annotid, region_type) pair is present in the original dataframe.
         .assign(is_in=True)
-        .pivot(index='annotid', columns=['kind']))
+        .pivot(index='annotid', columns=['kind'])
+        # all is_* columns are under the top level name "is_in" - we don't need it
+        .droplevel(0, axis='columns')
+    )
 
-    # For months 13-17, top 4 hours are not available, so we'll add a NA-only column to have the same columns for all
-    # months.
+    # For months 13-17, there are not top 4 regions, for some recordings in months 8-17, there are no surplus regions.
     if 14 <= int(month) <= 17:
-        tokens_assigned_pivot[('is_in', 'is_top_4_hours')] = pd.Series(None, dtype=pd.BooleanDtype())
+        tokens_assigned_pivot['is_top_4_hours'] = pd.Series(None, dtype=pd.BooleanDtype())
+    if 'is_surplus' not in tokens_assigned_pivot.columns:
+        tokens_assigned_pivot['is_surplus'] = pd.Series(None, dtype=pd.BooleanDtype())
 
     # Clean it up: remove unnecessary index/column names levels, make annotid the column, etc.
     tokens_assigned_wide = (
         tokens_assigned_pivot
-        .droplevel(0, axis='columns')  # all is_* columns are under the top level name "is_in" - remove it
         .rename_axis(None, axis='columns')  # is_* columns are labeled "kind" - remove it
         .reset_index('annotid')  # annotid is an index - make it a column
         [['annotid', 'is_top_3_hours', 'is_top_4_hours', 'is_surplus']]  # enforce the order of columns
