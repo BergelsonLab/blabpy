@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 
@@ -13,6 +14,8 @@ def make_codebook_template(df):
             return 'categorical'
         elif isinstance(dtype, pd.StringDtype):
             return 'string'
+        elif dtype == np.dtype('datetime64[ns]'):
+            return 'datetime'
         else:
             raise ValueError(f'unknown datatype {dtype}')
 
@@ -22,7 +25,7 @@ def make_codebook_template(df):
         if data_type in ('categorical', 'boolean'):
             column_values = (df[column].sort_values().unique().astype(str).tolist())
             return ', '.join(column_values)
-        elif data_type == 'integer':
+        elif data_type in ('integer', 'datetime'):
             return f'{df[column].min()}...{df[column].max()}'
         elif data_type == 'string':
             return f'{len(df[column].unique())} unique values'
