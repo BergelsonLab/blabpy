@@ -655,6 +655,38 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
             total_recorded_time)
 
 
+def _preprocess_global_basic_level(global_basic_level):
+    """
+    Preprocess global basic level for seedlings_nouns
+    :param global_basic_level:
+    :return:
+    """
+    global_basic_level_preprocessed = (
+        global_basic_level
+        .drop(columns=['id', 'tier'])
+        .rename(columns={'SubjectNumber': 'subject_month',
+                         'pho': 'transcription',
+                         'subj': 'child',
+                         'global_bl': 'global_basic_level'})
+        .assign(recording_id=lambda df: df.audio_video.str.capitalize() + '_'
+                                        + df.child.astype(str) + '_'
+                                        + df.month.astype(str))
+        # TODO:
+        #  - check that all columns are listed,
+        #  - don't do it here, apply to the seedlings_nouns dataframe,
+        #  - the list should be a constant in seedlings.io, e.g., the keys of SEEDLINGS_NOUNS_DTYPES dict
+        #  - don't forget `is_*` columns for seedlings_nouns.
+        [['recording_id', 'audio_video', 'child', 'month', 'subject_month',  # identify recording
+          'onset', 'offset', 'annotid', 'ordinal',  # identify token
+          'speaker', 'object', 'basic_level', 'global_basic_level', 'transcription',  # who said what
+          'utterance_type', 'object_present',  # properties
+          # 'is_top_3_hours', 'is_top_4_hours', 'is_surplus'  # regions info
+          ]]
+        .sort_values(by='audio_video', ascending=False))
+
+    return global_basic_level_preprocessed
+
+
 def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
     """
     Create all the csv for the seedlings_nouns dataset
@@ -664,17 +696,8 @@ def gather_corpus_seedlings_nouns(global_basiclevel_path, output_dir=Path()):
     """
     ensure_folder_exists_and_empty(output_dir)
 
-    # Load global_basiclevel and do some minor processing
-    global_basic_level = (
-        read_global_basic_level(global_basiclevel_path)
-        .rename(columns={'subj': 'subject', 'audio_video': 'modality'})
-        # Modality is expected to be capitalized by gather_recording_seedlings_nouns
-        .assign(modality=lambda df: df.modality.str.capitalize())
-        .assign(recording_id=lambda df: df.modality.astype(str) + '_'
-                                        + df.subject.astype(str) + '_'
-                                        + df.month.astype(str)))
-
     # Gather data for each recording and put into lists
+    global_basic_level = (read_global_basic_level(global_basiclevel_path).pipe(_preprocess_global_basic_level))
     grouped = global_basic_level.groupby('recording_id')
     everything = [
         gather_recording_seedlings_nouns(recording_id,
