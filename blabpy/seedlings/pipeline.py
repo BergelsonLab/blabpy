@@ -774,9 +774,11 @@ def _make_updated_codebook(df, old_codebook_path):
         codebook_template = codebook_template.merge(
             blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns - {'column'}),
             on='column', how='left')
-        has_new_columns = codebook_template.description.isna().any()
-    else:
-        is_new_dataframe = True
+
+    n_vars_without_description = codebook_template.description.isna().sum()
+    n_vars = codebook_template.shape[0]
+    has_new_columns = 0 < n_vars_without_description < n_vars
+    is_new_dataframe = n_vars_without_description == n_vars
 
     return codebook_template, is_new_dataframe, has_new_columns
 
