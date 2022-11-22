@@ -741,8 +741,8 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
     sub_recordings = _concatenate_dataframes(all_sub_recordings).pipe(_sort_by_recording_id)
 
     recordings = (pd.DataFrame(data=dict(
-         recording_id=recording_ids,
-         total_recorded_time=all_total_recorded_times,
+                      recording_id=recording_ids,
+                      total_recorded_time=all_total_recorded_times,
                       total_listened_time=all_total_listened_times))
                   .convert_dtypes()
                   .pipe(_sort_by_recording_id))
@@ -855,9 +855,9 @@ def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, ou
     new_dataframes = []
     new_variables = []
     for df, filename in [(seedlings_nouns, 'seedlings-nouns.csv'),
-                            (regions, 'regions.csv'),
-                            (sub_recordings, 'sub-recordings.csv'),
-                            (recordings, 'recordings.csv')]:
+                         (regions, 'regions.csv'),
+                         (sub_recordings, 'sub-recordings.csv'),
+                         (recordings, 'recordings.csv')]:
         new_codebook_path, is_new_dataframe, has_new_columns = _write_df_and_codebook(df, filename, output_dir,
                                                                                       seedlings_nouns_dir)
         if has_new_columns:
