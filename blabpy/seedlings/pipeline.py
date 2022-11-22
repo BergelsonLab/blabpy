@@ -682,6 +682,8 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
     return (recording_seedlings_nouns,
             regions_for_seedlings_nouns,
             lena_recordings,
+            # TODO: return a dataframe with one row and two columns, so that we can then concatenate everything in
+            #  exactly the same manner
             total_listened_time,
             total_recorded_time)
 

@@ -126,14 +126,18 @@ class Its(object):
         # *ClockTime - UTC time when recordings started/ended
         # *Time - ISO-formatted duration of time from the start of the wav to the start/end of the recording
 
+        # TODO: consider keeping df.endTime so that we can calculate the duration of the recording from these times and
+        #  not from datetime columns whihc lack the millisecond part.
+        #  Also: it'd be a good idea to drop "recording_" prefix from the column names.
         # Let's convert *ClockTime to local time and startTime to milliseconds
         recordings = (
             recordings
             .assign(
                 recording_start=lambda df: self.convert_utc_to_local(df.startClockTime),
                 recording_end=lambda df: self.convert_utc_to_local(df.endClockTime),
-                recording_start_wav=lambda df: self.convert_iso_duration_to_ms(df.startTime))
-            [['recording_start', 'recording_end', 'recording_start_wav']]
+                recording_start_wav=lambda df: self.convert_iso_duration_to_ms(df.startTime),)
+                # recording_end_wav=lambda df: self.convert_iso_duration_to_ms(df.endTime))
+            [['recording_start', 'recording_end', 'recording_start_wav']]  # , 'recording_end_wav']]
             .convert_dtypes())
 
         if anonymize is True:
