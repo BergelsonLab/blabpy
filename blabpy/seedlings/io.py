@@ -58,6 +58,13 @@ for column, dtype in SEEDLINGS_NOUNS_DTYPES.items():
         SEEDLINGS_NOUNS_DTYPES[column] = GLOBAL_BASICLEVEL_DTYPES[column]
 
 
+SEEDLINGS_NOUNS_SORT_BY = {
+    'seedlings-nouns.csv': ['audio_video', 'child', 'month', 'onset'],
+    'regions.csv': ['recording_id', 'region_type', 'start', 'end'],
+    'sub-recordings.csv': ['recording_id', 'start', 'end'],
+    'recordings.csv': ['recording_id']}
+
+
 def _convert_subject_child_month(df):
     """subject/child, month should always be read as categorical variables with string values"""
     for column in ('subject', 'child', 'month'):
