@@ -732,7 +732,7 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
      all_total_listened_times,
      all_total_recorded_times) = zip(*everything)
 
-    # Aggregate the lists into dataframes and save to output_dir
+    # Aggregate the lists into dataframes
 
     # TODO: move to a separate function, e.g., in blabpy.utils.py
     def _concatenate_dataframes(dataframes):
