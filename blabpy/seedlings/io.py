@@ -59,6 +59,27 @@ for column, dtype in SEEDLINGS_NOUNS_DTYPES.items():
         SEEDLINGS_NOUNS_DTYPES[column] = GLOBAL_BASICLEVEL_DTYPES[column]
 
 
+SEEDLINGS_NOUNS_REGION_TYPES = ['subregion', 'top_3', 'top_4', 'surplus']
+SEEDLINGS_NOUNS_REGIONS_DTYPES = {
+    'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
+    'region_type': pd.CategoricalDtype(categories=SEEDLINGS_NOUNS_REGION_TYPES),
+    'start': pd.Int64Dtype(),
+    'end': pd.Int64Dtype(),
+    'position': pd.Int64Dtype(),
+    'subregion_rank': pd.Int64Dtype()}
+
+SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES = {
+    'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
+    'start': DATETIME_DTYPE_PLACEHOLDER,
+    'end': DATETIME_DTYPE_PLACEHOLDER,
+    'start_position_ms': pd.Int64Dtype()}
+
+SEEDLINGS_NOUNS_RECORDINGS_DTYPES = {
+    'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
+    'total_recorded_time': pd.Int64Dtype(),
+    'total_listened_time': pd.Int64Dtype()}
+
+
 SEEDLINGS_NOUNS_SORT_BY = {
     'seedlings-nouns.csv': ['audio_video', 'child', 'month', 'onset'],
     'regions.csv': ['recording_id', 'region_type', 'start', 'end'],
@@ -122,3 +143,23 @@ def read_global_basic_level(path):
 
 def read_seedlings_nouns(path):
     return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_DTYPES)
+
+
+def read_seedlings_nouns_regions(path):
+    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_REGIONS_DTYPES)
+
+
+def read_seedlings_nouns_sub_recordings(path):
+    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
+
+
+def read_seedlings_nouns_recordings(path):
+    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_RECORDINGS_DTYPES)
+
+
+def read_seedlings_nouns_guess(path):
+    reading_functions = {'seedlings-nouns.csv': read_seedlings_nouns,
+                         'regions.csv': read_seedlings_nouns_regions,
+                         'sub-recordings.csv': read_seedlings_nouns_sub_recordings,
+                         'recordings.csv': read_seedlings_nouns_recordings}
+    return reading_functions[path.name](path)

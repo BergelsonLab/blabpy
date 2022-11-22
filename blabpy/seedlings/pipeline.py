@@ -13,7 +13,8 @@ from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
-from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY
+from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
+    SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -637,10 +638,8 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                                       month=month)
     # tokens_assigned contains only annotid, is_top_3_hours, is_top_4_hours, is_surplus columns. Let's add them
     # to global_basic_level_for_recording.
-    columns = [column for column in SEEDLINGS_NOUNS_DTYPES if column != 'recording_id']
     recording_seedlings_nouns = (global_basic_level_for_recording
                                  .merge(tokens_assigned, on='annotid', how='inner')
-                                 [columns]
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
@@ -666,6 +665,19 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
         total_recorded_time = calculate_total_recorded_time_ms(recordings=lena_recordings)
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                            recordings=lena_recordings)
+
+    # Enforce column order
+    def _enforce_column_order(df, dtypes):
+        # At the recording level there is no recording_id
+        columns = [column for column in dtypes if column != 'recording_id']
+        return df[columns]
+
+    recording_seedlings_nouns = _enforce_column_order(df=recording_seedlings_nouns,
+                                                      dtypes=SEEDLINGS_NOUNS_DTYPES)
+    regions_for_seedlings_nouns = _enforce_column_order(df=regions_for_seedlings_nouns,
+                                                        dtypes=SEEDLINGS_NOUNS_REGIONS_DTYPES)
+    lena_recordings = _enforce_column_order(df=lena_recordings,
+                                            dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
     return (recording_seedlings_nouns,
             regions_for_seedlings_nouns,
@@ -732,23 +744,30 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
         concatenated.recording_id = concatenated.recording_id.astype(pd.StringDtype())
         return concatenated
 
+    def _standardize(df, dtypes, sort_by):
+        """Convert data types, sort rows, reorder columns"""
+        return df.astype(dtypes).sort_values(by=sort_by).reset_index(drop=True)[dtypes.keys()]
+
     seedlings_nouns = (_concatenate_dataframes(all_seedlings_nouns)
-                       .astype(SEEDLINGS_NOUNS_DTYPES)
-                       .pipe(_sort_tokens))
-
-    def _sort_by(df, by):
-        return df.sort_values(by=by).reset_index(drop=True)
-
+                       .pipe(_standardize,
+                             dtypes=SEEDLINGS_NOUNS_DTYPES,
+                             sort_by=SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv']))
     regions = (_concatenate_dataframes(all_regions)
-               .pipe(_sort_by, by=SEEDLINGS_NOUNS_SORT_BY['regions.csv']))
+               .pipe(_standardize,
+                     dtypes=SEEDLINGS_NOUNS_REGIONS_DTYPES,
+                     sort_by=SEEDLINGS_NOUNS_SORT_BY['regions.csv']))
     sub_recordings = (_concatenate_dataframes(all_sub_recordings)
-                      .pipe(_sort_by, by=SEEDLINGS_NOUNS_SORT_BY['sub-recordings.csv']))
-    recordings = (pd.DataFrame(data=dict(
-                      recording_id=recording_ids,
-                      total_recorded_time=all_total_recorded_times,
-                      total_listened_time=all_total_listened_times))
-                  .convert_dtypes()
-                  .pipe(_sort_by, by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv']))
+                      .pipe(_standardize,
+                            dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES,
+                            sort_by=SEEDLINGS_NOUNS_SORT_BY['sub-recordings.csv']))
+    recordings = (
+        pd.DataFrame(data=dict(
+            recording_id=recording_ids,
+            total_recorded_time=all_total_recorded_times,
+            total_listened_time=all_total_listened_times))
+        .convert_dtypes()
+        .pipe(_standardize,
+              dtypes=SEEDLINGS_NOUNS_RECORDINGS_DTYPES, sort_by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv']))
 
     return seedlings_nouns, regions, sub_recordings, recordings
 
