@@ -6,7 +6,7 @@ OBJECT_PRESENT_CODES = ("n", "u", "y", "o")
 # it - go for it.
 AUDIO = 'Audio'
 VIDEO = 'Video'
-MODALITIES = (VIDEO, AUDIO)
+MODALITIES = (AUDIO, VIDEO)
 
 DROPPED_CHILDREN = (5, 24)
 CHILDREN_INT = tuple(child for child in range(1, 46 + 1) if child not in DROPPED_CHILDREN)

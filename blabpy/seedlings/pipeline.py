@@ -580,6 +580,16 @@ def get_lena_recordings(subject, month):
     return recordings
 
 
+def _sort_tokens(tokens_df):
+    """
+    Sorts all_basiclevel/global_basiclevel/seedlings_nouns
+    :param tokens_df: a dataframe to sort
+    :return: sorted dataframe
+    """
+    subject = 'subj' if 'subj' in tokens_df.columns else 'child'
+    return tokens_df.sort_values(['audio_video', subject, 'month', 'ordinal'])
+
+
 # TODO: return dict, returning a heterogeneous tuple has and will lead to errors
 def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
     """
@@ -624,7 +634,11 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                                       month=month)
     # tokens_assigned contains only annotid, is_top_3_hours, is_top_4_hours, is_surplus columns. Let's add them
     # to global_basic_level_for_recording.
-    recording_seedlings_nouns = global_basic_level_for_recording.merge(tokens_assigned, on='annotid', how='inner')
+    columns = [column for column in SEEDLINGS_NOUNS_DTYPES if column != 'recording_id']
+    recording_seedlings_nouns = (global_basic_level_for_recording
+                                 .merge(tokens_assigned, on='annotid', how='inner')
+                                 [columns]
+                                 .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
     # TOD0:
@@ -673,21 +687,7 @@ def _preprocess_global_basic_level(global_basic_level):
         .assign(recording_id=lambda df: df.audio_video.str.capitalize() + '_'
                                         + df.child.astype(str) + '_'
                                         + df.month.astype(str))
-        # TODO:
-        #  - check that all columns are listed,
-        #  - don't do it here, apply to the seedlings_nouns dataframe,
-        #  - the list should be a constant in seedlings.io, e.g., the keys of SEEDLINGS_NOUNS_DTYPES dict
-        #  - don't forget `is_*` columns for seedlings_nouns.
-        [['recording_id', 'audio_video', 'subject_month', 'child', 'month',  # identify recording
-          'onset', 'offset', 'annotid', 'ordinal',  # identify token
-          'speaker', 'object', 'basic_level', 'global_basic_level', 'transcription',  # who said what
-          'utterance_type', 'object_present',  # properties
-          # 'is_top_3_hours', 'is_top_4_hours', 'is_surplus'  # regions info
-          ]]
-        # TODO: sort by subject_month insteaf of month, subject. The order below is temporary and is done for
-        #  consistency with the first version of seedlings-nouns.csv. No idea why I did it this way that time.
-        .sort_values(by=['audio_video', 'month', 'child'])
-        .reset_index(drop=True))
+        .pipe(_sort_tokens))
 
     return global_basic_level_preprocessed
 
@@ -733,14 +733,22 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
         return concatenated
 
     # TODO: Add dtypes constants for regions and sub_recordings too
-    seedlings_nouns = _concatenate_dataframes(all_seedlings_nouns).astype(SEEDLINGS_NOUNS_DTYPES)
-    regions = _concatenate_dataframes(all_regions)
-    sub_recordings = _concatenate_dataframes(all_sub_recordings)
+    seedlings_nouns = (_concatenate_dataframes(all_seedlings_nouns)
+                       .astype(SEEDLINGS_NOUNS_DTYPES)
+                       .pipe(_sort_tokens))
 
-    recordings = pd.DataFrame(data=dict(
+    def _sort_by_recording_id(df):
+        return df.sort_values(by='recording_id').reset_index(drop=True)
+
+    regions = _concatenate_dataframes(all_regions).pipe(_sort_by_recording_id)
+    sub_recordings = _concatenate_dataframes(all_sub_recordings).pipe(_sort_by_recording_id)
+
+    recordings = (pd.DataFrame(data=dict(
          recording_id=recording_ids,
          total_recorded_time=all_total_recorded_times,
-         total_listened_time=all_total_listened_times)).convert_dtypes()
+                      total_listened_time=all_total_listened_times))
+                  .convert_dtypes()
+                  .pipe(_sort_by_recording_id))
 
     return seedlings_nouns, regions, sub_recordings, recordings
 
