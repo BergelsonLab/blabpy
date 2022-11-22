@@ -696,29 +696,26 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_path):
     """
     Create all the csv for the seedlings_nouns dataset
     :param global_basiclevel_path: path to global_basiclevel.csv
-    :param seedlings_nouns_dir: path to the seedlings_nouns directory
-    :param output_dir: where to save the csv files, must be empty or not exist
     :return: None
     """
     # Gather data for each recording and put into lists
-    global_basic_level = (read_global_basic_level(global_basiclevel_path).pipe(_preprocess_global_basic_level))
-    grouped = global_basic_level.groupby('recording_id', sort=False)
+    gbl = (read_global_basic_level(global_basiclevel_path).pipe(_preprocess_global_basic_level))
+    print('Processing video recordings is instantaneous, only audio recordings take time.')
     everything = [
-        gather_recording_seedlings_nouns(recording_id,
-                                         # So that all the dataframes are later concatenated in the same way: with
-                                         # new column "recording_id" added.
-                                         global_basic_level_for_recording=group.drop(columns='recording_id'))
-        for recording_id, group
-        # TODO: video recordings don't require any processing, so they are iterated through almost instantly. Which
-        #  makes tqdm's progressbar less useful because it goes immediately to 50% and then underestimates ETA. Consider
-        #  breaking it down into audio and video.
-        in tqdm(grouped)]
-    (all_seedlings_nouns,
+        (recording_id,) +
+        gather_recording_seedlings_nouns(
+            recording_id,
+            # So that all the dataframes are later concatenated in the same way: with new column "recording_id" added.
+            global_basic_level_for_recording=recording_tokens.drop(columns='recording_id'))
+        for modality, modality_tokens in gbl.groupby('audio_video', sort=False)
+        for recording_id, recording_tokens in tqdm(modality_tokens.groupby('recording_id', sort=False),
+                                                   desc=f'Processing {modality} tokens')]
+    (recording_ids,
+     all_seedlings_nouns,
      all_regions,
      all_sub_recordings,
      all_total_listened_times,
      all_total_recorded_times) = zip(*everything)
-    recording_ids = [recording_id for recording_id, group in grouped]
 
     # Aggregate the lists into dataframes and save to output_dir
 
