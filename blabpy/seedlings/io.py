@@ -6,6 +6,7 @@ from blabpy.seedlings import UTTERANCE_TYPE_CODES, OBJECT_PRESENT_CODES, SPEAKER
     TIERS, MODALITIES
 
 # "audio" and "video" are not capitalized in all_basiclevel and further dataframes.
+DATETIME_DTYPE_PLACEHOLDER = 'datetime64[ns]'
 AUDIO_VIDEO = tuple(map(lambda s: s.lower(), MODALITIES))
 
 ALL_BASICLEVEL_DTYPES = {
@@ -81,15 +82,26 @@ def _convert_subject_child_month(df):
 
 
 def blab_read_csv(path, **kwargs):
-    df = pd.read_csv(path, **kwargs).convert_dtypes()
-    try:
-        dtypes = kwargs['dtype']
-        unspecified_columns = set(df.columns) - set(dtypes.keys())
-        if unspecified_columns:
-            warnings.warn(f'Data types of column(s) {unspecified_columns} were not specified.')
-    except KeyError:
-        warnings.warn('No data types specified. This can lead to unexpected results.')
+    # Pandas doesn't allow for a custom dtype for datetime columns, the columns have to be passed to read_csv as
+    # parse_dates.
+    dtypes = kwargs.get('dtype', {})
+    date_columns = [column
+                    for column in dtypes
+                    if dtypes[column] == DATETIME_DTYPE_PLACEHOLDER]
+    for column in date_columns:
+        del dtypes[column]
+    if date_columns:
+        assert 'parse_dates' not in kwargs, 'Can\'t have datetime columns in dtype and parse_dates at the same time'
+        kwargs['parse_dates'] = date_columns
 
+    df = pd.read_csv(path, **kwargs).convert_dtypes()
+
+    # Nudge towards specifying all columns
+    unspecified_columns = set(df.columns) - set(dtypes.keys()) - set(date_columns)
+    if unspecified_columns:
+        warnings.warn(f'Data types of column(s) {", ".join(unspecified_columns)} were not specified.')
+
+    # Formats subject/child/month and converts to categorical
     df = _convert_subject_child_month(df)
 
     return df
