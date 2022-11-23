@@ -1,6 +1,7 @@
 """
 Functions to facilitate working with LENA's .its files.
 """
+import datetime
 from pathlib import Path
 from xml.etree.ElementTree import ElementTree, XMLParser
 
@@ -104,7 +105,7 @@ class Its(object):
                 .multiply(1000)  # convert from s to ms
                 .astype(int))  # finally, convert to integers
 
-    def gather_recordings(self):
+    def gather_recordings(self, anonymize=False):
         """
         Finds all sub-recordings in the its file.
 
@@ -125,9 +126,23 @@ class Its(object):
         # *ClockTime - UTC time when recordings started/ended
         # *Time - ISO-formatted duration of time from the start of the wav to the start/end of the recording
 
+        # TODO: consider keeping df.endTime so that we can calculate the duration of the recording from these times and
+        #  not from datetime columns whihc lack the millisecond part.
+        #  Also: it'd be a good idea to drop "recording_" prefix from the column names.
         # Let's convert *ClockTime to local time and startTime to milliseconds
-        return recordings.assign(
-            recording_start=lambda df: self.convert_utc_to_local(df.startClockTime),
-            recording_end=lambda df: self.convert_utc_to_local(df.endClockTime),
-            recording_start_wav=lambda df: self.convert_iso_duration_to_ms(df.startTime)
-        )[['recording_start', 'recording_end', 'recording_start_wav']]
+        recordings = (
+            recordings
+            .assign(
+                recording_start=lambda df: self.convert_utc_to_local(df.startClockTime),
+                recording_end=lambda df: self.convert_utc_to_local(df.endClockTime),
+                recording_start_wav=lambda df: self.convert_iso_duration_to_ms(df.startTime),)
+                # recording_end_wav=lambda df: self.convert_iso_duration_to_ms(df.endTime))
+            [['recording_start', 'recording_end', 'recording_start_wav']]  # , 'recording_end_wav']]
+            .convert_dtypes())
+
+        if anonymize is True:
+            # Aid anonymization by shifting the dates to 1920-01-01
+            shift = recordings.recording_start.iloc[0].date() - datetime.date(1920, 1, 1)
+            recordings[['recording_start', 'recording_end']] = recordings[['recording_start', 'recording_end']] - shift
+
+        return recordings

@@ -2,8 +2,9 @@ import pytest
 
 from blabpy.seedlings.paths import get_seedlings_path, _get_home_visit_folder, _get_coding_folder, _get_analysis_folder, \
     _check_modality, _get_annotation_path, get_opf_path, get_cha_path, _get_all_paths, get_all_opf_paths, \
-    get_all_cha_paths, MISSING_AUDIO_RECORDINGS, MISSING_VIDEO_RECORDINGS, get_basic_level_path, \
+    get_all_cha_paths, get_basic_level_path, \
     get_all_basic_level_paths
+from blabpy.seedlings import MISSING_AUDIO_RECORDINGS, MISSING_VIDEO_RECORDINGS
 
 TEST_CHILD, TEST_MONTH = 6, 10
 AUDIO = 'Audio'

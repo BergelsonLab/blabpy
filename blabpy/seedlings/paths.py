@@ -1,16 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
 
+from . import AUDIO, VIDEO, CHILDREN_INT, MONTHS_INT, ANNOTATION_FILE_COUNT, MISSING_AUDIO_RECORDINGS, \
+    MISSING_VIDEO_RECORDINGS
 from ..paths import get_pn_opus_path
-
-AUDIO = 'Audio'
-VIDEO = 'Video'
-DROPPED_CHILDREN = (5, 24)
-ALL_CHILDREN = tuple(child for child in range(1, 46 + 1) if child not in DROPPED_CHILDREN)
-ALL_MONTHS = range(6, 17 + 1)
-ANNOTATION_FILE_COUNT = 527
-MISSING_AUDIO_RECORDINGS = ((22, 9),)
-MISSING_VIDEO_RECORDINGS = ((17, 6),)
 
 
 def ensure_folder_exists_and_empty(folder_path):
@@ -66,6 +59,18 @@ def _check_modality(modality):
     assert modality in (AUDIO, VIDEO), f'Modality must be either Audio or Video but was {modality} instead'
 
 
+def _check_subject_and_month(modality, subject, month):
+    _check_modality(modality)
+    if modality == AUDIO:
+        missing = MISSING_AUDIO_RECORDINGS
+    elif modality == VIDEO:
+        missing = MISSING_VIDEO_RECORDINGS
+
+    assert int(subject) in CHILDREN_INT
+    assert int(month) in MONTHS_INT
+    assert (subject, month) not in missing, f'No {modality} data for subject {subject} and month {month}'
+
+
 def _get_annotation_path(child, month, modality):
     """
     Finds path to the opf/cha files
@@ -102,7 +107,7 @@ def _get_all_paths(get_single_file_function, missing_child_month_combinations, *
     :return: list of Path objects
     """
     paths = [get_single_file_function(child=child, month=month, **kwargs)
-             for child in ALL_CHILDREN for month in ALL_MONTHS
+             for child in CHILDREN_INT for month in MONTHS_INT
              if (child, month) not in missing_child_month_combinations]
     assert len(paths) == ANNOTATION_FILE_COUNT
 
@@ -159,6 +164,19 @@ def _parse_out_child_and_month(file_path_or_name):
     return dict(child=int(child), month=int(month))
 
 
+def split_recording_id(recording_id):
+    """
+    'Audio_06_12' -> 'Audio', '06', '12'
+    :param recording_id: full recording id (e.g. Audio_06_12)
+    :return: (str, str, str) tuple
+    """
+    modality, subject, month = recording_id.split('_')
+    subject, month = _normalize_child_month(child=subject, month=month)
+    _check_modality(modality)
+    _check_subject_and_month(modality, subject, month)
+    return modality, subject, month
+
+
 @lru_cache(maxsize=None)  # do this just once
 def get_all_basic_level_paths(modality):
     _check_modality(modality)
@@ -169,3 +187,8 @@ def get_all_basic_level_paths(modality):
 
     return _get_all_paths(get_single_file_function=get_basic_level_path,
                           missing_child_month_combinations=missing_child_month_combinations, modality=modality)
+
+
+def get_its_path(child, month):
+    child, month = _normalize_child_month(child=child, month=month)
+    return _get_home_visit_folder(child=child, month=month) / 'Processing' / 'Audio_Files' / f'{child}_{month}.its'

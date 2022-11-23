@@ -4,7 +4,8 @@ from shutil import copy2
 
 import pandas as pd
 
-from .paths import _parse_out_child_and_month, get_basic_level_path, _check_modality, AUDIO, VIDEO
+from .paths import _parse_out_child_and_month, get_basic_level_path, _check_modality
+from . import AUDIO, VIDEO
 from .merge import read_annotations_csv
 
 

@@ -664,6 +664,8 @@ def listen_time_stats_for_report(clan_file_text: str, subregion_count=DEFAULT_SU
 
     # The total listen time calculation depends on whether the full recording was listened to (month 6 and 7, excluding
     # silences and skips) or just the subregions (months 8+, additionally makeup, extra, and surplus regions
+    # TODO: this calculation is different from .regions.calculate_total_listened_time_ms in that we count skips as
+    #  listened to for months 6 and 7. There should be one function, with one logic.
     if subregion_count > 0:
         stats['total_listen_time'] = _total_eligible_time(regions=regions_processed)
     else:

@@ -1,0 +1,8 @@
+subj_month,region_type,start,end,position,subregion_rank
+20_12,subregion,3300000,6900000,1,1
+20_12,subregion,7200000,10800000,2,3
+20_12,silence,13051020,25168680,1,<NA>
+20_12,subregion,30600000,34200000,4,4
+20_12,subregion,36600000,40200000,5,2
+20_12,silence,43613100,45441320,2,<NA>
+20_12,silence,45540870,57599990,3,<NA>

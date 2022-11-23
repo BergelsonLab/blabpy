@@ -6,7 +6,8 @@ import pandas as pd
 
 from blabpy.seedlings.cha import export_cha_to_csv
 from blabpy.seedlings.listened_time import listen_time_stats_for_report, _get_subregion_count
-from blabpy.seedlings.paths import ALL_CHILDREN, ALL_MONTHS, MISSING_AUDIO_RECORDINGS, get_cha_path
+from blabpy.seedlings.paths import get_cha_path
+from blabpy.seedlings import CHILDREN_INT, MONTHS_INT, MISSING_AUDIO_RECORDINGS
 from blabpy.utils import text_file_checksum
 
 
@@ -28,7 +29,7 @@ def listen_time_stats_df():
 
 @pytest.mark.parametrize(argnames=('child', 'month'),
                          argvalues=[(child, month)
-                                    for child in ALL_CHILDREN for month in ALL_MONTHS
+                                    for child in CHILDREN_INT for month in MONTHS_INT
                                     if (child, month) not in MISSING_AUDIO_RECORDINGS])
 def test_listen_time_stats_for_report(listen_time_stats_df, child, month):
     subregion_count = _get_subregion_count(child=child, month=month)
@@ -49,7 +50,7 @@ def cha_export_checksums_df():
 
 @pytest.mark.parametrize(argnames=('child', 'month'),
                          argvalues=[(child, month)
-                                    for child in ALL_CHILDREN for month in ALL_MONTHS
+                                    for child in CHILDREN_INT for month in MONTHS_INT
                                     if (child, month) not in MISSING_AUDIO_RECORDINGS])
 def test_export_cha_to_csv(cha_export_checksums_df, child, month, tmpdir):
     cha_path = _get_test_cha_path(child, month)
