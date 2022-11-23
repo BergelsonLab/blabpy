@@ -1,3 +1,9 @@
+"""
+This module provides constants and functions for reading both specific files (e.g., seedlings_nouns.csv and files in
+ general. For the specific files, there are constants containing dictionaries with the data types of the columns. The
+ order of the keys is also used to set the order of the columns when creating these files.
+"""
+
 import warnings
 
 import pandas as pd
@@ -47,8 +53,7 @@ SEEDLINGS_NOUNS_DTYPES = {
     'object': None,
     'basic_level': None,
     'global_basic_level': GLOBAL_BASICLEVEL_DTYPES['global_bl'],
-    # TODO: transcription should be in all_basiclevel already
-    'transcription': pd.StringDtype(),
+    'transcription': GLOBAL_BASICLEVEL_DTYPES['pho'],
     'utterance_type': None,
     'object_present': None,
     'is_top_3_hours': pd.BooleanDtype(),
