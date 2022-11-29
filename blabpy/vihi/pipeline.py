@@ -3,6 +3,8 @@ This module contains function that interact with files - either reading or writi
 other function are supposed to be pure. That is not true at all at this time though.
 """
 from pathlib import Path
+from shutil import copy2
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ from .intervals.intervals import add_metric, make_intervals, add_annotation_inte
 from ..its import Its, ItsNoTimeZoneInfo
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path
 from ..utils import df_to_list_of_tuples
-from ..vtc import read_rttm
+from ..vtc import read_rttm, split_rttm
 from ..eaf import EafPlus
 
 
@@ -117,3 +119,44 @@ def add_intervals_for_annotation(full_recording_id, forced_timezone=None):
     # TODO: add selected_regions to the test
     selected_regions = pd.concat([old_log, best_intervals], ignore_index=True)
     selected_regions.to_csv(output_file_paths['csv'], index=False)
+
+
+def distribute_all_rttm():
+    """
+    Moves VTC results from the `all.rttm` file output by VTC to the corresponding `all.rttm` files for each recording.
+    """
+    with TemporaryDirectory(suffix=None, prefix='all_rttm_splitted') as output_dir:
+        output_dir = Path(output_dir)
+        vtc_output_path = Path('all.rttm')
+        if not vtc_output_path.exists():
+            print(f'Can\'t find `{vtc_output_path.name}` file. Did you cd into the right directory?')
+            return
+
+        split_rttm(vtc_output_path, output_dir)
+
+        # split_rttm puts individual files under individual <full-recording-id> folders
+        individual_folders = list(output_dir.iterdir())
+        rttm_paths_from = [folder / vtc_output_path.name for folder in individual_folders]
+        rttm_paths_to = [get_rttm_path(**parse_full_recording_id(folder.name)) for folder in individual_folders]
+
+        # Check that none of the output rttm files already exist
+        already_existing_rttm_paths = [rttm_path_to for rttm_path_to in rttm_paths_to if rttm_path_to.exists()]
+        if len(already_existing_rttm_paths) > 0:
+            print('Aborting because these individual .rttm files already exist:\n' +
+                  '\n'.join(map(str, already_existing_rttm_paths)) + '\n')
+
+            if len(already_existing_rttm_paths) < len(individual_folders):
+                recordings_not_processed = [rttm_path_to.parent.name for rttm_path_to in rttm_paths_to
+                                           if rttm_path_to not in already_existing_rttm_paths]
+                print('However, these recordings haven\'t been processed yet:\n' +
+                      '\n'.join(recordings_not_processed) + '\n')
+
+            return
+
+        for rttm_path_from, rttm_path_to in zip(rttm_paths_from, rttm_paths_to):
+            rttm_path_to.parent.mkdir(exist_ok=True, parents=True)
+            copy2(rttm_path_from, rttm_path_to)
+
+            print(f'\nVTC output for {rttm_path_from.parent.name} copied to\n'
+                  f'{rttm_path_to}')
+            print('\n')
