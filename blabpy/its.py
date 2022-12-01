@@ -6,6 +6,7 @@ from pathlib import Path
 from xml.etree.ElementTree import ElementTree, XMLParser
 
 import pandas as pd
+import pytz
 
 
 class ItsNoTimeZoneInfo(Exception):
@@ -21,19 +22,28 @@ class Its(object):
         :param xml_parsed: Parsed xml from an its file.
         :param forced_timezone: if forced_timezone is not None, the timezone in the file will be ignored and this
         one will be used instead. Useful for files with incorrect timezone information or without any information at
-        all. The format is:
-        dict(seconds_offset=<offset from UTC in seconds>, uses_dst=<True if DST was used, False otherwise>)
+        all. Must be a string recognized by `pytz.timezone`, such as 'US/Eastern'. The DST mustn't be baked into the
+        timezone, i.e., 'EST'/'EDT' mustn't be used.
         """
         self.xml: ElementTree = xml_parsed
         if forced_timezone is not None:
-            self._check_timezone(forced_timezone)
+            forced_timezone = self._parse_forced_timezone(forced_timezone)
         self.forced_timezone = forced_timezone
 
     @staticmethod
-    def _check_timezone(timezone_dict):
-        assert type(timezone_dict) is dict
-        assert 'seconds_offset' in timezone_dict and type(timezone_dict['seconds_offset']) is int
-        assert 'uses_dst' in timezone_dict and type(timezone_dict['uses_dst']) is bool
+    def _parse_forced_timezone(forced_timezone_str):
+        # convert forced_timezone to a pytz timezone object
+        try:
+            forced_timezone = pytz.timezone(forced_timezone_str)
+        except pytz.UnknownTimeZoneError:
+            raise ValueError(f'Unknown timezone: {forced_timezone_str}. Timezone must be a string recognized by'
+                             ' `pytz.timezone`, such as "US/Eastern".')
+
+        # Check that the timezone doesn't have DST baked into it
+        if not isinstance(forced_timezone, pytz.tzinfo.DstTzInfo):
+            raise ValueError('Timezone object mustn\'t include DST. I.e., use "US/Eastern" instead of "EST"/"EDT".')
+
+        return forced_timezone
 
     @classmethod
     def from_string(cls, its_contents: str, forced_timezone=None):
@@ -72,29 +82,34 @@ class Its(object):
         timezone_info = dict(timezone_element.items())
         return dict(seconds_offset=timezone_info['StandardSecondsOffset'], uses_dst=timezone_info['UsesDST'])
 
-    def convert_utc_to_local(self, clock_time: pd.Series):
+    def _convert_utc_to_local(self, clock_time: pd.Series):
         """
-        Convert utc timestams to local timestamps.
+        Convert utc timestamps to local timestamps.
         :param clock_time: pd.Series of strings from the .its object
         :return: pd.Series of timezone-naive datetime type.
         """
-        # Parse
-        datetimes = (pd.to_datetime(clock_time, format='%Y-%m-%dT%H:%M:%SZ', utc=True)  # parse date
-                     .dt.tz_convert(None))  # remove timezone information
+        # Parse the timestamps
+        datetimes = pd.to_datetime(clock_time, format='%Y-%m-%dT%H:%M:%SZ', utc=True)
 
-        # Apply the timezone difference
-        # Note: I didn't figure out how to use 'GMT-05:00' that is in timezone_info['ZoneNameShort']
+        # Convert to local time
         timezone_info = self.get_timezone_info()
-        datetimes += pd.Timedelta(seconds=int(timezone_info['seconds_offset']))
+        if type(timezone_info) is dict:
+            datetimes += pd.Timedelta(seconds=int(timezone_info['seconds_offset']))
+            # Add an hour if there is daylight savings time used
+            if timezone_info['uses_dst']:
+                datetimes += pd.Timedelta(hours=1)
+        elif isinstance(timezone_info, pytz.tzinfo.DstTzInfo):
+            datetimes = datetimes.dt.tz_convert(timezone_info)
+        else:
+            raise NotImplementedError(f'Unexpected timezone: {timezone_info}')
 
-        # Add an hour if there is daylight savings time used
-        if timezone_info['uses_dst']:
-            datetimes += pd.Timedelta(hours=1)
+        # Remove timezone info
+        datetimes = datetimes.dt.tz_convert(None)
 
         return datetimes
 
     @staticmethod
-    def convert_iso_duration_to_ms(iso_time: pd.Series):
+    def _convert_iso_duration_to_ms(iso_time: pd.Series):
         """
         Converts duration from iso format to the number of milliseconds.
         :param iso_time: pd.Series of ISO duration values
@@ -133,9 +148,9 @@ class Its(object):
         recordings = (
             recordings
             .assign(
-                recording_start=lambda df: self.convert_utc_to_local(df.startClockTime),
-                recording_end=lambda df: self.convert_utc_to_local(df.endClockTime),
-                recording_start_wav=lambda df: self.convert_iso_duration_to_ms(df.startTime),)
+                recording_start=lambda df: self._convert_utc_to_local(df.startClockTime),
+                recording_end=lambda df: self._convert_utc_to_local(df.endClockTime),
+                recording_start_wav=lambda df: self._convert_iso_duration_to_ms(df.startTime),)
                 # recording_end_wav=lambda df: self.convert_iso_duration_to_ms(df.endTime))
             [['recording_start', 'recording_end', 'recording_start_wav']]  # , 'recording_end_wav']]
             .convert_dtypes())
