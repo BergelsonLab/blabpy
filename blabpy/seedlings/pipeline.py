@@ -560,30 +560,50 @@ def get_top3_top4_surplus_regions(subject, month):
     return _get_top3_top4_surplus_regions(processed_regions, month)
 
 
-def get_lena_recordings(subject, month, forced_timezone=None):
+def get_lena_recordings(recording_id):
     """
-    Get anonymized information about sub-recordings of the LENA recording for the given subject and month.
+    Get anonymized information about sub-recordings of the LENA recording for the given subject and month. There are
+    several special cases of recordings that are missing an its file or that have one but it doesn't contain the
+    timezone information. See __init__.py for details.
 
-    If there are pauses in LENA recordings, LENA still outputs one big wav file. This leads to confusion and errors, such
-    as when an interval spans multiple recordings.
+    If there are pauses in LENA recordings, LENA still outputs one big wav file. This leads to confusion and errors,
+    such as when an interval spans multiple recordings. It is important to know about these pauses.
 
-    :param subject: int/str, subject id
-    :param month: int/str, month
-    :param forced_timezone: str, timezone to use when its doesn't have one. See `help(Its)` for details.
-    :return: a pandas dataframe with the LENA sub-recordings
+    :param recording_id: full recording id, e.g. 'Video_01_16'
+    :return: a pandas dataframe with the LENA sub-recordings and the total duration of all sub-recordings
     """
+    # TODO: find missing its files and remove this bodge
+    if recording_id in MISSING_ITS:
+        # We still want these recordings to be included in the final dataframe, so we will use a dummy dataframe
+        recordings = pd.DataFrame(
+            data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
+            dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
+        total_recorded_time = MISSING_ITS[recording_id]
+        return recordings, total_recorded_time
+
+    # TODO: figure out why the timezone info is missing
+    if recording_id in MISSING_TIMEZONE_RECORDING_IDS:
+        forced_timezone = MISSING_TIMEZONE_FORCED_TIMEZONE
+    else:
+        forced_timezone = None
+    subject, month = recording_id.split('_')[1:3]
     its = Its.from_path(get_its_path(subject, month), forced_timezone=forced_timezone)
+
     try:
         recordings = its.gather_recordings(anonymize=True)
     except ItsNoTimeZoneInfo as e:
         raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}. Please force a timezone using'
                                 f'`forced_timezone`') from e
 
-    # In a table with recordings only, it doesn't make sense to have each column to start with 'recording_', the way
-    # Its.gather_recordings() does.
-    recordings.columns = recordings.columns.str.replace('recording_', '')
+    # Change column names to match what `calculate_total_recorded_time_ms` expects
+    recordings = recordings.rename(
+        columns={'recording_start': 'start',
+                 'recording_end': 'end',
+                 'recording_start_wav': 'start_position_ms'},
+        errors='raise')
+    total_recorded_time = calculate_total_recorded_time_ms(recordings=recordings)
 
-    return recordings
+    return recordings, total_recorded_time
 
 
 def _sort_tokens(tokens_df):
@@ -648,22 +668,7 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    # TODO: Find its files for recordings in MISSING_ITS and remove this bodge.
-    if recording_id in MISSING_ITS:
-        lena_recordings = pd.DataFrame(
-            data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
-            dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
-        total_recorded_time = MISSING_ITS[recording_id]
-    else:
-        # TODO: Figure out why the timezone info is missing.
-        forced_timezone = MISSING_TIMEZONE_FORCED_TIMEZONE if recording_id in MISSING_TIMEZONE_RECORDING_IDS else None
-        try:
-            lena_recordings = (get_lena_recordings(subject, month, forced_timezone=forced_timezone)
-                               .rename(columns={'start_wav': 'start_position_ms'}))
-        except ItsNoTimeZoneInfo as e:
-            raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}.its. Update'
-                                    f' `gather_recording_seedlings_nouns` in blabpy to account for that.') from e
-        total_recorded_time = calculate_total_recorded_time_ms(recordings=lena_recordings)
+    lena_recordings, total_recorded_time = get_lena_recordings(recording_id)
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                            recordings=lena_recordings)
 
