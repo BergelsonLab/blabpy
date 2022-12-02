@@ -33,6 +33,18 @@ TIERS = ('*CHF', '*CHN', '*CXF', '*CXN',
          '*NOF', '*NON', '*OLF', '*OLN',
          '*SIL', '*TVF', '*TVN')
 
+# A few recordings are missing the its file. This dictionary maps their recording ids to the duration of the recording.
+MISSING_ITS = {'Audio_01_08': 57600125, 'Audio_26_13': 57600125}
+
+# Some of the .its files don't have the timezone information. We'll force EST with daylight savings determined by the
+# date.
+MISSING_TIMEZONE_RECORDING_IDS = (
+    'Audio_12_17',
+    'Audio_18_09',
+    'Audio_20_13',
+    'Audio_29_16')
+MISSING_TIMEZONE_FORCED_TIMEZONE = 'US/Eastern'
+
 
 def _month_or_child_to_str(month_or_child):
     return f'{int(month_or_child):02}'

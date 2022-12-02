@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from . import AUDIO, VIDEO
+from . import AUDIO, VIDEO, MISSING_ITS, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
@@ -27,7 +27,7 @@ from .regions import get_processed_audio_regions as _get_processed_audio_regions
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
-from ..its import Its
+from ..its import Its, ItsNoTimeZoneInfo
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -560,7 +560,7 @@ def get_top3_top4_surplus_regions(subject, month):
     return _get_top3_top4_surplus_regions(processed_regions, month)
 
 
-def get_lena_recordings(subject, month):
+def get_lena_recordings(subject, month, forced_timezone=None):
     """
     Get anonymized information about sub-recordings of the LENA recording for the given subject and month.
 
@@ -569,10 +569,15 @@ def get_lena_recordings(subject, month):
 
     :param subject: int/str, subject id
     :param month: int/str, month
+    :param forced_timezone: str, timezone to use when its doesn't have one. See `help(Its)` for details.
     :return: a pandas dataframe with the LENA sub-recordings
     """
-    its = Its.from_path(get_its_path(subject, month))
-    recordings = its.gather_recordings(anonymize=True)
+    its = Its.from_path(get_its_path(subject, month), forced_timezone=forced_timezone)
+    try:
+        recordings = its.gather_recordings(anonymize=True)
+    except ItsNoTimeZoneInfo as e:
+        raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}. Please force a timezone using'
+                                f'`forced_timezone`') from e
 
     # In a table with recordings only, it doesn't make sense to have each column to start with 'recording_', the way
     # Its.gather_recordings() does.
@@ -587,8 +592,8 @@ def _sort_tokens(tokens_df):
     :param tokens_df: a dataframe to sort
     :return: sorted dataframe
     """
-    sort_by = SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv']
-    # The only difference between dataframe is subj/child
+    sort_by = SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv'].copy()
+    # The only difference between the three dataframes is subj/child
     if 'subj' in tokens_df.columns:
         sort_by[sort_by.index('child')] = 'subj'
     return tokens_df.sort_values(sort_by).reset_index(drop=True)
@@ -643,25 +648,21 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    # TOD0:
-    # - move the list to blabpy.seedlings so that it isn't hidden in the code,
-    # - find 01_08.its and remove this bodge,
-    # - figure out why the other ones are missing timezone info.
-    problem_recordings_total_recorded_time = {'Audio_01_08': 57600125,  # missing its file
-                                              'Audio_12_17': 57600000,  # missing timezone info
-                                              'Audio_18_09': 43822125,  # missing timezone info
-                                              'Audio_20_13': 57600125,  # missing timezone info
-                                              'Audio_26_13': 57600125,  # missing timezone info
-                                              'Audio_29_16': 44096000,  # missing timezone info
-                                              }
-
-    if recording_id in problem_recordings_total_recorded_time:
+    # TODO: Find its files for recordings in MISSING_ITS and remove this bodge.
+    if recording_id in MISSING_ITS:
         lena_recordings = pd.DataFrame(
             data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
             dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
-        total_recorded_time = problem_recordings_total_recorded_time[recording_id]
+        total_recorded_time = MISSING_ITS[recording_id]
     else:
-        lena_recordings = get_lena_recordings(subject, month).rename(columns={'start_wav': 'start_position_ms'})
+        # TODO: Figure out why the timezone info is missing.
+        forced_timezone = MISSING_TIMEZONE_FORCED_TIMEZONE if recording_id in MISSING_TIMEZONE_RECORDING_IDS else None
+        try:
+            lena_recordings = (get_lena_recordings(subject, month, forced_timezone=forced_timezone)
+                               .rename(columns={'start_wav': 'start_position_ms'}))
+        except ItsNoTimeZoneInfo as e:
+            raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}.its. Update'
+                                    f' `gather_recording_seedlings_nouns` in blabpy to account for that.') from e
         total_recorded_time = calculate_total_recorded_time_ms(recordings=lena_recordings)
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                            recordings=lena_recordings)
