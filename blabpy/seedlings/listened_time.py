@@ -387,9 +387,9 @@ def _extract_timestamps(clan_file_text: str):
               for match in TIMESTAMP_REGEX.finditer(clan_file_text)],
         dtype=int)
 
-    if not timestamps.onset.is_monotonic:
+    if not timestamps.onset.is_monotonic_increasing:
         # TODO: uncomment or delete once timestamp inconsistencies have been dealt with
-        # not (timestamps.onset.is_monotonic and timestamps.offset.is_monotonic and
+        # not (timestamps.onset.is_monotonic_increasing and timestamps.offset.is_monotonic_increasing and
         # (timestamps.onset <= timestamps.offset).all()):
         raise ValueError('Timestamps are not in the right order.')
 
@@ -417,10 +417,10 @@ def _match_with_timestamps(positions_in_text, timestamps_df, above=None, below=N
     # Check that the positions are monotonic increasing
     if isinstance(positions_in_text, pd.Series):
         assert positions_in_text.name == 'position_in_text'
-        assert positions_in_text.is_monotonic
+        assert positions_in_text.is_monotonic_increasing
     elif isinstance(positions_in_text, pd.DataFrame):
-        assert positions_in_text.position_in_text.is_monotonic
-    assert timestamps_df.position_in_text.is_monotonic
+        assert positions_in_text.position_in_text.is_monotonic_increasing
+    assert timestamps_df.position_in_text.is_monotonic_increasing
 
     return pd.merge_asof(positions_in_text, timestamps_df,
                          on='position_in_text', direction=direction)
