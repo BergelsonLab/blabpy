@@ -861,11 +861,11 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
     print('0. If there are warnings above about new dataframes or new variables, update descriptions in the'
           f' corresponding codebooks in the following folder:\n{new_seedlings_nouns_dir}\n\n'
           '1. Copy the csv files\n'
-          f'from: {new_seedlings_nouns_dir}\n'
-          f'to:   {old_seedlings_nouns_dir}\n\n'
+          f'from: {new_seedlings_nouns_dir.absolute()}\n'
+          f'to:   {old_seedlings_nouns_dir.absolute()}\n\n'
           '2. Go to\n'
-          f'{old_seedlings_nouns_dir}\n'
-          'and follow the instructions in CONTRIBUTING.md to update the dataset.\n')
+          f'{old_seedlings_nouns_dir.absolute()}\n'
+          'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
 def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
