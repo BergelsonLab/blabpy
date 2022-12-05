@@ -104,7 +104,7 @@ class Its(object):
             raise NotImplementedError(f'Unexpected timezone: {timezone_info}')
 
         # Remove timezone info
-        datetimes = datetimes.dt.tz_convert(None)
+        datetimes = datetimes.dt.tz_localize(None)
 
         return datetimes
 
