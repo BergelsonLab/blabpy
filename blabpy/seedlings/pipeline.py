@@ -20,7 +20,7 @@ from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
-    _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id
+    _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id, get_seedlings_nouns_private_path
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     are_tokens_in_top3_top4_surplus
@@ -868,7 +868,7 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
           'and follow the instructions in CONTRIBUTING.md to update the dataset.\n')
 
 
-def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
+def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
     that contains existing codebooks.
@@ -899,3 +899,24 @@ def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, ou
     _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
                                                new_seedlings_nouns_dir=output_dir,
                                                old_seedlings_nouns_dir=seedlings_nouns_dir)
+
+
+def make_updated_seedlings_nouns():
+    """Creates updated versions of all seedlings-nouns csvs.
+
+    For this function to work, the following must be true:
+
+    - You are connected to PN-OPUS.
+    - Current working directory contains `global-basic-level.csv` with updated global basic level version.
+      It can be created using `blabr:::make_new_global_basic_level()`.
+    - There is no subfolder `new_csvs` in the current folder or it is empty.
+    """
+    global_basiclevel_path = Path('global-basic-level.csv')
+    assert global_basiclevel_path.exists(), (f'File {global_basiclevel_path.name} does not exist in the current working'
+                                             f' directory.')
+    # get_*_path functions check that paths exist
+    seedlings_nouns_dir = get_seedlings_nouns_private_path()
+    output_dir = Path('new_csvs')
+    ensure_folder_exists_and_empty(output_dir)
+
+    _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir)

@@ -23,3 +23,12 @@ def get_pn_opus_path():
     else:
         raise ValueError(f'Could not locate PN-OPUS at {path}, check that VPN is connected and PN-OPUS is mounted.\n'
                          f'If this is not the correct location, set/update environment/shell variable {PN_OPUS}')
+
+
+def get_blab_data_path():
+    """Returns tht path to the BLAB_DATA fodler on the local computer"""
+    path = Path('~/BLAB_DATA/').expanduser()
+    msg = (f'Could not locate BLAB_DATA at {path}.'
+           f' You may need to create this folder and clone the necessary repos.')
+    assert path.exists(), msg
+    return path
