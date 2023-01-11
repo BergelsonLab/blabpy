@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from . import AUDIO, VIDEO, MISSING_ITS, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
+from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
@@ -572,15 +572,6 @@ def get_lena_recordings(recording_id):
     :param recording_id: full recording id, e.g. 'Video_01_16'
     :return: a pandas dataframe with the LENA sub-recordings and the total duration of all sub-recordings
     """
-    # TODO: find missing its files and remove this bodge
-    if recording_id in MISSING_ITS:
-        # We still want these recordings to be included in the final dataframe, so we will use a dummy dataframe
-        recordings = pd.DataFrame(
-            data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
-            dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
-        total_recorded_time = MISSING_ITS[recording_id]
-        return recordings, total_recorded_time
-
     # TODO: figure out why the timezone info is missing
     if recording_id in MISSING_TIMEZONE_RECORDING_IDS:
         forced_timezone = MISSING_TIMEZONE_FORCED_TIMEZONE
