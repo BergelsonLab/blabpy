@@ -706,14 +706,15 @@ def _preprocess_global_basic_level(global_basic_level):
     return global_basic_level_preprocessed
 
 
-def _gather_corpus_seedlings_nouns(global_basiclevel_path):
+def _gather_corpus_seedlings_nouns(global_basiclevel_df):
     """
     Create all the csv for the seedlings_nouns dataset
-    :param global_basiclevel_path: path to global_basiclevel.csv
+    :param global_basiclevel_df: a global basic level dataframe (all_basiclevel + global_bl)
     :return: None
     """
+    gbl = _preprocess_global_basic_level(global_basic_level=global_basiclevel_df)
+
     # Gather data for each recording and put into lists
-    gbl = (read_global_basic_level(global_basiclevel_path).pipe(_preprocess_global_basic_level))
     print('Processing video recordings is instantaneous, only audio recordings take time.')
     everything = [
         (recording_id,) +
@@ -871,7 +872,8 @@ def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
     ensure_folder_exists_and_empty(output_dir)
 
     # Gather and write data
-    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path)
+    global_basiclevel_path_df = read_global_basic_level(global_basiclevel_path)
+    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path_df)
 
     new_dataframes = []
     new_variables = []
