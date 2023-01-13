@@ -610,22 +610,13 @@ def _sort_tokens(tokens_df):
     return tokens_df.sort_values(sort_by).reset_index(drop=True)
 
 
-# TODO: return dict, returning a heterogeneous tuple has and will lead to errors
-def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
+# TODO: return namedtuple, returning a heterogeneous tuple has and will lead to errors
+def gather_recording_nouns_audio(subject, month, global_basic_level_for_recording):
     """
-    Gathers all the data needed to update seedlings_nouns for one recording. For video, the global basic level data
-    is all there is. For audio, we will need to additionally:
+    Gathers all the data needed to update seedlings_nouns for one audio recording.
 
-    - gather processed subregions (listened to parts only) and top3/top4/surplus regions (much of the time will be
-      listed multiple times)
-    - add top3/top4/surplus status for each token to global_basic_level_for_recording,
-    - gather LENA sub-recordings info with time of day and time within the wav file
-    - calculate total recorded time,
-    - calculate total listened time.
-
-    To update seedlings_nouns, we'll just concatenate all of these.
-
-    :param recording_id: full recording id, e.g. 'Video_01_16'
+    :param subject: subject id, e.g. '01'
+    :param month: month, e.g. '08'
     :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
     :return: (top3/top4/surplus regions,
               global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
@@ -633,13 +624,6 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
               total recorded time,
               total listened time)
     """
-    modality, subject, month = split_recording_id(recording_id)
-
-    if modality == VIDEO:
-        # We want to return the same number of items, hence the None's
-        return (global_basic_level_for_recording,) + (None,) * 4
-
-    # modality == AUDIO
     # Regions
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
     top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month)
@@ -659,7 +643,7 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    lena_recordings, total_recorded_time = get_lena_recordings(recording_id)
+    lena_recordings, total_recorded_time = get_lena_recordings(recording_id=f'{AUDIO}_{subject}_{month}')
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                            recordings=lena_recordings)
 
@@ -683,6 +667,51 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
             #  exactly the same manner
             total_listened_time,
             total_recorded_time)
+
+
+def gather_recording_nouns_video(subject, month, global_basic_level_for_recording):
+    """
+    Gathers all the data needed to update seedlings_nouns for one video recording.
+
+    :param subject: subject id, e.g. '01'
+    :param month: month, e.g. '08'
+    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :return: (top3/top4/surplus regions,
+              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              LENA recordings,
+              total recorded time,
+              total listened time)
+    """
+    # TODO: make sure the format of what get_video_recording_start_and_end returns is the same as in get_lena_recordings
+    # recording_start_and_end = get_video_recording_start_and_end(subject, month)
+    # total_recorded_time = get_total_recording_time(subject, month)
+    # return recording_start_and_end, total_recorded_time
+    # TODO: implement everything above
+
+    # We want to return the same number of items, hence the None's
+    return (global_basic_level_for_recording,) + (None,) * 4
+
+
+def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
+    """
+    Gathers all the data needed to update seedlings_nouns for one recording.
+
+    :param recording_id: full recording id, e.g. 'Video_01_16'
+    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :return: (top3/top4/surplus regions,
+              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              LENA recordings,
+              total recorded time,
+              total listened time)
+    """
+    modality, subject, month = split_recording_id(recording_id)
+
+    if modality == VIDEO:
+        return gather_recording_nouns_video(subject, month, global_basic_level_for_recording)
+    elif modality == AUDIO:
+        return gather_recording_nouns_audio(subject, month, global_basic_level_for_recording)
+    else:
+        raise ValueError(f'Unknown modality {modality} for recording {recording_id}')
 
 
 def _preprocess_global_basic_level(global_basic_level):
