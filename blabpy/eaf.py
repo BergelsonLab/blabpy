@@ -146,23 +146,21 @@ class EafPlus(Eaf):
         annotations_df = annotations_df.rename(columns={'annotation_id': 'deepest_annotation_id'})
         n_annotations = annotations_df.shape[0]
 
-        if tier_id == 'CHI':
-            daughter_tier_types = ('vcm', 'lex', 'mwu')
-        else:
-            daughter_tier_types = ('xds', )
+        # The annotations are in daughter tiers of the participant tier. Their IDs are in the format "xds@CHI".
+        daughter_tier_ids = [tier_id_ for tier_id_ in self.tiers if tier_id_.endswith(f'@{tier_id}')]
 
-        for daughter_tier_type in daughter_tier_types:
-            daughter_tier_id = f'{daughter_tier_type}@{tier_id}'
+        for daughter_tier_id in daughter_tier_ids:
+            daughter_tier_type = daughter_tier_id.split('@')[0]
             daughter_annotations_df = self._get_reference_annotations(tier_id=daughter_tier_id)
             daughter_annotations_df = daughter_annotations_df.rename(columns={'annotation': daughter_tier_type})
             # Merge with previously extracted annotations
             annotations_df = (annotations_df.merge(daughter_annotations_df,
-                                 how='left',
-                                 left_on='deepest_annotation_id',
-                                 right_on='parent_annotation_id')
-             .drop(columns=['deepest_annotation_id', 'parent_annotation_id'])
-             .rename(columns={'annotation_id': 'deepest_annotation_id'})
-             )
+                                                   how='left',
+                                                   left_on='deepest_annotation_id',
+                                                   right_on='parent_annotation_id')
+                              .drop(columns=['deepest_annotation_id', 'parent_annotation_id'])
+                              .rename(columns={'annotation_id': 'deepest_annotation_id'})
+                              )
 
         assert annotations_df.shape[0] == n_annotations
         return annotations_df.drop(columns=['deepest_annotation_id'])
