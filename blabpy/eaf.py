@@ -101,22 +101,25 @@ class EafPlus(Eaf):
         return participant_tier_ids
 
     def _get_aligned_annotations(self, tier_id):
+        """
+        Get aligned annotations for a given tier.
+        :param tier_id: tier id, e.g., CHI
+        :return: a dataframe with columns onset, offset, annotation, annotation_id
+        """
+        # Load times and annotations. If there aren't any, substitute placeholder to return a DataFrame with all Nones
+        # in the end.
+        # Times
         time_intervals = self.get_time_intervals(tier_id=tier_id)
-        if len(time_intervals) == 0:
-            return None
-
-        onsets, offsets = zip(*time_intervals)
+        onsets, offsets = zip(*time_intervals) if time_intervals else ([None], [None])
+        # Annotations
         aligned_annotations, _, _, _ = self.tiers[tier_id]
-        if aligned_annotations:
-            ids, annotations = zip(*[(id_, annotation)
-                                     for id_, (_, _, annotation, _)
-                                     in aligned_annotations.items()])
-            return pd.DataFrame.from_dict(dict(
-                onset=onsets, offset=offsets,
-                annotation=annotations,
-                annotation_id=ids))
-        else:
-            return pd.DataFrame(columns=['onset', 'offset', 'annotation', 'annotation_id'])
+        aligned_annotations = aligned_annotations or {None: (None, None, None, None)}
+        ids, annotations = zip(*[(id_, annotation) for id_, (_, _, annotation, _) in aligned_annotations.items()])
+
+        return pd.DataFrame.from_dict(dict(
+            onset=onsets, offset=offsets,
+            annotation=annotations,
+            annotation_id=ids))
 
     def _get_reference_annotations(self, tier_id):
         _, reference_annotations, _, _ = self.tiers[tier_id]
