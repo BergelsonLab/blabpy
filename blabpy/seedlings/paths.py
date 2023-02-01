@@ -226,3 +226,10 @@ def get_video_file_path(child, month, filename):
     home_folder = _get_home_visit_folder(child=child, month=month)
     return home_folder / 'Processing' / 'Video_Files' / f'{child}_{month}_{filename}'
 
+
+def get_video_recordings_csv_path():
+    """
+    Returns path to the video_recordings.csv file with date-times and durations of video recordings.
+    :return: pathlib.Path object
+    """
+    return get_subject_files_folder() / 'video_recordings.csv'
