@@ -14,7 +14,8 @@ from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
     check_for_errors
 from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
-    SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES
+    SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
+    read_video_recordings_csv
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -27,6 +28,7 @@ from .regions import get_processed_audio_regions as _get_processed_audio_regions
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
+from .. import ANONYMIZATION_DATE
 from ..its import Its, ItsNoTimeZoneInfo
 
 
@@ -669,6 +671,40 @@ def gather_recording_nouns_audio(subject, month, global_basic_level_for_recordin
             total_recorded_time)
 
 
+def load_video_recordings_csv(anonymize=True):
+    """
+    Loads the video recordings csv from PN-OPUS.
+    :return: a dataframe with the video recordings
+    """
+    video_info_df = read_video_recordings_csv()
+
+    # Change start dates to happen on the same date. Shift end dates by the same deltas.
+    if anonymize:
+        deltas = video_info_df.start.dt.date - ANONYMIZATION_DATE
+        video_info_df = video_info_df.assign(start=lambda df: df.start - deltas,
+                                             end=lambda df: df.end - deltas)
+
+    return video_info_df
+
+
+def get_video_times(subject, month):
+    """
+    Gets the time of day of start and end, and duration times for a given subject and month.
+
+    :param subject: subject id, e.g. '01'
+    :param month: month, e.g. '08'
+    :return: start_dt, end_dt, duration_ms
+    """
+    subject, month = _normalize_child_month(child=subject, month=month)
+    subject_month = f'{subject}_{month}'
+    video_recordings_info = load_video_recordings_csv(anonymize=True)
+    ((start_dt, end_dt, duration),) = video_recordings_info.loc[lambda df: df.subject_month == subject_month,
+                                                                ['start', 'end', 'duration']].values
+    duration_ms = duration.total_seconds() * 1000
+
+    return start_dt, end_dt, duration_ms
+
+
 def gather_recording_nouns_video(subject, month, global_basic_level_for_recording):
     """
     Gathers all the data needed to update seedlings_nouns for one video recording.
@@ -676,20 +712,18 @@ def gather_recording_nouns_video(subject, month, global_basic_level_for_recordin
     :param subject: subject id, e.g. '01'
     :param month: month, e.g. '08'
     :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
-    :return: (top3/top4/surplus regions,
-              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
-              LENA recordings,
+    :return: (global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              top3/top4/surplus regions (None because video),
+              sub-recordings (a single one because video),
               total recorded time,
               total listened time)
     """
-    # TODO: make sure the format of what get_video_recording_start_and_end returns is the same as in get_lena_recordings
-    # recording_start_and_end = get_video_recording_start_and_end(subject, month)
-    # total_recorded_time = get_total_recording_time(subject, month)
-    # return recording_start_and_end, total_recorded_time
-    # TODO: implement everything above
+    start_dt, end_dt, duration_ms = get_video_times(subject, month)
+    sub_recordings_df = pd.DataFrame.from_dict(dict(start=[start_dt],
+                                               end=[end_dt],
+                                               start_position_ms=[0]))
 
-    # We want to return the same number of items, hence the None's
-    return (global_basic_level_for_recording,) + (None,) * 4
+    return global_basic_level_for_recording, None, sub_recordings_df, duration_ms, duration_ms
 
 
 def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):

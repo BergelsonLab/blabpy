@@ -140,5 +140,5 @@ def test__gather_corpus_seedlings_nouns(global_basic_level_df):
 
     assert pandas_df_hash(seedlings_nouns) == '882ed64994194ab248d448ddf2e08198b66c951d2f188e798becdd8edde1cf6f'
     assert pandas_df_hash(regions) == 'f911dc162ceeda249b67ca3c8a3c7352d5c5894b4b87e8699b0d54077a070c5a'
-    assert pandas_df_hash(sub_recordings) == '75be2e0b81d03e49e411428c30b8a14623ab2dcc09cb71459881c0527633ca93'
-    assert pandas_df_hash(recordings) == 'f47b7ea37218862c744a1efae65b647fb4be10781b03b80098ea451e5ac1dbc7'
+    assert pandas_df_hash(sub_recordings) == 'd766b009961bb6e33dd0e2d513b65721c00aa796304e7ed788251040dd6ed47f'
+    assert pandas_df_hash(recordings) == '5e09f31c4c7cf3f7b29147442dd36690930f7aaf857ee8e9a46568b13e1ebf80'
