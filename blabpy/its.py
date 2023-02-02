@@ -8,6 +8,8 @@ from xml.etree.ElementTree import ElementTree, XMLParser
 import pandas as pd
 import pytz
 
+from blabpy import ANONYMIZATION_DATE
+
 
 class ItsNoTimeZoneInfo(Exception):
     pass
@@ -157,7 +159,7 @@ class Its(object):
 
         if anonymize is True:
             # Aid anonymization by shifting the dates to 1920-01-01
-            shift = recordings.recording_start.iloc[0].date() - datetime.date(1920, 1, 1)
+            shift = recordings.recording_start.iloc[0].date() - ANONYMIZATION_DATE
             recordings[['recording_start', 'recording_end']] = recordings[['recording_start', 'recording_end']] - shift
 
         return recordings
