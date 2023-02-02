@@ -10,6 +10,7 @@ import pandas as pd
 
 from blabpy.seedlings import UTTERANCE_TYPE_CODES, OBJECT_PRESENT_CODES, SPEAKER_CODES, CHILDREN_STR, MONTHS_STR, \
     TIERS, MODALITIES
+from blabpy.seedlings.paths import get_video_recordings_csv_path
 
 # "audio" and "video" are not capitalized in all_basiclevel and further dataframes.
 DATETIME_DTYPE_PLACEHOLDER = 'datetime64[ns]'
@@ -187,3 +188,37 @@ def read_seedlings_codebook(path):
         if column not in dtypes:
             dtypes[column] = pd.StringDtype()
     return blab_read_csv(path, dtype=dtypes)
+
+
+def read_video_recordings_csv(path=None):
+    if path is None:
+        path = get_video_recordings_csv_path()
+    video_recordings_dtypes = dict(subject_month=pd.StringDtype(),
+                                   start=DATETIME_DTYPE_PLACEHOLDER,
+                                   end=DATETIME_DTYPE_PLACEHOLDER,
+                                   duration=pd.StringDtype())
+    df = blab_read_csv(path, dtype=video_recordings_dtypes)
+    df['duration'] = pd.to_timedelta(df['duration'])
+
+    return df
+
+
+def _timedelta_to_hhmmss(timedeltas: pd.Series) -> pd.Series:
+    """Convert a timedelta to a string in the format HH:MM:SS"""
+
+    total_seconds = timedeltas.dt.total_seconds().round().astype(int)
+    components = pd.DataFrame.from_dict(dict(
+            hours=total_seconds // 3600,
+            minutes=(total_seconds % 3600) // 60,
+            seconds=total_seconds % 60))
+
+    return (components
+            .apply(lambda x: x.astype(str).str.zfill(2), axis='rows')
+            .pipe(lambda x: x.hours + ':' + x.minutes + ':' + x.seconds))
+
+
+def write_video_recordings_csv(df, path=None):
+    """Writing companion for read_video_recordings_csv"""
+    if df.duration.dtype == 'timedelta64[ns]':
+        df = df.copy().assign(duration=_timedelta_to_hhmmss(df.duration))
+    blab_write_csv(df, path, index=False)

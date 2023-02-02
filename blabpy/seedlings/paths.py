@@ -114,6 +114,14 @@ def _get_all_paths(get_single_file_function, missing_child_month_combinations, *
     return paths
 
 
+def get_all_video_paths(get_single_file_function, **kwargs):
+    return _get_all_paths(get_single_file_function, MISSING_VIDEO_RECORDINGS, **kwargs)
+
+
+def get_all_audio_paths(get_single_file_function, **kwargs):
+    return _get_all_paths(get_single_file_function, MISSING_AUDIO_RECORDINGS, **kwargs)
+
+
 @lru_cache(maxsize=None)  # do this just once
 def get_all_opf_paths():
     return _get_all_paths(get_single_file_function=get_opf_path,
@@ -207,3 +215,21 @@ def get_seedlings_nouns_private_path():
         raise FileNotFoundError(msg)
 
     return path
+
+
+def get_video_file_path(child, month, filename):
+    """
+    Returns path to one of the video files for that subject and month.
+    :return: pathlib.Path object
+    """
+    child, month = _normalize_child_month(child=child, month=month)
+    home_folder = _get_home_visit_folder(child=child, month=month)
+    return home_folder / 'Processing' / 'Video_Files' / f'{child}_{month}_{filename}'
+
+
+def get_video_recordings_csv_path():
+    """
+    Returns path to the video_recordings.csv file with date-times and durations of video recordings.
+    :return: pathlib.Path object
+    """
+    return get_subject_files_folder() / 'video_recordings.csv'
