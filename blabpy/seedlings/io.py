@@ -85,6 +85,13 @@ SEEDLINGS_NOUNS_RECORDINGS_DTYPES = {
     'total_listened_time': pd.Int64Dtype()}
 
 
+SEEDLINGS_NOUNS_CODEBOOK_CORE_DTYPES = {
+    'column': pd.StringDtype(),
+    'data_type': pd.StringDtype(),
+    'values': pd.StringDtype(),
+    'description': pd.StringDtype()}
+
+
 SEEDLINGS_NOUNS_SORT_BY = {
     'seedlings-nouns.csv': ['audio_video', 'child', 'month', 'onset'],
     'regions.csv': ['recording_id', 'region_type', 'start', 'end'],
@@ -168,3 +175,15 @@ def read_seedlings_nouns_guess(path):
                          'sub-recordings.csv': read_seedlings_nouns_sub_recordings,
                          'recordings.csv': read_seedlings_nouns_recordings}
     return reading_functions[path.name](path)
+
+
+def read_seedlings_codebook(path):
+    """
+    Codebooks can have arbitrary extra columns, so we can't specify all the dtypes without reading the file first.
+    """
+    columns = pd.read_csv(path, nrows=0).columns
+    dtypes = SEEDLINGS_NOUNS_CODEBOOK_CORE_DTYPES.copy()
+    for column in columns:
+        if column not in dtypes:
+            dtypes[column] = pd.StringDtype()
+    return blab_read_csv(path, dtype=dtypes)

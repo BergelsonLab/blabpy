@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from . import AUDIO, VIDEO
+from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
@@ -20,14 +20,14 @@ from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     ensure_folder_exists_and_empty, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
-    _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id
+    _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id, get_seedlings_nouns_private_path
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     are_tokens_in_top3_top4_surplus
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
-from ..its import Its
+from ..its import Its, ItsNoTimeZoneInfo
 
 
 def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
@@ -560,25 +560,41 @@ def get_top3_top4_surplus_regions(subject, month):
     return _get_top3_top4_surplus_regions(processed_regions, month)
 
 
-def get_lena_recordings(subject, month):
+def get_lena_recordings(recording_id):
     """
-    Get anonymized information about sub-recordings of the LENA recording for the given subject and month.
+    Get anonymized information about sub-recordings of the LENA recording for the given subject and month. There are
+    several special cases of recordings that are missing an its file or that have one but it doesn't contain the
+    timezone information. See __init__.py for details.
 
-    If there are pauses in LENA recordings, LENA still outputs one big wav file. This leads to confusion and errors, such
-    as when an interval spans multiple recordings.
+    If there are pauses in LENA recordings, LENA still outputs one big wav file. This leads to confusion and errors,
+    such as when an interval spans multiple recordings. It is important to know about these pauses.
 
-    :param subject: int/str, subject id
-    :param month: int/str, month
-    :return: a pandas dataframe with the LENA sub-recordings
+    :param recording_id: full recording id, e.g. 'Video_01_16'
+    :return: a pandas dataframe with the LENA sub-recordings and the total duration of all sub-recordings
     """
-    its = Its.from_path(get_its_path(subject, month))
-    recordings = its.gather_recordings(anonymize=True)
+    # TODO: figure out why the timezone info is missing
+    if recording_id in MISSING_TIMEZONE_RECORDING_IDS:
+        forced_timezone = MISSING_TIMEZONE_FORCED_TIMEZONE
+    else:
+        forced_timezone = None
+    subject, month = recording_id.split('_')[1:3]
+    its = Its.from_path(get_its_path(subject, month), forced_timezone=forced_timezone)
 
-    # In a table with recordings only, it doesn't make sense to have each column to start with 'recording_', the way
-    # Its.gather_recordings() does.
-    recordings.columns = recordings.columns.str.replace('recording_', '')
+    try:
+        recordings = its.gather_recordings(anonymize=True)
+    except ItsNoTimeZoneInfo as e:
+        raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}. Please force a timezone using'
+                                f'`forced_timezone`') from e
 
-    return recordings
+    # Change column names to match what `calculate_total_recorded_time_ms` expects
+    recordings = recordings.rename(
+        columns={'recording_start': 'start',
+                 'recording_end': 'end',
+                 'recording_start_wav': 'start_position_ms'},
+        errors='raise')
+    total_recorded_time = calculate_total_recorded_time_ms(recordings=recordings)
+
+    return recordings, total_recorded_time
 
 
 def _sort_tokens(tokens_df):
@@ -587,8 +603,8 @@ def _sort_tokens(tokens_df):
     :param tokens_df: a dataframe to sort
     :return: sorted dataframe
     """
-    sort_by = SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv']
-    # The only difference between dataframe is subj/child
+    sort_by = SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv'].copy()
+    # The only difference between the three dataframes is subj/child
     if 'subj' in tokens_df.columns:
         sort_by[sort_by.index('child')] = 'subj'
     return tokens_df.sort_values(sort_by).reset_index(drop=True)
@@ -643,26 +659,7 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    # TOD0:
-    # - move the list to blabpy.seedlings so that it isn't hidden in the code,
-    # - find 01_08.its and remove this bodge,
-    # - figure out why the other ones are missing timezone info.
-    problem_recordings_total_recorded_time = {'Audio_01_08': 57600125,  # missing its file
-                                              'Audio_12_17': 57600000,  # missing timezone info
-                                              'Audio_18_09': 43822125,  # missing timezone info
-                                              'Audio_20_13': 57600125,  # missing timezone info
-                                              'Audio_26_13': 57600125,  # missing timezone info
-                                              'Audio_29_16': 44096000,  # missing timezone info
-                                              }
-
-    if recording_id in problem_recordings_total_recorded_time:
-        lena_recordings = pd.DataFrame(
-            data=dict(start=[None], end=[None], start_position_ms=[None])).astype(
-            dtype=dict(start=np.datetime64, end=np.datetime64, start_position_ms=pd.Int64Dtype()))
-        total_recorded_time = problem_recordings_total_recorded_time[recording_id]
-    else:
-        lena_recordings = get_lena_recordings(subject, month).rename(columns={'start_wav': 'start_position_ms'})
-        total_recorded_time = calculate_total_recorded_time_ms(recordings=lena_recordings)
+    lena_recordings, total_recorded_time = get_lena_recordings(recording_id)
     total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                            recordings=lena_recordings)
 
@@ -855,14 +852,14 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
     print('0. If there are warnings above about new dataframes or new variables, update descriptions in the'
           f' corresponding codebooks in the following folder:\n{new_seedlings_nouns_dir}\n\n'
           '1. Copy the csv files\n'
-          f'from: {new_seedlings_nouns_dir}\n'
-          f'to:   {old_seedlings_nouns_dir}\n\n'
+          f'from: {new_seedlings_nouns_dir.absolute()}\n'
+          f'to:   {old_seedlings_nouns_dir.absolute()}\n\n'
           '2. Go to\n'
-          f'{old_seedlings_nouns_dir}\n'
-          'and follow the instructions in CONTRIBUTING.md to update the dataset.\n')
+          f'{old_seedlings_nouns_dir.absolute()}\n'
+          'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
-def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
+def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
     that contains existing codebooks.
@@ -893,3 +890,24 @@ def make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, ou
     _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
                                                new_seedlings_nouns_dir=output_dir,
                                                old_seedlings_nouns_dir=seedlings_nouns_dir)
+
+
+def make_updated_seedlings_nouns():
+    """Creates updated versions of all seedlings-nouns csvs.
+
+    For this function to work, the following must be true:
+
+    - You are connected to PN-OPUS.
+    - Current working directory contains `global-basic-level.csv` with updated global basic level version.
+      It can be created using `blabr:::make_new_global_basic_level()`.
+    - There is no subfolder `new_csvs` in the current folder or it is empty.
+    """
+    global_basiclevel_path = Path('global-basic-level.csv')
+    assert global_basiclevel_path.exists(), (f'File {global_basiclevel_path.name} does not exist in the current working'
+                                             f' directory.')
+    # get_*_path functions check that paths exist
+    seedlings_nouns_dir = get_seedlings_nouns_private_path()
+    output_dir = Path('new_csvs')
+    ensure_folder_exists_and_empty(output_dir)
+
+    _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir)

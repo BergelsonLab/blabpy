@@ -3,7 +3,7 @@ from pathlib import Path
 
 from . import AUDIO, VIDEO, CHILDREN_INT, MONTHS_INT, ANNOTATION_FILE_COUNT, MISSING_AUDIO_RECORDINGS, \
     MISSING_VIDEO_RECORDINGS
-from ..paths import get_pn_opus_path
+from ..paths import get_pn_opus_path, get_blab_data_path
 
 
 def ensure_folder_exists_and_empty(folder_path):
@@ -192,3 +192,18 @@ def get_all_basic_level_paths(modality):
 def get_its_path(child, month):
     child, month = _normalize_child_month(child=child, month=month)
     return _get_home_visit_folder(child=child, month=month) / 'Processing' / 'Audio_Files' / f'{child}_{month}.its'
+
+
+def get_seedlings_nouns_private_path():
+    """
+    Returns path to the seedlings-nouns_private repo in BLAB_DATA.
+    :return: ^this path.
+    """
+    path = get_blab_data_path() / 'seedlings-nouns_private/'
+    if not path.exists():
+        msg = (f'Couldn\'t locate folder\n'
+               f'{path.absolute()}\n'
+               f'Please clone the seedlings-nouns_private repo into this folder.')
+        raise FileNotFoundError(msg)
+
+    return path

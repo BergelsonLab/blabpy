@@ -1,10 +1,9 @@
 import json
-from pathlib import Path
 from itertools import product
+from pathlib import Path
 
 import pandas as pd
 import pytest
-import numpy as np
 
 from blabpy.seedlings.pipeline import make_updated_all_basic_level_here, get_amended_audio_regions, \
     get_processed_audio_regions, get_top3_top4_surplus_regions, gather_recording_seedlings_nouns
@@ -73,3 +72,26 @@ def test_gather_everything_for_seedlings_nouns(top3_top4_surplus_data_dir, seedl
     assert actual_recordings.equals(expected_recordings)
     assert actual_total_listened_time == expected_total_listened_time
     assert actual_total_recorded_time == expected_total_recorded_time
+
+
+@pytest.fixture(scope='module')
+def global_basic_level_test():
+    rows = [
+        ('Audio_01_08', 1, 6300000, 6300000+1, '', 'd', 'y', '', '', '', '01', '08', '01_08', '', '', ''),
+        ('Audio_12_16', 1, 7500000, 7500000+1, '', 'd', 'n', '', '', '', '12', '16', '12_16', '', '', ''),
+        ('Audio_12_17', 1, 1800000, 1800000+1, '', 'n', 'y', '', '', '', '12', '17', '12_17', '', '', ''),
+        ('Audio_26_13', 1, 300000, 300000+1, '', 'd', 'y', '', '', '', '26', '13', '26_13', '', '', '')]
+    columns = ['recording_id', 'ordinal', 'onset', 'offset', 'object', 'utterance_type',
+               'object_present', 'speaker', 'basic_level', 'annotid', 'child', 'month',
+               'subject_month', 'audio_video', 'transcription', 'global_basic_level']
+    return pd.DataFrame(data=rows, columns=columns)
+
+
+@pytest.mark.parametrize('recording_id', ('Audio_26_13', 'Audio_01_08', 'Audio_12_17', 'Audio_12_16'))
+def test_gather_recording_seedlings_nouns(recording_id, global_basic_level_test):
+    """
+    Checking that the function works on recordings that don't have an its file (26_13, 01_08), on recordings that don't
+    have timezone info in their its file (12_17), and on recordings that have both (12_16).
+    """
+    global_basic_level_for_recording = global_basic_level_test.loc[lambda df: df.recording_id == recording_id]
+    gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording)
