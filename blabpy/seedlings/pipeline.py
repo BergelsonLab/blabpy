@@ -968,8 +968,8 @@ def make_updated_seedlings_nouns():
     global_basiclevel_path = Path('global-basic-level.csv')
     assert global_basiclevel_path.exists(), (f'File {global_basiclevel_path.name} does not exist in the current working'
                                              f' directory.')
-    # get_*_path functions check that paths exist
-    seedlings_nouns_dir = get_seedlings_nouns_private_path()
+    # get_*_path functions check that paths exist - we don't need to do it here
+    seedlings_nouns_dir = get_seedlings_nouns_private_path() / 'public'
     output_dir = Path('new_csvs')
     ensure_folder_exists_and_empty(output_dir)
 
