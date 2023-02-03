@@ -15,7 +15,7 @@ from .gather import gather_all_basic_level_annotations, write_all_basic_level_to
     check_for_errors
 from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
     SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
-    read_video_recordings_csv
+    read_video_recordings_csv, read_seedlings_codebook
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -847,14 +847,12 @@ def _make_updated_codebook(df, old_codebook_path):
     codebook_template = make_codebook_template(df)
 
     # Merge with the old codebook
-    is_new_dataframe, has_new_columns = False, False
     if old_codebook_path.exists():
         codebook_template = codebook_template.drop(columns='description')
         # Load manually update columns from the old codebook
         auto_generated_columns = set(codebook_template.columns)
-        old_codebook = blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns - {'column'})
         codebook_template = codebook_template.merge(
-            blab_read_csv(old_codebook_path).drop(columns=auto_generated_columns - {'column'}),
+            read_seedlings_codebook(old_codebook_path).drop(columns=auto_generated_columns - {'column'}),
             on='column', how='left')
 
     n_vars_without_description = codebook_template.description.isna().sum()
