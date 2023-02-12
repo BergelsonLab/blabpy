@@ -187,12 +187,3 @@ def write_all_basic_level_to_csv(all_basic_level_df, csv_path):
     # This way, NAs will be considered numeric and won't be quoted.
     na = type("NaN", (float,), dict(__str__=lambda _: "NA"))()
     return all_basic_level_df.to_csv(csv_path, index=False, quoting=QUOTE_NONNUMERIC, na_rep=na)
-
-
-def write_all_basic_level_to_feather(all_basic_level_df, feather_path):
-    """
-    Write the output of gather_all_basic_level_annotations to a feather file.
-    :param all_basic_level_df: a pandas DataFrame
-    :return:
-    """
-    all_basic_level_df.to_feather(feather_path)

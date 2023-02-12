@@ -11,8 +11,7 @@ from tqdm import tqdm
 from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
-from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
-    check_for_errors
+from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, check_for_errors
 from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
     SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
     read_video_recordings_csv, read_seedlings_codebook
@@ -340,62 +339,37 @@ def scatter_updated_basic_level_files(working_folder=None, skip_backups_if_exist
 
 def make_updated_all_basic_level_here():
     """
-    Gathers all basic level files, checks for some errors, and - if there were no errors - writes four files:
-    - all_basiclevel.csv
-    - all_basiclevel.feather
-    - all_basiclevel_NA.csv
-    - all_basiclevel_NA.feather
-    The files differ in whether they contain rows that have NA as the basic level and their format (csv/feather).
-    The files are created in the current working directory. If the files already exist, they will be deleted first. This
-    is done so there is a difference between:
+    Gathers all basic level files, checks for errors, and writes the result to "all_basiclevel_NA.csv".
+
+    The file is delete at the very beginning to distinguish two outcomes:
     - everything went well, but there are no changes (files are the same, git status sees no changes) and
     - something went wrong (files are missing, git status will show that much).
     :return: None
     """
-    # Delete current files
-    output_paths = [Path(f'all_basiclevel{suffix}{extension}')
-                    for suffix, extension in product(('', '_NA'), ('.csv', '.feather'))]
-    for output_path in output_paths:
-        try:
-            output_path.unlink()
-        except FileNotFoundError:
-            pass
+    # Delete current version. It is ok if you've already deleted it manually.
+    output_path = Path('all_basiclevel_NA.csv')
+    try:
+        output_path.unlink()
+    except FileNotFoundError:
+        pass
 
     # Gather all individual basic level files
-    df_with_na = gather_all_basic_level_annotations(keep_basic_level_na=True)
+    all_basic_level_with_na = gather_all_basic_level_annotations(keep_basic_level_na=True)
 
     # Check for errors
-    errors_df = check_for_errors(df_with_na)
+    errors_df = check_for_errors(all_basic_level_with_na)
     if errors_df:
         errors_file = 'errors.csv'
         logging.warning(f'The were errors found, the corresponding rows are in "{errors_file}".')
         errors_df.to_csv(errors_file)
         return
 
-    # Write the four files
-    def _write_to_csv_and_feather(all_basic_level_df, output_stem):
-        write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
-                                     csv_path=output_stem.with_suffix('.csv'))
-        write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
-                                         feather_path=output_stem.with_suffix('.feather'))
-    # Without NAs
-    output_stem_without_na = Path('all_basiclevel')
-    df_without_na = df_with_na[~df_with_na.basic_level.isna()].reset_index(drop=True)
-    # The feather version contains categorical information, so we need to remove categories that no longer exist - as if
-    # the categories were set after removing NAs.
-    for column_name in df_without_na.columns:
-        if df_without_na[column_name].dtype.name == 'category':
-            df_without_na[column_name] = df_without_na[column_name].cat.remove_unused_categories()
-    _write_to_csv_and_feather(df_without_na, output_stem_without_na)
+    # Save to file
+    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_with_na,
+                                 csv_path=output_path)
 
-    # With NAs
-    output_stem_with_na = output_stem_without_na.with_name(output_stem_without_na.name + '_NA')
-    _write_to_csv_and_feather(df_with_na, output_stem_with_na)
-
-    # Check that the output files have been created
-    for output_path in output_paths:
-        assert output_path.exists()
-    print(f'all_basiclevel has been created and checked for errors, files have been written to.')
+    assert output_path.exists()
+    print(f'all_basiclevel_NA.csv has been created and checked for errors.')
 
 
 def calculate_listen_time_stats_for_cha_file(cha_path):
