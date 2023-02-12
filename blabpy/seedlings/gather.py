@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 from . import UTTERANCE_TYPE_CODES, OBJECT_PRESENT_CODES, AUDIO, VIDEO
 from .paths import _check_modality, get_all_basic_level_paths
@@ -80,8 +81,10 @@ def gather_basic_level_annotations(modality):
     """
     _check_modality(modality)
     basic_level_paths = get_all_basic_level_paths(modality=modality)
-    return pd.concat([load_and_normalize_column_names(basic_level_path, modality=modality)
-                      for basic_level_path in basic_level_paths])
+    return pd.concat([
+        load_and_normalize_column_names(basic_level_path, modality=modality)
+        for basic_level_path
+        in tqdm(basic_level_paths, desc=f'Gathering {modality} basic level annotations')])
 
 
 def _combine_basic_level_annotations(all_audio_df, all_video_df):
@@ -113,9 +116,11 @@ def gather_all_basic_level_annotations(keep_comments=False, keep_basic_level_na=
     if keep_comments and not keep_basic_level_na:
         raise ValueError('When keeping comments, keep empty basic level as well')
 
-    all_audio_df = gather_basic_level_annotations(modality=AUDIO)
-    all_video_df = gather_basic_level_annotations(modality=VIDEO)
-    all_df = _combine_basic_level_annotations(all_audio_df=all_audio_df, all_video_df=all_video_df)
+    by_modality = dict()
+    for modality in tqdm([AUDIO, VIDEO], desc='Gathering annotations one modality at a time'):
+        by_modality[modality] = gather_basic_level_annotations(modality=modality)
+    all_df = _combine_basic_level_annotations(all_audio_df=by_modality[AUDIO],
+                                              all_video_df=by_modality[VIDEO])
 
     # Remove comments
     if not keep_comments:
