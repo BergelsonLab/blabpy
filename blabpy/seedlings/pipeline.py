@@ -839,7 +839,7 @@ def _make_updated_codebook(df, old_codebook_path):
     return codebook_template, is_new_dataframe, has_new_columns
 
 
-def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir):
+def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_csv_dir):
     """
     For a given dataframe,
     - creates/updates a codebook for it,
@@ -850,13 +850,13 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir)
     filename hasn't changed since the last update. Rename the files in the seedlings-nouns_private repo first if you
     want new names.
     :param output_dir: where to save the csv files
-    :param old_seedlings_nouns_dir: where to look for the old codebook
+    :param old_seedlings_nouns_csv_dir: where to look for the old codebook
     :return:
     """
     # Paths
     new_df_path = output_dir / df_filename
     new_codebook_path = new_df_path.with_suffix('.codebook.csv')
-    old_codebook_path = old_seedlings_nouns_dir / new_codebook_path.name
+    old_codebook_path = old_seedlings_nouns_csv_dir / new_codebook_path.name
 
     # New codebook
     codebook, is_new_dataframe, has_new_columns = _make_updated_codebook(df, old_codebook_path)
@@ -869,7 +869,7 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir)
 
 
 def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
-                                               new_seedlings_nouns_dir, old_seedlings_nouns_dir):
+                                               new_seedlings_nouns_csvs_dir, old_seedlings_nouns_csvs_dir):
     if new_dataframes:
         print('These dataframes never had a codebook and need their "description" column filled:\n'
               + '\n'.join(str(path) for path in new_dataframes))
@@ -883,8 +883,8 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
     if new_dataframes or new_variables:
         step0 = '0. Check whether the lists above correspond to what you expected.\n\n'
 
-    new_dir_path = new_seedlings_nouns_dir.absolute()
-    old_dir_path = old_seedlings_nouns_dir.absolute()
+    new_dir_path = new_seedlings_nouns_csvs_dir.absolute()
+    old_dir_path = old_seedlings_nouns_csvs_dir.absolute()
     step1 = ('1. Copy the csv files\n'
              f'from: {new_dir_path}\n'
              f'to:   {old_dir_path}\n\n')
@@ -893,16 +893,16 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
 
     print(step0 + step1 +
           '2. Go to\n'
-          f'{old_seedlings_nouns_dir.absolute()}\n'
+          f'{old_seedlings_nouns_csvs_dir.absolute()}\n'
           'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
-def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, output_dir=Path()):
+def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
     that contains existing codebooks.
     :param all_basic_level_path: all_basiclevel_NA.csv path
-    :param seedlings_nouns_dir: path to the folder containing the existing codebooks
+    :param seedlings_nouns_csvs_dir: path to the folder containing the existing codebooks
     :param output_dir: where to write the new csvs and codebooks
     :return: path of the output folder
     """
@@ -924,7 +924,7 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, out
                          (sub_recordings, 'sub-recordings.csv'),
                          (recordings, 'recordings.csv')]:
         new_codebook_path, is_new_dataframe, has_new_columns = _write_df_and_codebook(df, filename, output_dir,
-                                                                                      seedlings_nouns_dir)
+                                                                                      seedlings_nouns_csvs_dir)
         if has_new_columns:
             new_variables.append(new_codebook_path)
         if is_new_dataframe:
@@ -932,8 +932,8 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, out
 
     # Print instructions
     _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
-                                               new_seedlings_nouns_dir=output_dir,
-                                               old_seedlings_nouns_dir=seedlings_nouns_dir)
+                                               new_seedlings_nouns_csvs_dir=output_dir,
+                                               old_seedlings_nouns_csvs_dir=seedlings_nouns_csvs_dir)
 
 
 def make_updated_seedlings_nouns():
@@ -954,19 +954,19 @@ def make_updated_seedlings_nouns():
 
     # Use the newest version of seedlings-nouns_private and make sure it's clean
     seedling_nouns_repo, _ = switch_dataset_to_version('seedlings-nouns_private', version=None)
-    seedlings_nouns_dir = Path(seedling_nouns_repo.working_dir) / 'public'
+    seedlings_nouns_csvs_dir = Path(seedling_nouns_repo.working_dir) / 'public'
     if seedling_nouns_repo.is_dirty():
         raise ValueError(f'There are unsaved changes in the seedlings-nouns_private repo. Please commit, stash, or '
                          'discard them. Find the repo here:\n'
-                         f'{seedlings_nouns_dir.absolute()}')
+                         f'{seedlings_nouns_csvs_dir.absolute()}')
 
     # If we're not working from the repo, we don't want to overwrite existing csvs in case we're in the wrong folder,
     # we want to keep the results of the previous run, etc. So, the current working directory should be empty.
     output_dir = Path.cwd()
-    if output_dir.absolute() != seedlings_nouns_dir.absolute():
+    if output_dir.absolute() != seedlings_nouns_csvs_dir.absolute():
         if any(output_dir.iterdir()):
             raise ValueError(f'The current working directory is not empty. Please move to a different folder or '
                              'delete the files in this folder. Find the current working directory here:\n'
                              f'{output_dir.absolute()}')
 
-    _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, output_dir)
+    _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir)

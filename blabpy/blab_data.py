@@ -3,7 +3,7 @@ from pathlib import Path
 from git import Repo
 from git.exc import GitCommandError
 
-from blabpy.paths import get_blab_data_path
+from blabpy.paths import get_blab_data_root_path
 
 def get_newest_version(repo):
     """
@@ -25,7 +25,7 @@ def switch_dataset_to_version(dataset_name, version):
     """
     Switch a dataset to a specific version.
     """
-    blab_data_path = get_blab_data_path()
+    blab_data_path = get_blab_data_root_path()
     repo = Repo(blab_data_path / dataset_name)
 
     version = version if version else get_newest_version(repo)

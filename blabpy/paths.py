@@ -25,7 +25,7 @@ def get_pn_opus_path():
                          f'If this is not the correct location, set/update environment/shell variable {PN_OPUS}')
 
 
-def get_blab_data_path():
+def get_blab_data_root_path():
     """Returns tht path to the BLAB_DATA fodler on the local computer"""
     path = Path('~/BLAB_DATA/').expanduser()
     msg = (f'Could not locate BLAB_DATA at {path}.'
