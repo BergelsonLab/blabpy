@@ -256,48 +256,55 @@ def get_top3_top4_surplus_regions(processed_regions, month):
         get_surplus_regions(processed_regions, month)], ignore_index=True)
 
 
-def _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
+def _assign_tokens_to_regions(tokens, seedlings_nouns_regions, month):
     """
     Given a dataframe with tokens and a dataframe with top 3, top 4, and surplus regions, return a dataframe with
     columns annotid, is_top_3_hours, is_top_4_hours, is_surplus. Depending on the month, some of those can be NA instead
     of False.
 
-    :param tokens: tokens to assign to top3/top4/surplus, annotid, onset columns are required
-    :param top3_top4_surplus_regions: top3/top4/surplus regions
+    :param tokens: tokens to assign to top3/top4/surplus/subregion, annotid, onset columns are required
+    :param seedlings_nouns_regions: top3/top4/surplus/subregion regions
     :param month: 6-17
     :return: a dataframe with annotid, is_top_3_hours, is_top_4_hours, is_surplus
     """
-    # Find all annotids that are in top 3, top 4, or surplus regions. List them as (annotid, kind) pairs.
+    # Find all annotids that are in top 3, top 4, or surplus regions. List them as (annotid, region_type) pairs.
     tokens_assigned_long = (
         tokens
         .rename(columns={'onset': 'onset_token'})
         # take all combinations of tokens and regions
         .merge(
-            (top3_top4_surplus_regions
-             [['kind', 'start', 'end']]
+            (seedlings_nouns_regions
+             [['region_type', 'start', 'end', 'position', 'subregion_rank']]
              .rename(columns={'start': 'onset_region', 'end': 'offset_region'})),
             how='cross')
         # Keep only those combinations where the token is inside the region.
         .loc[lambda df: (df.onset_token >= df.onset_region) & ((df.onset_token < df.offset_region)
                                                                | df.offset_region.isna())]
-        [['annotid', 'kind']]
+        [['annotid', 'region_type', 'position', 'subregion_rank']]
         # Add back tokens that didn't match any region (there shouldn't be any)
         .pipe(lambda df: tokens[['annotid']].merge(df, how='left'))
     )
-    assert not tokens_assigned_long.kind.isnull().any()
+    assert not tokens_assigned_long.region_type.isnull().any()
 
-    # Go wide - from (annotid, kind) pairs to annotid, is_top_3_hours, is_top_4_hours, is_surplus
+    # Go wide - from (annotid, region_type) pairs to annotid, is_top_3_hours, is_top_4_hours, is_surplus
     tokens_assigned_pivot = (
         tokens_assigned_long
+        .drop(columns=['position', 'subregion_rank'])
         .replace({TOP_3_KIND: 'is_top_3_hours',
                   TOP_4_KIND: 'is_top_4_hours',
-                  SURPLUS_KIND: 'is_surplus'})
+                  SURPLUS_KIND: 'is_surplus',
+                  RegionType.SUBREGION.value: 'is_subregion'})
         # We need a column with values to populate the pivot table. Values in the pivot table will be True iff the
         # (annotid, region_type) pair is present in the original dataframe.
         .assign(is_in=True)
-        .pivot(index='annotid', columns=['kind'])
+        .pivot(index='annotid', columns=['region_type'])
         # all is_* columns are under the top level name "is_in" - we don't need it
         .droplevel(0, axis='columns')
+        # Add back position and subregion_rank from the subregions
+        .merge(tokens_assigned_long
+               .loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value),
+                    ['annotid', 'position', 'subregion_rank']],
+               on='annotid', how='left')
     )
 
     # For months 13-17, there are not top 4 regions, for some recordings in months 8-17, there are no surplus regions.
@@ -309,15 +316,15 @@ def _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
     # Clean it up: remove unnecessary index/column names levels, make annotid the column, etc.
     tokens_assigned_wide = (
         tokens_assigned_pivot
-        .rename_axis(None, axis='columns')  # is_* columns are labeled "kind" - remove it
-        .reset_index('annotid')  # annotid is an index - make it a column
-        [['annotid', 'is_top_3_hours', 'is_top_4_hours', 'is_surplus']]  # enforce the order of columns
+        # enforce the order of columns
+        [['annotid', 'is_subregion', 'is_top_3_hours', 'is_top_4_hours', 'is_surplus', 'position', 'subregion_rank']]
         .sort_values(by='annotid')  # sort for consistency
         .convert_dtypes())  # convert to datatypes that support NAs
 
     # Substitute NAs with False, unless the month is 14-17 and the column is is_top_4_hours, then it all should be NA
     # because only three hours were annotated in months 14-17
     tokens_assigned_wide.is_top_3_hours = tokens_assigned_wide.is_top_3_hours.fillna(False)
+    tokens_assigned_wide.is_subregion = tokens_assigned_wide.is_subregion.fillna(False)
     if 14 <= int(month) <= 17:
         assert tokens_assigned_wide.is_top_4_hours.isnull().all()
     else:
@@ -359,7 +366,7 @@ def _check_tokens_assigned(tokens_assigned, tokens, month):
     assert set(ta.annotid.values) == set(tokens.annotid.values)
 
 
-def are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month):
-    tokens_assigned = _are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, month)
+def assign_tokens_to_regions(tokens, seedlings_nouns_regions, month):
+    tokens_assigned = _assign_tokens_to_regions(tokens, seedlings_nouns_regions, month)
     _check_tokens_assigned(tokens_assigned, tokens, month)
     return tokens_assigned

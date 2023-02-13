@@ -24,7 +24,7 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
     _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id, get_seedlings_nouns_private_path
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
-    are_tokens_in_top3_top4_surplus, reformat_seedlings_nouns_regions
+    assign_tokens_to_regions, reformat_seedlings_nouns_regions
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -603,18 +603,17 @@ def gather_recording_nouns_audio(subject, month, global_basic_level_for_recordin
     """
     # Regions
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
+    subregions = processed_regions.loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)]
     top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month)
-    regions_for_seedlings_nouns = pd.concat([processed_regions
-                                             .loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)],
-                                             top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
-                                            axis='rows', ignore_index=True)
+    seedlings_nouns_regions = pd.concat([subregions,
+                                         top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
+                                        axis='rows', ignore_index=True)
 
-    # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
-    tokens_assigned = are_tokens_in_top3_top4_surplus(tokens=global_basic_level_for_recording,
-                                                      top3_top4_surplus_regions=top3_top4_surplus_regions,
-                                                      month=month)
-    # tokens_assigned contains only annotid, is_top_3_hours, is_top_4_hours, is_surplus columns. Let's add them
-    # to global_basic_level_for_recording.
+    # Assign tokens to region kinds using indicator columns. Additionally, add subregion position and rank.
+    tokens_assigned = assign_tokens_to_regions(tokens=global_basic_level_for_recording,
+                                               seedlings_nouns_regions=seedlings_nouns_regions,
+                                               month=month)
+    # Add assignment columns to recording_basic_level
     recording_seedlings_nouns = (global_basic_level_for_recording
                                  .merge(tokens_assigned, on='annotid', how='inner')
                                  .pipe(_sort_tokens))
@@ -638,7 +637,7 @@ def gather_recording_nouns_audio(subject, month, global_basic_level_for_recordin
                                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
     return (recording_seedlings_nouns,
-            regions_for_seedlings_nouns,
+            seedlings_nouns_regions,
             lena_recordings,
             # TODO: return a dataframe with one row and two columns, so that we can then concatenate everything in
             #  exactly the same manner
@@ -910,7 +909,13 @@ def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
     # Gather and write data
     global_basiclevel_path_df = read_global_basic_level(global_basiclevel_path)
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path_df)
-    regions = reformat_seedlings_nouns_regions(regions)
+
+    # Make regions more readable and enforce column order
+    regions = (regions
+               .pipe(reformat_seedlings_nouns_regions)
+               .rename(columns={'is_top_3': 'is_top_3_hours',
+                                'is_top_4': 'is_top_4_hours'})
+               .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
 
     new_dataframes = []
     new_variables = []

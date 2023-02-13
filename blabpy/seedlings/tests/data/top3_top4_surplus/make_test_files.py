@@ -4,7 +4,7 @@ import pandas as pd
 
 from blabpy.seedlings.pipeline import get_processed_audio_regions, gather_recording_public_info
 from blabpy.seedlings.regions.top3_top4_surplus import get_top3_top4_surplus_regions, get_top_n_regions, \
-    get_surplus_regions, are_tokens_in_top3_top4_surplus, TOP_3_KIND, SURPLUS_KIND
+    get_surplus_regions, assign_tokens_to_regions, TOP_3_KIND, SURPLUS_KIND
 
 processed_regions = get_processed_audio_regions(2, 8)
 test_dir = Path('/Users/ek221/blab/blabpy/repo/blabpy/seedlings/tests/data/top3_top4_surplus')
@@ -50,7 +50,7 @@ tokens = (global_basic_level_audio
 tokens.to_csv(test_dir / 'input_tokens.csv', index=False)
 
 
-assigned_tokens_month_13 = are_tokens_in_top3_top4_surplus(tokens, top3_top4_surplus_regions, '13')
+assigned_tokens_month_13 = assign_tokens_to_regions(tokens, top3_top4_surplus_regions, '13')
 assigned_tokens_month_13.to_csv(test_dir / 'output_assigned_tokens_month_13.csv', index=False)
 
 # Months 14-17 are not supposed to have top-4 regions/tokens
@@ -58,5 +58,5 @@ top3_surplus_regions = top3_top4_surplus_regions.loc[lambda df: df.kind.isin([TO
 top3_surplus_annotids = assigned_tokens_month_13.loc[lambda df: ~df.is_top_4_hours | df.is_top_3_hours].annotid
 top3_surplus_tokens = tokens.loc[lambda df: df.annotid.isin(top3_surplus_annotids)]
 
-assigned_tokens_month_14 = are_tokens_in_top3_top4_surplus(top3_surplus_tokens, top3_surplus_regions, '14')
+assigned_tokens_month_14 = assign_tokens_to_regions(top3_surplus_tokens, top3_surplus_regions, '14')
 assigned_tokens_month_14.to_csv(test_dir / 'output_assigned_tokens_month_14.csv', index=False)
