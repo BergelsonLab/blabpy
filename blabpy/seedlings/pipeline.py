@@ -953,8 +953,8 @@ def make_updated_seedlings_nouns():
     all_basic_level_path = get_file_path('all_basiclevel', None, 'all_basiclevel_NA.csv')
 
     # Use the newest version of seedlings-nouns_private and make sure it's clean
-    seedling_nouns_repo = switch_dataset_to_version('seedlings-nouns_private', version=None)
-    seedlings_nouns_dir = seedling_nouns_repo.working_dir
+    seedling_nouns_repo, _ = switch_dataset_to_version('seedlings-nouns_private', version=None)
+    seedlings_nouns_dir = Path(seedling_nouns_repo.working_dir) / 'public'
     if seedling_nouns_repo.is_dirty():
         raise ValueError(f'There are unsaved changes in the seedlings-nouns_private repo. Please commit, stash, or '
                          'discard them. Find the repo here:\n'

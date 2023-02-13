@@ -13,8 +13,8 @@ def get_newest_version(repo):
 
     # Find newest tag by version number and by commit date. If the results are the same, use either.
     # TODO: use a proper versioning library
-    newest_version = sorted(repo.tags, key=lambda t: tuple(int(n) for n in t.name.split('.')))[0].name
-    newest_tag = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)[0].name
+    newest_version = sorted(repo.tags, key=lambda t: tuple(int(n) for n in t.name.split('.')))[-1].name
+    newest_tag = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)[-1].name
     if newest_tag == newest_version:
         return newest_version
     else:
@@ -35,14 +35,14 @@ def switch_dataset_to_version(dataset_name, version):
     except GitCommandError as e:
         raise ValueError(f"Version {version} does not exist for dataset {dataset_name}.") from e
 
-    return repo
+    return repo, version
 
 
 def get_file_path(dataset_name, version, relative_path):
     """
     Switches a dataset to a specific version and return the path to a file in that version.
     """
-    repo = switch_dataset_to_version(dataset_name, version)
+    repo, version = switch_dataset_to_version(dataset_name, version)
 
     file_path = Path(repo.working_dir) / relative_path
     if not file_path.exists():
