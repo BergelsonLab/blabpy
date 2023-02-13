@@ -33,19 +33,18 @@ ALL_BASICLEVEL_DTYPES = {
     'SubjectNumber':        pd.StringDtype(),
     'audio_video':          pd.CategoricalDtype(categories=AUDIO_VIDEO),
     'tier':                 pd.CategoricalDtype(categories=TIERS),
-    'pho':                  pd.StringDtype()
+    'pho':                  pd.StringDtype(),
+    'global_bl':            pd.StringDtype(),
 }
 
-GLOBAL_BASICLEVEL_DTYPES = ALL_BASICLEVEL_DTYPES.copy()
-GLOBAL_BASICLEVEL_DTYPES.update(global_bl=pd.StringDtype())
 
-# Columns that are already in GLOBAL_BASICLEVEL_DTYPES are set to None and then will be updated all at once. Columns
-# that changed their names reference GLOBAL_BASICLEVEL_DTYPES directly in the definition.
+# Columns that are already in ALL_BASICLEVEL_DTYPES are set to None and then will be updated all at once. Columns
+# that changed their names reference ALL_BASICLEVEL_DTYPES directly in the definition.
 SEEDLINGS_NOUNS_DTYPES = {
     'recording_id': pd.StringDtype(),
     'audio_video': None,
     'subject_month': pd.StringDtype(),
-    'child': GLOBAL_BASICLEVEL_DTYPES['subj'],
+    'child': ALL_BASICLEVEL_DTYPES['subj'],
     'month': None,
     'onset': None,
     'offset': None,
@@ -54,8 +53,8 @@ SEEDLINGS_NOUNS_DTYPES = {
     'speaker': None,
     'object': None,
     'basic_level': None,
-    'global_basic_level': GLOBAL_BASICLEVEL_DTYPES['global_bl'],
-    'transcription': GLOBAL_BASICLEVEL_DTYPES['pho'],
+    'global_basic_level': ALL_BASICLEVEL_DTYPES['global_bl'],
+    'transcription': ALL_BASICLEVEL_DTYPES['pho'],
     'utterance_type': None,
     'object_present': None,
     'is_subregion': pd.BooleanDtype(),
@@ -67,7 +66,7 @@ SEEDLINGS_NOUNS_DTYPES = {
 }
 for column, dtype in SEEDLINGS_NOUNS_DTYPES.items():
     if dtype is None:
-        SEEDLINGS_NOUNS_DTYPES[column] = GLOBAL_BASICLEVEL_DTYPES[column]
+        SEEDLINGS_NOUNS_DTYPES[column] = ALL_BASICLEVEL_DTYPES[column]
 
 
 SEEDLINGS_NOUNS_REGION_TYPES = ['subregion', 'top_3', 'top_4', 'surplus']
@@ -163,10 +162,6 @@ def blab_write_csv(dataframe, path, **kwargs):
 
 def read_all_basic_level(path):
     return blab_read_csv(path, dtype=ALL_BASICLEVEL_DTYPES)
-
-
-def read_global_basic_level(path):
-    return blab_read_csv(path, dtype=GLOBAL_BASICLEVEL_DTYPES)
 
 
 def read_seedlings_nouns(path):
