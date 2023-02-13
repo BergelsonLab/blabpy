@@ -23,7 +23,7 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
     _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id, get_seedlings_nouns_private_path
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
-    are_tokens_in_top3_top4_surplus
+    are_tokens_in_top3_top4_surplus, reformat_seedlings_nouns_regions
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -909,6 +909,7 @@ def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
     # Gather and write data
     global_basiclevel_path_df = read_global_basic_level(global_basiclevel_path)
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path_df)
+    regions = reformat_seedlings_nouns_regions(regions)
 
     new_dataframes = []
     new_variables = []
