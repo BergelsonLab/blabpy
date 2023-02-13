@@ -108,14 +108,10 @@ def test_gather_recording_seedlings_nouns(recording_id, dummy_all_basic_level):
 @pytest.fixture(scope='module')
 def all_basic_level_df():
     # Use blabr to create all_basic_level.csv and write it to tmp_path
-    all_basiclevel_version = '0.3.1'
-    global_bl_mappings_version = '0.1.5'
     with tempfile.TemporaryDirectory() as temp_dir:
         all_basic_level_path = os.path.join(temp_dir, 'all_basic_level.csv')
         r_code = f"""
-            all_bl <- blabr:::make_new_global_basic_level(
-              all_basiclevel_version = '{all_basiclevel_version}',
-              global_bl_mappings_version = '{global_bl_mappings_version}');
+            all_bl <- blabr::get_all_basiclevel(version = '0.6.0');
             readr::write_csv(all_bl, '{all_basic_level_path}', quote = 'all')
             """
         r_code = ''.join(r_code.split('\n'))
@@ -135,7 +131,7 @@ def test__gather_corpus_seedlings_nouns(all_basic_level_df):
                                                                  & df.subj.isin(['01', '25', '46'])]
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
 
-    assert pandas_df_hash(seedlings_nouns) == '882ed64994194ab248d448ddf2e08198b66c951d2f188e798becdd8edde1cf6f'
+    assert pandas_df_hash(seedlings_nouns) == '9af98d01ff1714e328196c0acaa1a725647323b0797dc1b1361f7f3a61fe9e03'
     assert pandas_df_hash(regions) == 'f911dc162ceeda249b67ca3c8a3c7352d5c5894b4b87e8699b0d54077a070c5a'
     assert pandas_df_hash(sub_recordings) == 'd766b009961bb6e33dd0e2d513b65721c00aa796304e7ed788251040dd6ed47f'
     assert pandas_df_hash(recordings) == '5e09f31c4c7cf3f7b29147442dd36690930f7aaf857ee8e9a46568b13e1ebf80'
