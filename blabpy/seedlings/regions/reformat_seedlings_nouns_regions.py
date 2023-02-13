@@ -407,7 +407,7 @@ def _pivot_regions_wider(regions_df):
             )
 
 
-def reformat_seedling_nouns_regions(regions_df):
+def reformat_seedlings_nouns_regions(regions_df):
     """
     Merges all time intervals that belong to multiple region types into a single row with an "is_*" indicator column
     for each region type. The time intervals in the output do not overlap and follow one another in time within each
