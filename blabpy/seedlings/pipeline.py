@@ -12,10 +12,10 @@ from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_R
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, check_for_errors
-from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
+from .io import blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
     SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
     read_video_recordings_csv, read_seedlings_codebook, write_all_basic_level_to_csv, \
-    SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES, SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES
+    SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES, SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES, read_all_basic_level
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -576,7 +576,7 @@ def get_lena_recordings(recording_id):
 
 def _sort_tokens(tokens_df):
     """
-    Sorts all_basiclevel/global_basiclevel/seedlings_nouns
+    Sorts all_basiclevel/seedlings_nouns
     :param tokens_df: a dataframe to sort
     :return: sorted dataframe
     """
@@ -588,15 +588,15 @@ def _sort_tokens(tokens_df):
 
 
 # TODO: return namedtuple, returning a heterogeneous tuple has and will lead to errors
-def gather_recording_nouns_audio(subject, month, global_basic_level_for_recording):
+def gather_recording_nouns_audio(subject, month, recording_basic_level):
     """
     Gathers all the data needed to update seedlings_nouns for one audio recording.
 
     :param subject: subject id, e.g. '01'
     :param month: month, e.g. '08'
-    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :param recording_basic_level: the rows of all_basic_level that correspond to the recording
     :return: (top3/top4/surplus regions,
-              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              recording_basic_level with is_top3/is_top4/is_surplus added,
               LENA recordings,
               total recorded time,
               total listened time)
@@ -609,12 +609,12 @@ def gather_recording_nouns_audio(subject, month, global_basic_level_for_recordin
                                          top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
                                         axis='rows', ignore_index=True)
 
-    # Assign tokens to region kinds using indicator columns. Additionally, add subregion position and rank.
-    tokens_assigned = assign_tokens_to_regions(tokens=global_basic_level_for_recording,
+    # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
+    tokens_assigned = assign_tokens_to_regions(tokens=recording_basic_level,
                                                seedlings_nouns_regions=seedlings_nouns_regions,
                                                month=month)
     # Add assignment columns to recording_basic_level
-    recording_seedlings_nouns = (global_basic_level_for_recording
+    recording_seedlings_nouns = (recording_basic_level
                                  .merge(tokens_assigned, on='annotid', how='inner')
                                  .pipe(_sort_tokens))
 
@@ -679,14 +679,14 @@ def get_video_times(subject, month):
     return start_dt, end_dt, duration_ms
 
 
-def gather_recording_nouns_video(subject, month, global_basic_level_for_recording):
+def gather_recording_nouns_video(subject, month, recording_basic_level):
     """
     Gathers all the data needed to update seedlings_nouns for one video recording.
 
     :param subject: subject id, e.g. '01'
     :param month: month, e.g. '08'
-    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
-    :return: (global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+    :param recording_basic_level: the rows of all_basic_level that correspond to the recording
+    :return: (recording_basic_level with is_top3/is_top4/is_surplus added,
               top3/top4/surplus regions (None because video),
               sub-recordings (a single one because video),
               total recorded time,
@@ -697,17 +697,17 @@ def gather_recording_nouns_video(subject, month, global_basic_level_for_recordin
                                                end=[end_dt],
                                                start_position_ms=[0]))
 
-    return global_basic_level_for_recording, None, sub_recordings_df, duration_ms, duration_ms
+    return recording_basic_level, None, sub_recordings_df, duration_ms, duration_ms
 
 
-def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
+def gather_recording_seedlings_nouns(recording_id, recording_basic_level):
     """
     Gathers all the data needed to update seedlings_nouns for one recording.
 
     :param recording_id: full recording id, e.g. 'Video_01_16'
-    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :param recording_basic_level: the rows of all_basic_level that correspond to the recording
     :return: (top3/top4/surplus regions,
-              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              recording_basic_level with is_top3/is_top4/is_surplus added,
               LENA recordings,
               total recorded time,
               total listened time)
@@ -715,21 +715,21 @@ def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_record
     modality, subject, month = split_recording_id(recording_id)
 
     if modality == VIDEO:
-        return gather_recording_nouns_video(subject, month, global_basic_level_for_recording)
+        return gather_recording_nouns_video(subject, month, recording_basic_level)
     elif modality == AUDIO:
-        return gather_recording_nouns_audio(subject, month, global_basic_level_for_recording)
+        return gather_recording_nouns_audio(subject, month, recording_basic_level)
     else:
         raise ValueError(f'Unknown modality {modality} for recording {recording_id}')
 
 
-def _preprocess_global_basic_level(global_basic_level):
+def _preprocess_all_basic_level(all_basic_level_df):
     """
     Preprocess global basic level for seedlings_nouns
-    :param global_basic_level:
+    :param all_basic_level_df:
     :return:
     """
-    global_basic_level_preprocessed = (
-        global_basic_level
+    all_basic_level_preprocessed = (
+        all_basic_level_df
         .drop(columns=['id', 'tier'])
         .rename(columns={'SubjectNumber': 'subject_month',
                          'pho': 'transcription',
@@ -740,16 +740,16 @@ def _preprocess_global_basic_level(global_basic_level):
                                         + df.month.astype(str))
         .pipe(_sort_tokens))
 
-    return global_basic_level_preprocessed
+    return all_basic_level_preprocessed
 
 
-def _gather_corpus_seedlings_nouns(global_basiclevel_df):
+def _gather_corpus_seedlings_nouns(all_basic_level_df):
     """
-    Create all the csv for the seedlings_nouns dataset
-    :param global_basiclevel_df: a global basic level dataframe (all_basiclevel + global_bl)
+    Create all the csvs for the seedlings-nouns dataset
+    :param all_basic_level_df: all_basiclevel dataframe
     :return: None
     """
-    gbl = _preprocess_global_basic_level(global_basic_level=global_basiclevel_df)
+    all_bl = _preprocess_all_basic_level(all_basic_level_df=all_basic_level_df)
 
     # Gather data for each recording and put into lists
     print('Processing video recordings is instantaneous, only audio recordings take time.')
@@ -758,8 +758,8 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_df):
         gather_recording_seedlings_nouns(
             recording_id,
             # So that all the dataframes are later concatenated in the same way: with new column "recording_id" added.
-            global_basic_level_for_recording=recording_tokens.drop(columns='recording_id'))
-        for modality, modality_tokens in gbl.groupby('audio_video', sort=False)
+            recording_basic_level=recording_tokens.drop(columns='recording_id'))
+        for modality, modality_tokens in all_bl.groupby('audio_video', sort=False)
         for recording_id, recording_tokens in tqdm(modality_tokens.groupby('recording_id', sort=False),
                                                    desc=f'Processing {modality} tokens')]
     (recording_ids,
@@ -895,20 +895,20 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
           'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
-def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
+def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
     that contains existing codebooks.
-    :param global_basiclevel_path:
-    :param seedlings_nouns_dir:
-    :param output_dir:
+    :param all_basic_level_path: all_basiclevel_NA.csv path
+    :param seedlings_nouns_dir: path to the folder containing the existing codebooks
+    :param output_dir: where to write the new csvs and codebooks
     :return: path of the output folder
     """
     ensure_folder_exists_and_empty(output_dir)
 
     # Gather and write data
-    global_basiclevel_path_df = read_global_basic_level(global_basiclevel_path)
-    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path_df)
+    all_basic_level_df = read_all_basic_level(all_basic_level_path)
+    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
 
     # Make regions more readable and enforce column order
     regions = (regions
@@ -942,16 +942,16 @@ def make_updated_seedlings_nouns():
     For this function to work, the following must be true:
 
     - You are connected to PN-OPUS.
-    - Current working directory contains `global-basic-level.csv` with updated global basic level version.
-      It can be created using `blabr:::make_new_global_basic_level()`.
     - There is no subfolder `new_csvs` in the current folder or it is empty.
+    - Current working directory contains `all_basiclevel_NA.csv` with updated global basic level version.
+      It can be created using `blabr:::get_all_basiclevel() %>% write_csv('all_basiclevel_NA.csv', quotes='all')`.
     """
-    global_basiclevel_path = Path('global-basic-level.csv')
-    assert global_basiclevel_path.exists(), (f'File {global_basiclevel_path.name} does not exist in the current working'
-                                             f' directory.')
+    all_basic_level_path = Path('all_basiclevel_NA.csv')
+    assert all_basic_level_path.exists(), (f'File {all_basic_level_path.name} does not exist in the current working'
+                                           f' directory.')
     # get_*_path functions check that paths exist - we don't need to do it here
     seedlings_nouns_dir = get_seedlings_nouns_private_path() / 'public'
     output_dir = Path('new_csvs')
     ensure_folder_exists_and_empty(output_dir)
 
-    _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir)
+    _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, output_dir)
