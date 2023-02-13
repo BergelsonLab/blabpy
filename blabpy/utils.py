@@ -1,3 +1,4 @@
+import hashlib
 from zlib import adler32
 from pathlib import Path
 import contextlib
@@ -64,3 +65,7 @@ def modified_environ(*remove, **update):
 
 def df_to_list_of_tuples(df):
     return list(df.to_records(index=False))
+
+
+def pandas_df_hash(df):
+    return hashlib.sha256(df.to_csv().encode()).hexdigest()

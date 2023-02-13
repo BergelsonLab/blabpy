@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import subprocess
@@ -13,6 +12,7 @@ from blabpy.seedlings.io import read_global_basic_level
 from blabpy.seedlings.pipeline import make_updated_all_basic_level_here, get_amended_audio_regions, \
     get_processed_audio_regions, get_top3_top4_surplus_regions, gather_recording_seedlings_nouns, \
     _gather_corpus_seedlings_nouns
+from blabpy.utils import pandas_df_hash
 
 
 def test_make_updated_all_basic_level_here(tmpdir):
@@ -134,9 +134,6 @@ def test__gather_corpus_seedlings_nouns(global_basic_level_df):
     global_basic_level_df = global_basic_level_df.loc[lambda df: df.month.isin(['06', '10', '14', '17'])
                                                                  & df.subj.isin(['01', '25', '46'])]
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basic_level_df)
-
-    def pandas_df_hash(df):
-        return hashlib.sha256(df.to_csv().encode()).hexdigest()
 
     assert pandas_df_hash(seedlings_nouns) == '882ed64994194ab248d448ddf2e08198b66c951d2f188e798becdd8edde1cf6f'
     assert pandas_df_hash(regions) == 'f911dc162ceeda249b67ca3c8a3c7352d5c5894b4b87e8699b0d54077a070c5a'

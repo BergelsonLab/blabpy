@@ -177,6 +177,7 @@ def split_recording_id(recording_id):
     'Audio_06_12' -> 'Audio', '06', '12'
     :param recording_id: full recording id (e.g. Audio_06_12)
     :return: (str, str, str) tuple
+    # TODO: make this a namedtuple
     """
     modality, subject, month = recording_id.split('_')
     subject, month = _normalize_child_month(child=subject, month=month)
