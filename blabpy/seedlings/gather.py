@@ -1,7 +1,6 @@
-from csv import QUOTE_NONNUMERIC
-
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 from . import UTTERANCE_TYPE_CODES, OBJECT_PRESENT_CODES, AUDIO, VIDEO
 from .paths import _check_modality, get_all_basic_level_paths
@@ -82,8 +81,10 @@ def gather_basic_level_annotations(modality):
     """
     _check_modality(modality)
     basic_level_paths = get_all_basic_level_paths(modality=modality)
-    return pd.concat([load_and_normalize_column_names(basic_level_path, modality=modality)
-                      for basic_level_path in basic_level_paths])
+    return pd.concat([
+        load_and_normalize_column_names(basic_level_path, modality=modality)
+        for basic_level_path
+        in tqdm(basic_level_paths, desc=f'Gathering {modality} basic level annotations')])
 
 
 def _combine_basic_level_annotations(all_audio_df, all_video_df):
@@ -115,9 +116,11 @@ def gather_all_basic_level_annotations(keep_comments=False, keep_basic_level_na=
     if keep_comments and not keep_basic_level_na:
         raise ValueError('When keeping comments, keep empty basic level as well')
 
-    all_audio_df = gather_basic_level_annotations(modality=AUDIO)
-    all_video_df = gather_basic_level_annotations(modality=VIDEO)
-    all_df = _combine_basic_level_annotations(all_audio_df=all_audio_df, all_video_df=all_video_df)
+    by_modality = dict()
+    for modality in tqdm([AUDIO, VIDEO], desc='Gathering annotations one modality at a time'):
+        by_modality[modality] = gather_basic_level_annotations(modality=modality)
+    all_df = _combine_basic_level_annotations(all_audio_df=by_modality[AUDIO],
+                                              all_video_df=by_modality[VIDEO])
 
     # Remove comments
     if not keep_comments:
@@ -171,28 +174,3 @@ def check_for_errors(all_basic_level_df: pd.DataFrame):
         return all_errors
     else:
         return None
-
-
-def write_all_basic_level_to_csv(all_basic_level_df, csv_path):
-    """
-    Write the output of gather_all_basic_level_annotations to a csv file in a way consistent with the older R code.
-    The result is still not fully consistent but it is close enough.
-    (readr::write_csv writes number 10000 as 1e+5 which was too silly to emulate)
-    :param all_basic_level_df: a pandas DataFrame
-    :param csv_path: a path to the csv or None if you want to return the string that would have been written
-    :return:
-    """
-    # For consistency with readr::write_csv that quotes strings but does not quote NAs, we'll have to use the following
-    # trick from https://www.reddit.com/r/Python/comments/mu65ms/quoting_of_npnan_with_csvquote_nonnumeric_in/
-    # This way, NAs will be considered numeric and won't be quoted.
-    na = type("NaN", (float,), dict(__str__=lambda _: "NA"))()
-    return all_basic_level_df.to_csv(csv_path, index=False, quoting=QUOTE_NONNUMERIC, na_rep=na)
-
-
-def write_all_basic_level_to_feather(all_basic_level_df, feather_path):
-    """
-    Write the output of gather_all_basic_level_annotations to a feather file.
-    :param all_basic_level_df: a pandas DataFrame
-    :return:
-    """
-    all_basic_level_df.to_feather(feather_path)
