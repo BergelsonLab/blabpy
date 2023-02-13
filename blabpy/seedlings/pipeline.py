@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from ..blab_data import get_file_path
 from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
@@ -943,12 +944,10 @@ def make_updated_seedlings_nouns():
 
     - You are connected to PN-OPUS.
     - There is no subfolder `new_csvs` in the current folder or it is empty.
-    - Current working directory contains `all_basiclevel_NA.csv` with updated global basic level version.
-      It can be created using `blabr:::get_all_basiclevel() %>% write_csv('all_basiclevel_NA.csv', quotes='all')`.
+    - `all_basiclevel` is cloned to `~/BLAB_DATA/all_basiclevel`.
     """
-    all_basic_level_path = Path('all_basiclevel_NA.csv')
-    assert all_basic_level_path.exists(), (f'File {all_basic_level_path.name} does not exist in the current working'
-                                           f' directory.')
+    all_basic_level_path = get_file_path('all_basicslevel', None, 'all_basiclevel_NA.csv')
+
     # get_*_path functions check that paths exist - we don't need to do it here
     seedlings_nouns_dir = get_seedlings_nouns_private_path() / 'public'
     output_dir = Path('new_csvs')
