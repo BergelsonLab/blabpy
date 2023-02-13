@@ -58,22 +58,36 @@ SEEDLINGS_NOUNS_DTYPES = {
     'transcription': GLOBAL_BASICLEVEL_DTYPES['pho'],
     'utterance_type': None,
     'object_present': None,
+    'is_subregion': pd.BooleanDtype(),
     'is_top_3_hours': pd.BooleanDtype(),
     'is_top_4_hours': pd.BooleanDtype(),
-    'is_surplus': pd.BooleanDtype()}
+    'is_surplus': pd.BooleanDtype(),
+    'position': pd.Int64Dtype(),
+    'subregion_rank': pd.Int64Dtype(),
+}
 for column, dtype in SEEDLINGS_NOUNS_DTYPES.items():
     if dtype is None:
         SEEDLINGS_NOUNS_DTYPES[column] = GLOBAL_BASICLEVEL_DTYPES[column]
 
 
 SEEDLINGS_NOUNS_REGION_TYPES = ['subregion', 'top_3', 'top_4', 'surplus']
-SEEDLINGS_NOUNS_REGIONS_DTYPES = {
+SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
     'region_type': pd.CategoricalDtype(categories=SEEDLINGS_NOUNS_REGION_TYPES),
     'start': pd.Int64Dtype(),
     'end': pd.Int64Dtype(),
-    'position': pd.Int64Dtype(),
-    'subregion_rank': pd.Int64Dtype()}
+    'position': SEEDLINGS_NOUNS_DTYPES['position'],
+    'subregion_rank': SEEDLINGS_NOUNS_DTYPES['subregion_rank']}
+SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES = {
+    'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
+    'start': pd.Int64Dtype(),
+    'end': pd.Int64Dtype(),
+    'is_subregion': SEEDLINGS_NOUNS_DTYPES['is_subregion'],
+    'is_top_3_hours': SEEDLINGS_NOUNS_DTYPES['is_top_3_hours'],
+    'is_top_4_hours': SEEDLINGS_NOUNS_DTYPES['is_top_4_hours'],
+    'is_surplus': SEEDLINGS_NOUNS_DTYPES['is_surplus'],
+    'position': SEEDLINGS_NOUNS_DTYPES['position'],
+    'subregion_rank': SEEDLINGS_NOUNS_DTYPES['subregion_rank']}
 
 SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
@@ -160,7 +174,7 @@ def read_seedlings_nouns(path):
 
 
 def read_seedlings_nouns_regions(path):
-    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_REGIONS_DTYPES)
+    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES)
 
 
 def read_seedlings_nouns_sub_recordings(path):

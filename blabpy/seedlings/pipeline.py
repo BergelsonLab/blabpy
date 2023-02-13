@@ -13,8 +13,9 @@ from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, check_for_errors
 from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
-    SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
-    read_video_recordings_csv, read_seedlings_codebook, write_all_basic_level_to_csv
+    SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
+    read_video_recordings_csv, read_seedlings_codebook, write_all_basic_level_to_csv, \
+    SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES, SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -631,8 +632,8 @@ def gather_recording_nouns_audio(subject, month, global_basic_level_for_recordin
 
     recording_seedlings_nouns = _enforce_column_order(df=recording_seedlings_nouns,
                                                       dtypes=SEEDLINGS_NOUNS_DTYPES)
-    regions_for_seedlings_nouns = _enforce_column_order(df=regions_for_seedlings_nouns,
-                                                        dtypes=SEEDLINGS_NOUNS_REGIONS_DTYPES)
+    seedlings_nouns_regions = _enforce_column_order(df=seedlings_nouns_regions,
+                                                    dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES)
     lena_recordings = _enforce_column_order(df=lena_recordings,
                                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
@@ -791,7 +792,7 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_df):
                              sort_by=SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv']))
     regions = (_concatenate_dataframes(all_regions)
                .pipe(_standardize,
-                     dtypes=SEEDLINGS_NOUNS_REGIONS_DTYPES,
+                     dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES,
                      sort_by=SEEDLINGS_NOUNS_SORT_BY['regions.csv']))
     sub_recordings = (_concatenate_dataframes(all_sub_recordings)
                       .pipe(_standardize,
