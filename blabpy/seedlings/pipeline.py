@@ -9,7 +9,7 @@ import pandas as pd
 from git import Repo
 from tqdm import tqdm
 
-from ..blab_data import get_file_path
+from ..blab_data import get_file_path, switch_dataset_to_version
 from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
@@ -949,12 +949,13 @@ def make_updated_seedlings_nouns():
         be instructed to commit the changes.
       - If it is (b), cwd must be empty. You'll be instructed to copy the new csvs to the repo before committing them.
     """
+    # Get the newest version of all_basiclevel_NA.csv
     all_basic_level_path = get_file_path('all_basiclevel', None, 'all_basiclevel_NA.csv')
 
-    # We'll be updating existing codebooks, and we want them to be in the state they are in the latest saved version to
-    # avoid using data from drafts or possibly incorrect outputs of previous runs.
-    seedlings_nouns_dir = get_seedlings_nouns_private_path() / 'public'
-    if Repo(seedlings_nouns_dir).is_dirty():
+    # Use the newest version of seedlings-nouns_private and make sure it's clean
+    seedling_nouns_repo = switch_dataset_to_version('seedlings-nouns_private', version=None)
+    seedlings_nouns_dir = seedling_nouns_repo.working_dir
+    if seedling_nouns_repo.is_dirty():
         raise ValueError(f'There are unsaved changes in the seedlings-nouns_private repo. Please commit, stash, or '
                          'discard them. Find the repo here:\n'
                          f'{seedlings_nouns_dir.absolute()}')

@@ -21,9 +21,9 @@ def get_newest_version(repo):
         raise ValueError(f"Newest version of dataset {repo} is {newest_version}, but newest tag is {newest_tag}.")
 
 
-def get_file_path(dataset_name, version, relative_path):
+def switch_dataset_to_version(dataset_name, version):
     """
-    Get a file from a dataset.
+    Switch a dataset to a specific version.
     """
     blab_data_path = get_blab_data_path()
     repo = Repo(blab_data_path / dataset_name)
@@ -34,6 +34,15 @@ def get_file_path(dataset_name, version, relative_path):
         repo.git.checkout(version)
     except GitCommandError as e:
         raise ValueError(f"Version {version} does not exist for dataset {dataset_name}.") from e
+
+    return repo
+
+
+def get_file_path(dataset_name, version, relative_path):
+    """
+    Switches a dataset to a specific version and return the path to a file in that version.
+    """
+    repo = switch_dataset_to_version(dataset_name, version)
 
     file_path = Path(repo.working_dir) / relative_path
     if not file_path.exists():
