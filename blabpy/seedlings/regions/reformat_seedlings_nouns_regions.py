@@ -101,6 +101,8 @@ import pandas as pd
 
 from blabpy.seedlings.listened_time import RegionType
 from blabpy.seedlings.regions.top3_top4_surplus import TOP_3_KIND, TOP_4_KIND
+from blabpy.seedlings.paths import split_recording_id
+
 
 # =============================================================================
 # Little helper functions for dealing with na values used as the right bound of right-open intervals, essentially
@@ -407,6 +409,27 @@ def _pivot_regions_wider(regions_df):
             )
 
 
+def _postprocess_pivoted(regions_df_wide):
+    """
+    Converts dtypes to nullable, sets is_top_4 to NA for months 14-17
+    :param regions_df_wide: The pivoted regions table.
+    :return: The postprocessed table.
+    """
+    # Convert is_* columns to pandas data types
+    for column_name in regions_df_wide.columns:
+        if column_name.startswith('is_'):
+            regions_df_wide[column_name] = regions_df_wide[column_name].convert_dtypes()
+
+    # Change is_top_4 to NA for months 14-17
+    regions_df_wide = regions_df_wide.assign(
+            month=lambda df:
+            df.recording_id.apply(lambda recording_id: int(split_recording_id(recording_id)[2])))
+    # Check that there are no top_4 regions in months 14-17 - that would mean there was a bug somewhere
+    assert not regions_df_wide.is_top_4.where(regions_df_wide.month.between(14, 17), False).any()
+    regions_df_wide['is_top_4'] = regions_df_wide.is_top_4.where(~regions_df_wide.month.between(14, 17), None)
+    return regions_df_wide.drop(columns='month')
+
+
 def reformat_seedlings_nouns_regions(regions_df):
     """
     Merges all time intervals that belong to multiple region types into a single row with an "is_*" indicator column
@@ -420,7 +443,8 @@ def reformat_seedlings_nouns_regions(regions_df):
     regions_df = (
         regions_df
         .pipe(_split_overlapping_regions)
-        .pipe(_pivot_regions_wider))
+        .pipe(_pivot_regions_wider)
+        .pipe(_postprocess_pivoted))
 
     regions_df = regions_df.assign(end=lambda df: _pseudo_inf_to_na(df.end))
 
