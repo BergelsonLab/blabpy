@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from git import Repo
 from tqdm import tqdm
 
 from ..blab_data import get_file_path
@@ -869,28 +870,28 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir)
 
 def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
                                                new_seedlings_nouns_dir, old_seedlings_nouns_dir):
-    # TODO: Remove from the message:
-    #  - /Users/ek221/blab/blabpy/repo/blabpy/seedlings/pipeline.py:777: UserWarning:
-    #  - warnings.warn(msg)
-    def _warn(msg):
-        msg = f'\n{msg}\n'
-        warnings.warn(msg)
-        sys.stderr.flush()
-
     if new_dataframes:
-        _warn('These dataframes never had a codebook and need their "description" column filled:\n'
+        print('These dataframes never had a codebook and need their "description" column filled:\n'
               + '\n'.join(str(path) for path in new_dataframes))
 
     if new_variables:
-        _warn('These dataframes have some new variables without description:\n'
+        print('These dataframes have some new variables without description:\n'
               + '\n'.join(str(path) for path in new_variables))
 
     # Instructions
-    print('0. If there are warnings above about new dataframes or new variables, update descriptions in the'
-          f' corresponding codebooks in the following folder:\n{new_seedlings_nouns_dir}\n\n'
-          '1. Copy the csv files\n'
-          f'from: {new_seedlings_nouns_dir.absolute()}\n'
-          f'to:   {old_seedlings_nouns_dir.absolute()}\n\n'
+    step0 = ''
+    if new_dataframes or new_variables:
+        step0 = '0. Check whether the lists above correspond to what you expected.\n\n'
+
+    new_dir_path = new_seedlings_nouns_dir.absolute()
+    old_dir_path = old_seedlings_nouns_dir.absolute()
+    step1 = ('1. Copy the csv files\n'
+             f'from: {new_dir_path}\n'
+             f'to:   {old_dir_path}\n\n')
+    if new_dir_path == old_dir_path:
+        step1 = ''
+
+    print(step0 + step1 +
           '2. Go to\n'
           f'{old_seedlings_nouns_dir.absolute()}\n'
           'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
@@ -905,8 +906,6 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, out
     :param output_dir: where to write the new csvs and codebooks
     :return: path of the output folder
     """
-    ensure_folder_exists_and_empty(output_dir)
-
     # Gather and write data
     all_basic_level_df = read_all_basic_level(all_basic_level_path)
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
@@ -943,14 +942,30 @@ def make_updated_seedlings_nouns():
     For this function to work, the following must be true:
 
     - You are connected to PN-OPUS.
-    - There is no subfolder `new_csvs` in the current folder or it is empty.
     - `all_basiclevel` is cloned to `~/BLAB_DATA/all_basiclevel`.
+    - `seedlings-nouns_private` is cloned to `~/BLAB_DATA/seedlings-nouns_private`.
+    - You are either (a) in the csvs folder of `seedlings-nouns_private` or (b) any other folder.
+      - If it is (a), the working tree must be clean. The new csvs will overwrite the old ones in place, and you'll
+        be instructed to commit the changes.
+      - If it is (b), cwd must be empty. You'll be instructed to copy the new csvs to the repo before committing them.
     """
-    all_basic_level_path = get_file_path('all_basicslevel', None, 'all_basiclevel_NA.csv')
+    all_basic_level_path = get_file_path('all_basiclevel', None, 'all_basiclevel_NA.csv')
 
-    # get_*_path functions check that paths exist - we don't need to do it here
+    # We'll be updating existing codebooks, and we want them to be in the state they are in the latest saved version to
+    # avoid using data from drafts or possibly incorrect outputs of previous runs.
     seedlings_nouns_dir = get_seedlings_nouns_private_path() / 'public'
-    output_dir = Path('new_csvs')
-    ensure_folder_exists_and_empty(output_dir)
+    if Repo(seedlings_nouns_dir).is_dirty():
+        raise ValueError(f'There are unsaved changes in the seedlings-nouns_private repo. Please commit, stash, or '
+                         'discard them. Find the repo here:\n'
+                         f'{seedlings_nouns_dir.absolute()}')
+
+    # If we're not working from the repo, we don't want to overwrite existing csvs in case we're in the wrong folder,
+    # we want to keep the results of the previous run, etc. So, the current working directory should be empty.
+    output_dir = Path.cwd()
+    if output_dir.absolute() != seedlings_nouns_dir.absolute():
+        if any(output_dir.iterdir()):
+            raise ValueError(f'The current working directory is not empty. Please move to a different folder or '
+                             'delete the files in this folder. Find the current working directory here:\n'
+                             f'{output_dir.absolute()}')
 
     _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_dir, output_dir)
