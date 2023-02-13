@@ -13,8 +13,8 @@ def get_newest_version(repo):
 
     # Find newest tag by version number and by commit date. If the results are the same, use either.
     # TODO: use a proper versioning library
-    newest_version = repo.tags.sort(key=lambda t: tuple(int(n) for n in t.name.split('.')))[-1].name
-    newest_tag = repo.tags.sort(key=lambda t: t.commit.committed_datetime)[-1].name
+    newest_version = sorted(repo.tags, key=lambda t: tuple(int(n) for n in t.name.split('.')))[0].name
+    newest_tag = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)[0].name
     if newest_tag == newest_version:
         return newest_version
     else:
