@@ -107,14 +107,8 @@ def _apply_makeup_procedure(regions_processed_df, n_hours: int, month: str):
     if subregions_duration >= at_least_ms:
         return regions_processed_df[_is_top_n_subregion]
 
-    # Filter regions:
-    # - we'll only consider listened to regions,
-    # - for month 6-7, we'll consider all subregions but only up to rank N for months 8-13
+    # Keep listened to regions only
     potential_regions_df = _filter_listened_to_regions(regions_processed_df)
-    if 8 <= int(month) <= 13:
-        potential_regions_df = (potential_regions_df
-                                .loc[lambda df: ~(df.region_type.eq(RegionType.SUBREGION.value)
-                                                  & (df.subregion_rank > n_hours))])
 
     # First, we'll use subregions ordered by rank, then the makeup regions ordered by onset time.
     potential_regions_df = (

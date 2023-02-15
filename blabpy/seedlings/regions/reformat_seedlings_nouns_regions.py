@@ -199,7 +199,7 @@ def _find_partially_overlapping_regions(regions_df):
 
 def _triage_overlaps(overlaps_df):
     """
-    Classifies all overlaps into one of three categories. Every overlap should belong to exactly one category. These
+    Classifies all overlaps into one of four categories. Every overlap should belong to exactly one category. These
     are the categories present at the time of writing the initial version of this module. The main purpose of this
     function is to check there aren't any new kinds of overlaps.
 
@@ -211,11 +211,9 @@ def _triage_overlaps(overlaps_df):
        insufficient top-4 time, the rank-5 subregions also overlaps with the top-4 regions. The most reasonable
        solution is to remove the rank-5 subregions from month 06-07 regions.
 
-    2. Top-3 overlaps with subregion ranked 4 in month 06-07 regions.
+    2. Top-3 overlaps with subregion ranked 4 in regions from months 06-13 regions.
 
-       Another inconsistency. For months 06-07, I used subregion ranked 4 to make up for insufficient top-3 time.
-       This is consistent with simulating months 14-17 but not with months 08-13 where I used makeups/surplus regions
-       which should have been taking from subregion ranked 5 first.
+        Expected. "Makeup" for top-3 is first taken from subregion ranked 4.
 
     3. Top-3 overlaps with top-4.
 
@@ -244,8 +242,10 @@ def _triage_overlaps(overlaps_df):
             is_subregion_5_thing=lambda df: df.month.isin(['06', '07'])
                                             & df.one_is_rank_5_subregion
                                             & df.one_is_top_4_or_surplus,
-            is_top_3_subregion_4=lambda df: df.month.isin(['06', '07']) & df.region_type_x.eq(TOP_3_KIND)
-                & df.region_type_y.eq(RegionType.SUBREGION.value) & df.subregion_rank_y.eq(4),
+            is_top_3_subregion_4=lambda df:
+            df.month.astype(int).between(6, 13)
+            & df.region_type_x.eq(TOP_3_KIND)
+            & df.region_type_y.eq(RegionType.SUBREGION.value) & df.subregion_rank_y.eq(4),
             is_top_3_top_4=lambda df:
                 (df.region_type_x == TOP_3_KIND)
                 & (df.region_type_y == TOP_4_KIND)
