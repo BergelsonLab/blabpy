@@ -45,12 +45,11 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
 
     opf_paths = get_all_opf_paths()
     seedlings_path = get_seedlings_path()
-    for opf_path in opf_paths:
+    for opf_path in tqdm(opf_paths, desc='Exporting opf files'):
         # Add suffix before all extensions
         extensions = ''.join(opf_path.suffixes)
         output_name = opf_path.name.replace(extensions, suffix + '.csv')
 
-        print(f'Exporting opf file at <SEEDLINGS_ROOT>/{opf_path.relative_to(seedlings_path)}')
         export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
 
 
@@ -69,8 +68,7 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
 
     cha_paths = get_all_cha_paths()
     seedlings_path = get_seedlings_path()
-    for cha_path in cha_paths:
-        print(f'Exporting cha file at <SEEDLINGS_ROOT>/{cha_path.relative_to(seedlings_path)}')
+    for cha_path in tqdm(cha_paths, desc='Exporting cha files'):
         problems = export_cha_to_csv(cha_path=cha_path, output_folder=output_folder)
         if not problems:
             continue
@@ -130,15 +128,10 @@ def merge_annotations_with_basic_level(exported_annotations_folder, output_folde
     # Merge and save
     seedlings_path = get_seedlings_path()
 
-    def _create_merged(file_new, file_old, file_merged, mode):
-        """Exists to add the printing part"""
-        print(f'Merging annotations in {file_new}\n'
-              f'with basic level info in <SEEDLINGS_ROOT>/{file_old.relative_to(seedlings_path)}')
-        return create_merged(file_new=file_new, file_old=file_old, file_merged=file_merged, mode=mode)
-
-    results = [_create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
+    results = [create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
                for annotation_file, basic_level_file, output_file
-               in zip(annotation_files, basic_level_files, output_files)]
+               in tqdm(zip(annotation_files, basic_level_files, output_files),
+                       desc=f'Merging {mode} files')]
 
     # Output merging log to a csv file
     columns = ['duplicates_in_old_file', 'words_were_edited', 'words_were_added']
@@ -344,7 +337,7 @@ def make_updated_all_basic_level_here():
     """
     Gathers all basic level files, checks for errors, and writes the result to "all_basiclevel_NA.csv".
 
-    The file is delete at the very beginning to distinguish two outcomes:
+    The file is deleted at the very beginning to distinguish two outcomes:
     - everything went well, but there are no changes (files are the same, git status sees no changes) and
     - something went wrong (files are missing, git status will show that much).
     :return: None
@@ -754,7 +747,7 @@ def _gather_corpus_seedlings_nouns(all_basic_level_df):
     all_bl = _preprocess_all_basic_level(all_basic_level_df=all_basic_level_df)
 
     # Gather data for each recording and put into lists
-    print('Processing video recordings is instantaneous, only audio recordings take time.')
+    print('Processing video recordings is very quick, audio recordings take time.')
     everything = [
         (recording_id,) +
         gather_recording_seedlings_nouns(
