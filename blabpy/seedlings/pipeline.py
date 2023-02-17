@@ -890,6 +890,33 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
           'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
+def _post_process_regions(regions):
+    # Make regions more readable, enforce column order, remove subregions ranked 5 from months 06 and 07. For other
+    # months, subregions ranked 5 disappear in the beginning - when we process regions from the cha files). For months
+    # 06 and 07 we keep them to use for makeup.
+    regions = regions.copy()
+
+    # Remove subregions ranked 5 from months 06 and 07
+    regions = regions.loc[lambda df_:
+                          ~(df_.region_type.eq(RegionType.SUBREGION.value)
+                            & df_.subregion_rank.eq(5)
+                            & df_.recording_id.str.split('_').str[-1].isin(['06', '07']))]
+    # Check that no rank-5 subregions remain
+    # assert not regions.loc[lambda df_:
+    #                        df_.region_type.eq(RegionType.SUBREGION.value)
+    #                        & df_.subregion_rank.eq(5)].shape[0] > 0
+
+    # Make regions wide and nice
+    regions = reformat_seedlings_nouns_regions(regions)
+
+    # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
+    # been done downstream but it is easier to apply at the very end.
+    return (regions
+        .rename(columns={'is_top_3': 'is_top_3_hours',
+                         'is_top_4': 'is_top_4_hours'})
+        .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
+
+
 def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
@@ -903,12 +930,7 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir
     all_basic_level_df = read_all_basic_level(all_basic_level_path)
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
 
-    # Make regions more readable and enforce column order
-    regions = (regions
-               .pipe(reformat_seedlings_nouns_regions)
-               .rename(columns={'is_top_3': 'is_top_3_hours',
-                                'is_top_4': 'is_top_4_hours'})
-               .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
+    regions = _post_process_regions(regions)
 
     new_dataframes = []
     new_variables = []
