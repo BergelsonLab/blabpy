@@ -902,9 +902,9 @@ def _post_process_regions(regions):
                             & df_.subregion_rank.eq(5)
                             & df_.recording_id.str.split('_').str[-1].isin(['06', '07']))]
     # Check that no rank-5 subregions remain
-    # assert not regions.loc[lambda df_:
-    #                        df_.region_type.eq(RegionType.SUBREGION.value)
-    #                        & df_.subregion_rank.eq(5)].shape[0] > 0
+    assert not regions.loc[lambda df_:
+                           df_.region_type.eq(RegionType.SUBREGION.value)
+                           & df_.subregion_rank.eq(5)].shape[0] > 0
 
     # Make regions wide and nice
     regions = reformat_seedlings_nouns_regions(regions)

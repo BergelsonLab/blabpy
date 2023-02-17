@@ -6,7 +6,7 @@ import pkg_resources
 
 from blabpy.seedlings.listened_time import RegionType, _account_for_region_overlaps
 
-SPECIAL_CASES = ('20_12', '06_07', '22_07')
+SPECIAL_CASES = ('20_12', '06_07', '22_07', '25_12')
 
 
 def recreate_subregions_from_lena5min(lena5min_df):
@@ -95,6 +95,7 @@ def get_processed_audio_regions(cha_path, lena5min_df=None):
     with ranks 3 and 4. So, we will pretend as if these were the actual ranks.
     - 06_07, 22_07: all subregions minus
     silent part don't add up to four hours. We will manually add "extra" time to them.
+    - 25_12: makeup regions in sugregion ranked 5 were not marked as "makeup".
     """
     # TODO: Importing is done here to avoid circular imports/name collisions. Restructure regions/listened_time/pipeline
     #  instead
