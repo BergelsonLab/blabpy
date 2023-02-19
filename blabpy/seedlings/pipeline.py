@@ -604,6 +604,12 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                          top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
                                         axis='rows', ignore_index=True)
 
+    # Remove subregions ranked 5 from months 06 and 07
+    if month in ('06', '07'):
+        seedlings_nouns_regions = seedlings_nouns_regions.loc[
+            lambda df_: ~(df_.region_type.eq(RegionType.SUBREGION.value)
+                          & df_.subregion_rank.eq(5))]
+
     # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
     tokens_assigned = assign_tokens_to_regions(tokens=recording_basic_level,
                                                seedlings_nouns_regions=seedlings_nouns_regions,
@@ -896,11 +902,6 @@ def _post_process_regions(regions):
     # 06 and 07 we keep them to use for makeup.
     regions = regions.copy()
 
-    # Remove subregions ranked 5 from months 06 and 07
-    regions = regions.loc[lambda df_:
-                          ~(df_.region_type.eq(RegionType.SUBREGION.value)
-                            & df_.subregion_rank.eq(5)
-                            & df_.recording_id.str.split('_').str[-1].isin(['06', '07']))]
     # Check that no rank-5 subregions remain
     assert not regions.loc[lambda df_:
                            df_.region_type.eq(RegionType.SUBREGION.value)
