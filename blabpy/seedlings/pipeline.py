@@ -564,9 +564,9 @@ def get_lena_recordings(recording_id):
                  'recording_end': 'end',
                  'recording_start_wav': 'start_position_ms'},
         errors='raise')
-    total_recorded_time = calculate_total_recorded_time_ms(recordings=recordings)
+    total_recorded_time_ms = calculate_total_recorded_time_ms(recordings=recordings)
 
-    return recordings, total_recorded_time
+    return recordings, total_recorded_time_ms
 
 
 def _sort_tokens(tokens_df):
@@ -610,6 +610,10 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
             lambda df_: ~(df_.region_type.eq(RegionType.SUBREGION.value)
                           & df_.subregion_rank.eq(5))]
 
+    seedlings_nouns_regions = pd.concat([subregions,
+                                         top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
+                                        axis='rows', ignore_index=True)
+
     # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
     tokens_assigned = assign_tokens_to_regions(tokens=recording_basic_level,
                                                seedlings_nouns_regions=seedlings_nouns_regions,
@@ -620,9 +624,9 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    lena_recordings, total_recorded_time = get_lena_recordings(recording_id=f'{AUDIO}_{subject}_{month}')
-    total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
-                                                           recordings=lena_recordings)
+    lena_recordings, total_recorded_time_ms = get_lena_recordings(recording_id=f'{AUDIO}_{subject}_{month}')
+    total_listened_time_ms = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
+                                                              recordings=lena_recordings)
 
     # Enforce column order
     def _enforce_column_order(df, dtypes):
@@ -642,8 +646,8 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
             lena_recordings,
             # TODO: return a dataframe with one row and two columns, so that we can then concatenate everything in
             #  exactly the same manner
-            total_listened_time,
-            total_recorded_time)
+            total_listened_time_ms,
+            total_recorded_time_ms)
 
 
 def load_video_recordings_csv(anonymize=True):
@@ -710,8 +714,8 @@ def gather_recording_seedlings_nouns(recording_id, recording_basic_level):
     :return: (top3/top4/surplus regions,
               recording_basic_level with is_top3/is_top4/is_surplus added,
               LENA recordings,
-              total recorded time,
-              total listened time)
+              total recorded time in ms,
+              total listened time in ms)
     """
     modality, subject, month = split_recording_id(recording_id)
 
@@ -767,8 +771,8 @@ def _gather_corpus_seedlings_nouns(all_basic_level_df):
      all_seedlings_nouns,
      all_regions,
      all_sub_recordings,
-     all_total_listened_times,
-     all_total_recorded_times) = zip(*everything)
+     all_total_listened_times_ms,
+     all_total_recorded_times_ms) = zip(*everything)
 
     # Aggregate the lists into dataframes
 
@@ -801,8 +805,8 @@ def _gather_corpus_seedlings_nouns(all_basic_level_df):
     recordings = (
         pd.DataFrame(data=dict(
             recording_id=recording_ids,
-            total_recorded_time=all_total_recorded_times,
-            total_listened_time=all_total_listened_times))
+            total_recorded_time_ms=all_total_recorded_times_ms,
+            total_listened_time_ms=all_total_listened_times_ms))
         .convert_dtypes()
         .pipe(_standardize,
               dtypes=SEEDLINGS_NOUNS_RECORDINGS_DTYPES, sort_by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv']))
@@ -931,9 +935,9 @@ def _post_process_regions(regions, recordings):
     # get the duration before the regions-creating code but I couldn't figure out how to do it and not break anything
     # else.
     regions = (regions
-               .merge(recordings.loc[:, ['recording_id', 'total_recorded_time']], on='recording_id')
-               .assign(end=lambda df: df.end.fillna(df.total_recorded_time).convert_dtypes())
-               .drop(columns=['total_recorded_time', 'total_listened_time']))
+               .merge(recordings.loc[:, ['recording_id', 'total_recorded_time_ms']], on='recording_id')
+               .assign(end=lambda df: df.end.fillna(df.total_recorded_time_ms).convert_dtypes())
+               .drop(columns=['total_recorded_time_ms']))
 
     # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
     # been done downstream but it is easier to apply at the very end.

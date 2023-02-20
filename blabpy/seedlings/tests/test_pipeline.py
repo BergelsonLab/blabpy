@@ -63,21 +63,21 @@ def test_gather_everything_for_seedlings_nouns(top3_top4_surplus_data_dir, seedl
     (actual_regions_for_seedlings_nouns,
      actual_tokens_full,
      actual_recordings,
-     actual_total_listened_time,
-     actual_total_recorded_time) = gather_recording_seedlings_nouns('Audio', 2, 8, recording_basic_level)
+     actual_total_listened_time_ms,
+     actual_total_recorded_time_ms) = gather_recording_seedlings_nouns('Audio', 2, 8, recording_basic_level)
 
     expected_regions_for_seedlings_nouns = load_test_data(seedlings_nouns_data_dir, 'regions_for_seedlings_nouns.csv')
     expected_tokens_full = load_test_data(seedlings_nouns_data_dir, 'tokens_full.csv')
     expected_recordings = load_test_data(seedlings_nouns_data_dir, 'recordings.csv', parse_dates=['start', 'end'])
     total_times = json.load(open(seedlings_nouns_data_dir / 'total_times.json'))
-    expected_total_listened_time = total_times['total_listened_time']
-    expected_total_recorded_time = total_times['total_recorded_time']
+    expected_total_listened_time_ms = total_times['total_listened_time_ms']
+    expected_total_recorded_time_ms = total_times['total_recorded_time_ms']
 
     assert actual_regions_for_seedlings_nouns.equals(expected_regions_for_seedlings_nouns)
     assert actual_tokens_full.equals(expected_tokens_full)
     assert actual_recordings.equals(expected_recordings)
-    assert actual_total_listened_time == expected_total_listened_time
-    assert actual_total_recorded_time == expected_total_recorded_time
+    assert actual_total_listened_time_ms == expected_total_listened_time_ms
+    assert actual_total_recorded_time_ms == expected_total_recorded_time_ms
 
 
 @pytest.fixture(scope='module')
