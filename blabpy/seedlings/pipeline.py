@@ -691,7 +691,7 @@ def gather_recording_nouns_video(subject, month, recording_basic_level):
     :param subject: subject id, e.g. '01'
     :param month: month, e.g. '08'
     :param recording_basic_level: the rows of all_basic_level that correspond to the recording
-    :return: (recording_basic_level with is_top3/is_top4/is_surplus added,
+    :return: (recording_basic_level as is - new columns are only added for audio recordings,
               top3/top4/surplus regions (None because video),
               sub-recordings (a single one because video),
               total recorded time,
