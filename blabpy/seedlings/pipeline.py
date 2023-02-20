@@ -896,7 +896,21 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
           'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
-def _post_process_regions(regions):
+# TODO: This should be all done at the recording level - in gather_recording_seedlings_nouns
+def _post_process_regions(regions, recordings):
+    """
+    Does a couple of things that should have been done at the recording level, but I couldn't figure out how to do it
+    without breaking the code. Which means that the code is probably not very good and should be refactored. Here's
+    what it does:
+    - Reformats the table to make it more readable. See reformat_seedlings_nouns_regions.
+    - Fills in the end for the last surplus region in months 06-07 - it was left as NA to signify "until the end of the
+      recording".
+    - Renames some columns and enforce column order. It already happened to regions but now - after reforamtting - it
+      has to be done again.
+    :param regions: regions in long format that come out of _gather_corpus_seedlings_nouns
+    :param recordings: a dataframe with duration of all the recordings
+    :return: regions with
+    """
     # Make regions more readable, enforce column order, remove subregions ranked 5 from months 06 and 07. For other
     # months, subregions ranked 5 disappear in the beginning - when we process regions from the cha files). For months
     # 06 and 07 we keep them to use for makeup.
@@ -909,6 +923,15 @@ def _post_process_regions(regions):
 
     # Make regions wide and nice
     regions = reformat_seedlings_nouns_regions(regions)
+
+    # Fill in the right boundary for the last surplus region in months 06-07 - it was left as NA because the code
+    # that created regions from the cha files didn't have access to the recording duration. It would be cleaner to
+    # get the duration before the regions-creating code but I couldn't figure out how to do it and not break anything
+    # else.
+    regions = (regions
+               .merge(recordings.loc[:, ['recording_id', 'total_recorded_time']], on='recording_id')
+               .assign(end=lambda df: df.end.fillna(df.total_recorded_time).convert_dtypes())
+               .drop(columns=['total_recorded_time', 'total_listened_time']))
 
     # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
     # been done downstream but it is easier to apply at the very end.
@@ -931,7 +954,7 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir
     all_basic_level_df = read_all_basic_level(all_basic_level_path)
     seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
 
-    regions = _post_process_regions(regions)
+    regions = _post_process_regions(regions, recordings)
 
     new_dataframes = []
     new_variables = []
