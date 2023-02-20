@@ -850,7 +850,9 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_csv_
     want new names.
     :param output_dir: where to save the csv files
     :param old_seedlings_nouns_csv_dir: where to look for the old codebook
-    :return:
+    :return: (where the new codebook was saved - path to the new file,
+              is this a new dataframe (no old codebook),
+              are there new columns (some columns are new and missing descriptions))
     """
     # Paths
     new_df_path = output_dir / df_filename
