@@ -604,15 +604,13 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                          top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
                                         axis='rows', ignore_index=True)
 
-    # Remove subregions ranked 5 from months 06 and 07
+    # Remove subregions ranked 5 from months 06 and 07. They were need for _get_top3_top4_surplus_regions but should
+    # not be used for assigning tokens to subregions. We are not doing it for the other months because they shouldn't
+    # contain any subregions ranked 5 anyway.
     if month in ('06', '07'):
         seedlings_nouns_regions = seedlings_nouns_regions.loc[
             lambda df_: ~(df_.region_type.eq(RegionType.SUBREGION.value)
                           & df_.subregion_rank.eq(5))]
-
-    seedlings_nouns_regions = pd.concat([subregions,
-                                         top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
-                                        axis='rows', ignore_index=True)
 
     # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
     tokens_assigned = assign_tokens_to_regions(tokens=recording_basic_level,
@@ -640,6 +638,13 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                                     dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES)
     lena_recordings = _enforce_column_order(df=lena_recordings,
                                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
+
+    # Check that there are no subregions ranked 5 left. I removed and then added them too many times. :facepalm:
+    def no_subregion_rank_5(series):
+        return (series.isna() | series.isin([1, 2, 3, 4])).all()
+
+    assert no_subregion_rank_5(seedlings_nouns_regions.subregion_rank)
+    assert no_subregion_rank_5(recording_seedlings_nouns.subregion_rank)
 
     return (recording_seedlings_nouns,
             seedlings_nouns_regions,
