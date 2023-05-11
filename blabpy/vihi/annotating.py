@@ -14,13 +14,14 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
 
     # The folder name and the branch name contain both the recording ID and the annotator's name.
     annotation_id = f'{full_recording_id}_{annotator_name.replace(" ", "-")}'
+    new_branch_name = f'annotating/{annotation_id}'
 
     individual_folder = pn_opus_repo_path / 'annotations-in-progress' / annotation_id
     _ = sparse_clone(
         remote_uri=pn_opus_repo_path,
         folder_to_clone_into=individual_folder,
         checked_out_folder=recording_folder.relative_to(pn_opus_repo_path),
-        new_branch_name=None,
+        new_branch_name=new_branch_name,
         remote_name='GitHub',
         source_branch='main',
         depth=1)
