@@ -1,3 +1,5 @@
+from datetime import timedelta, datetime
+from functools import lru_cache, wraps
 from zlib import adler32
 from pathlib import Path
 import contextlib
@@ -96,3 +98,5 @@ def timed_lru_cache(seconds: int, maxsize: int = None):
             return func(*args, **kwargs)
 
         return wrapped_func
+
+    return wrapper_cache
