@@ -18,13 +18,24 @@ import pandas as pd
 import requests
 from pympi import Eaf
 
-EXT_REF = 'EXT_REF'
 
+# Element names
+EXTERNAL_REF = 'EXTERNAL_REF'
 LINGUISTIC_TYPE = 'LINGUISTIC_TYPE'
+CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
 
+
+# Property names
+EXT_REF = 'EXT_REF'
+EXT_REF_ID = 'EXT_REF_ID'
+
+# Property values
 SYMBOLIC_ASSOCIATION = "Symbolic_Association"
 
-CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
+# URLs of external files with controlled vocabularies
+ACLEW_ECV_URL = ('https://raw.githubusercontent.com/marisacasillas/DARCLE-AnnSchDev/master/ACLEW/'
+                 'External-closed-vocabularies/ACLEW-basic-vocabularies.ecv')
+BLAB_ECV_URL = "https://raw.githubusercontent.com/BergelsonLab/public-files/main/ACLEW-blab-vocabularies.ecv"
 
 
 class EafPlus(Eaf):
