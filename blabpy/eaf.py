@@ -7,6 +7,12 @@ using this module:
 Notes:
 - It would be cleaner to wrap the XML-tree-based functions in classes at some point.
 - Many functions are XML-general and could be moved to a separate module or aggregated in a separate class.
+
+
+TODO:
+[ ] Refactor add_* functions to use a single add_element function.
+[ ] Currently, many attributes are implicitly hard-coded via `attributes=dict(ATTRIBUTE=value)`. Switch to using
+    `attributes={ATTRIBUTE: value}` after defining corresponding constants (ATTRIBUTE = 'ATTRIBUTE' in this case).
 """
 
 from io import StringIO
@@ -23,7 +29,7 @@ from pympi import Eaf
 EXTERNAL_REF = 'EXTERNAL_REF'
 LINGUISTIC_TYPE = 'LINGUISTIC_TYPE'
 CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
-
+TIER = 'TIER'
 
 # Property names
 
@@ -33,6 +39,8 @@ CONSTRAINTS = 'CONSTRAINTS'
 ## External reference properties
 EXT_REF = 'EXT_REF'
 EXT_REF_ID = 'EXT_REF_ID'
+## Tier properties
+PARENT_REF = 'PARENT_REF'
 
 # Property values
 SYMBOLIC_ASSOCIATION = "Symbolic_Association"
@@ -396,3 +404,27 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
     cv_element = Element(CONTROLLED_VOCABULARY, attrib=cv_attributes)
     insert_after_last(eaf_tree, cv_element)
+
+
+def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_ok=False):
+    # Create the element
+    attributes = dict(LINGUISTIC_TYPE_REF=ling_type_ref, TIER_ID=tier_id)
+    if parent_ref is not None:
+        attributes[PARENT_REF] = parent_ref
+    element = Element(TIER, attrib=attributes)
+    
+    # Avoid adding the same tier twice
+    tier_in_eaf = find_element(eaf_tree, TIER, TIER_ID=tier_id)
+    if tier_in_eaf is not None:
+        if not exist_ok:
+            msg = f'Trying to add a "{tier_id}" tier but it is already present.'
+            raise ElementAlreadyPresentError(msg)
+        if same_elements(element, tier_in_eaf):
+            return
+        else:
+            msg = f'Tier "{tier_id}" already exists but isn\'t the same as the one you are trying to add. '
+            raise ValueError(msg)
+
+    # Add the element
+    insert_after_last(eaf_tree, element)
+    return element
