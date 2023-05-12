@@ -12,7 +12,7 @@ Notes:
 from io import StringIO
 from pathlib import Path
 from xml.etree import ElementTree as element_tree
-from xml.etree.ElementTree import SubElement
+from xml.etree.ElementTree import Element
 
 import pandas as pd
 import requests
@@ -286,6 +286,26 @@ class CvAlreadyPresentError(ElementAlreadyPresentError):
     pass
 
 
+def insert_after_last(tree, element):
+    """
+    Inserts an element after the last element with the same tag. Helpful to keep elements of the same type together.
+    :param tree: element_tree.ElementTree to insert the element into
+    :param element: element_tree.Element to insert
+    :return:
+    """
+    root = tree.getroot()
+
+    last_element_position = None
+    for i, child in enumerate(root):
+        if child.tag == element.tag:
+            last_element_position = i
+
+    if last_element_position is None:
+        root.append(element)
+    else:
+        root.insert(last_element_position + 1, element)
+
+
 def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alignable, constraints, exist_ok=False):
     """
     Example (cv_id: "xds", ling_type_id: "XDS", ext_ref: "BLab", time_alignable: False,
@@ -315,7 +335,9 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
                                 TIME_ALIGNABLE=time_alignable)
     if constraints is None:
         del ling_type_attributes['CONSTRAINTS']
-    SubElement(eaf_tree.getroot(), LINGUISTIC_TYPE, attrib=ling_type_attributes)
+    ling_type_element = Element(LINGUISTIC_TYPE, attrib=ling_type_attributes)
+    insert_after_last(eaf_tree, ling_type_element)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
-    SubElement(eaf_tree.getroot(), CONTROLLED_VOCABULARY, attrib=cv_attributes)
+    cv_element = Element(CONTROLLED_VOCABULARY, attrib=cv_attributes)
+    insert_after_last(eaf_tree, cv_element)
