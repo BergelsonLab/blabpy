@@ -1,4 +1,21 @@
+"""
+Module with classes and functions for working with ELAN .eaf files. There are two principal ways of working with .eaf
+using this module:
+- EafPlus class which is just pympi.Eaf plus a few extra methods.
+- An assortment of functions that work with .eaf files as XML trees that they are.
+
+Notes:
+- It would be cleaner to wrap the XML-tree-based functions in classes at some point.
+- Many functions are XML-general and could be moved to a separate module or aggregated in a separate class.
+"""
+
+from io import StringIO
+from pathlib import Path
+from xml.etree import ElementTree as element_tree
+from xml.etree.ElementTree import SubElement
+
 import pandas as pd
+import requests
 from pympi import Eaf
 
 
@@ -134,3 +151,159 @@ class EafPlus(Eaf):
             .reset_index(drop=True))
 
         return all_annotations_df.sort_values(by=['onset', 'offset', 'participant'])
+
+
+def path_to_tree(path):
+    with Path(path).open('r') as f:
+        return element_tree.parse(f)
+
+
+def url_to_tree(url: str):
+    u = requests.get(url)
+    with StringIO() as f:
+        f.write(u.content.decode())
+        f.seek(0)
+        tree = element_tree.parse(f)
+    return tree
+
+
+def uri_to_tree(uri):
+    uri = str(uri)
+    # TODO: parse the uri with urlparse instead of using startswith
+    if uri.startswith('http'):
+        return url_to_tree(uri)
+    else:
+        path = uri.replace('file:', '')
+        return path_to_tree(path)
+
+
+def eaf_to_tree(eaf_uri: str):
+    return uri_to_tree(eaf_uri)
+
+
+# Copied from xml.etree.ElementTree in Python 3.9
+def indent(tree, space="  ", level=0):
+    """Indent an XML document by inserting newlines and indentation space
+    after elements.
+    *tree* is the ElementTree or Element to modify.  The (root) element
+    itself will not be changed, but the tail text of all elements in its
+    subtree will be adapted.
+    *space* is the whitespace to insert for each indentation level, two
+    space characters by default.
+    *level* is the initial indentation level. Setting this to a higher
+    value than 0 can be used for indenting subtrees that are more deeply
+    nested inside a document.
+    """
+    if isinstance(tree, element_tree.ElementTree):
+        tree = tree.getroot()
+    if level < 0:
+        raise ValueError(f"Initial indentation level must be >= 0, got {level}")
+    if not len(tree):
+        return
+
+    # Reduce the memory consumption by reusing indentation strings.
+    indentations = ["\n" + level * space]
+
+    def _indent_children(elem, level):
+        # Start a new indentation level for the first child.
+        child_level = level + 1
+        try:
+            child_indentation = indentations[child_level]
+        except IndexError:
+            child_indentation = indentations[level] + space
+            indentations.append(child_indentation)
+
+        if not elem.text or not elem.text.strip():
+            elem.text = child_indentation
+
+        for child in elem:
+            if len(child):
+                _indent_children(child, child_level)
+            if not child.tail or not child.tail.strip():
+                child.tail = child_indentation
+
+        # Dedent after the last child by overwriting the previous indentation.
+        if not child.tail.strip():
+            child.tail = indentations[level]
+
+    _indent_children(tree, 0)
+
+
+def element_to_string(element, children=True):
+    if isinstance(element, element_tree.ElementTree):
+        element = element.getroot()
+    if not children:
+        element = element.makeelement(element.tag, element.attrib)
+    spacing = 4 * ' '
+    indent(element, space=spacing)
+    return element_tree.canonicalize(element_tree.tostring(element, xml_declaration=True, encoding='utf-8'))
+
+
+def tree_to_string(tree):
+    return element_to_string(tree.getroot(), children=True)
+
+
+def tree_to_path(tree, path):
+    Path(path).write_text(tree_to_string(tree))
+
+
+def tree_to_eaf(tree, path):
+    tree_to_path(tree, path)
+
+def get_all(eaf_tree, tag, id_attrib):
+    return {element.get(id_attrib): element
+            for element in eaf_tree.findall(f'.//{tag}')}
+
+
+def _make_find_xpath(tag, **attributes):
+    if attributes:
+        attribute_filters = [f'@{name}="{value}"' for name, value in attributes.items()]
+        attributes_filter = '[' + ' and '.join(attribute_filters) + ']'
+    else:
+        attributes_filter = ''
+    return f'.//{tag}{attributes_filter}'
+
+def find_element(tree, tag, **attributes):
+    return tree.find(_make_find_xpath(tag, **attributes))
+
+
+def find_elements(tree, tag, **attributes):
+    return tree.findall(_make_find_xpath(tag, **attributes))
+
+
+class ElementAlreadyPresentError(Exception):
+    pass
+
+class CvAlreadyPresentError(ElementAlreadyPresentError):
+    pass
+
+
+def add_cv(eaf_tree, cv_id, ext_ref, ling_type_id, exist_ok=False):
+    """
+    Example (cv_id: "xds", ling_type_id: "XDS", ext_ref="BLab")
+    <LINGUISTIC_TYPE CONSTRAINTS="Symbolic_Association" CONTROLLED_VOCABULARY_REF="xds"
+     GRAPHIC_REFERENCES="false" LINGUISTIC_TYPE_ID="XDS" TIME_ALIGNABLE="false"></LINGUISTIC_TYPE>
+    <CONTROLLED_VOCABULARY CV_ID="xds" EXT_REF="BLab"></CONTROLLED_VOCABULARY>
+    """
+    # Avoid adding the same CV twice
+    cv_in_eaf = find_element(eaf_tree, 'CONTROLLED_VOCABULARY', CV_ID=cv_id)
+
+    if cv_in_eaf is not None:
+        if not exist_ok:
+            raise CvAlreadyPresentError(f'Trying to add a "{cv_id}" CV but it is already present.')
+        ext_ref_in_eaf = cv_in_eaf.get('EXT_REF')
+        if ext_ref_in_eaf == ext_ref:
+            return
+        else:
+            msg = f'CV "{cv_id}" already exists but uses different external reference - "{ext_ref_in_eaf}"'
+            raise ValueError(msg)
+
+    ling_type_attributes = dict(CONSTRAINTS="Symbolic_Association",
+                                CONTROLLED_VOCABULARY_REF=cv_id,
+                                GRAPHIC_REFERENCES="false",
+                                LINGUISTIC_TYPE_ID=ling_type_id,
+                                TIME_ALIGNABLE="false")
+    SubElement(eaf_tree.getroot(), 'LINGUISTIC_TYPE', attrib=ling_type_attributes)
+
+    cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
+    SubElement(eaf_tree.getroot(), 'CONTROLLED_VOCABULARY', attrib=cv_attributes)
