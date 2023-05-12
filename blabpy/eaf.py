@@ -307,11 +307,14 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
             msg = f'CV "{cv_id}" already exists but uses different external reference - "{ext_ref_in_eaf}"'
             raise ValueError(msg)
 
+    time_alignable = "true" if time_alignable else "false"
     ling_type_attributes = dict(CONSTRAINTS=constraints,
                                 CONTROLLED_VOCABULARY_REF=cv_id,
                                 GRAPHIC_REFERENCES="false",
                                 LINGUISTIC_TYPE_ID=ling_type_id,
                                 TIME_ALIGNABLE=time_alignable)
+    if constraints is None:
+        del ling_type_attributes['CONSTRAINTS']
     SubElement(eaf_tree.getroot(), LINGUISTIC_TYPE, attrib=ling_type_attributes)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
