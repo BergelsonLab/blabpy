@@ -342,6 +342,16 @@ def same_elements(element1, element2):
 
 def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_id, exist_ok=False):
     """
+    Add a linguistic type to an EAF file.
+    :param eaf_tree: ElementTree of the EAF file.
+    :param ling_type_id: ID of the linguistic type.
+    :param time_alignable: Whether the linguistic type is time alignable.
+    :param constraints: Constraints on the linguistic type, set to None if no constraints.
+    :param cv_id: ID of the controlled vocabulary, set to None if no controlled vocabulary.
+    :param exist_ok: Whether to raise an error if the linguistic type already exists. Will still raise an error if the
+    element exists but has different attributes.
+    :return: The added element.
+
     Example (ling_type_id: "XDS", time_alignable: False, constraints: "Symbolic_Association")
     <LINGUISTIC_TYPE CONSTRAINTS="Symbolic_Association" GRAPHIC_REFERENCES="false" LINGUISTIC_TYPE_ID="XDS"
      TIME_ALIGNABLE="false"></LINGUISTIC_TYPE>
@@ -379,6 +389,16 @@ def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_
 
 def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alignable, constraints, exist_ok=False):
     """
+    Add a controlled vocabulary and a linguistic type to an EAF file.
+    :param eaf_tree: ElementTree of the EAF file.
+    :param cv_id: ID of the controlled vocabulary.
+    :param ext_ref: External reference of the controlled vocabulary.
+    :param ling_type_id: ID of the linguistic type.
+    :param time_alignable: Whether the linguistic type is time alignable.
+    :param constraints: Constraints on the linguistic type, set to None if no constraints.
+    :param exist_ok: Whether to raise an error if the CV already exists. Will still raise an error if the
+    element exists but has different attributes.
+
     Example (cv_id: "xds", ling_type_id: "XDS", ext_ref: "BLab", time_alignable: False,
              constraints: "Symbolic_Association")
     <LINGUISTIC_TYPE CONSTRAINTS="Symbolic_Association" CONTROLLED_VOCABULARY_REF="xds"
@@ -407,6 +427,16 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
 
 
 def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_ok=False):
+    """
+    Add a tier to an EAF file.
+    :param eaf_tree: ElementTree of the EAF file.
+    :param ling_type_ref: Linguistic type reference of the tier.
+    :param tier_id: ID of the tier.
+    :param parent_ref: Parent reference of the tier, set to None if no parent.
+    :param exist_ok: Whether to raise an error if the tier already exists. Will still raise an error if the
+    element exists but has different attributes.
+    :return: The added element.
+    """
     # Create the element
     attributes = dict(LINGUISTIC_TYPE_REF=ling_type_ref, TIER_ID=tier_id)
     if parent_ref is not None:
