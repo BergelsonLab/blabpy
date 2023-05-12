@@ -26,6 +26,11 @@ CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
 
 
 # Property names
+
+## Linguistic type properties
+CONTROLLED_VOCABULARY_REF = 'CONTROLLED_VOCABULARY_REF'
+CONSTRAINTS = 'CONSTRAINTS'
+## External reference properties
 EXT_REF = 'EXT_REF'
 EXT_REF_ID = 'EXT_REF_ID'
 
@@ -317,6 +322,53 @@ def insert_after_last(tree, element):
         root.insert(last_element_position + 1, element)
 
 
+def same_elements(element1, element2):
+    """
+    Shallow comparison: tag, attributes, text
+    :param element1:
+    :param element2:
+    :return:
+    """
+    return element1.tag == element2.tag and element1.attrib == element2.attrib and element1.text == element2.text
+
+
+def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_id, exist_ok=False):
+    """
+    Example (ling_type_id: "XDS", time_alignable: False, constraints: "Symbolic_Association")
+    <LINGUISTIC_TYPE CONSTRAINTS="Symbolic_Association" GRAPHIC_REFERENCES="false" LINGUISTIC_TYPE_ID="XDS"
+     TIME_ALIGNABLE="false"></LINGUISTIC_TYPE>
+    """
+    # Create the element
+    time_alignable = "true" if time_alignable else "false"
+    attributes = dict(CONSTRAINTS=constraints,
+                      CONTROLLED_VOCABULARY_REF=cv_id,
+                      GRAPHIC_REFERENCES="false",
+                      LINGUISTIC_TYPE_ID=ling_type_id,
+                      TIME_ALIGNABLE=time_alignable)
+    if constraints is None:
+        del attributes[CONSTRAINTS]
+    if cv_id is None:
+        del attributes[CONTROLLED_VOCABULARY_REF]
+    element = Element(LINGUISTIC_TYPE, attrib=attributes)
+
+    # Avoid adding the same linguistic type twice
+    ling_type_in_eaf = find_element(eaf_tree, LINGUISTIC_TYPE, LINGUISTIC_TYPE_ID=ling_type_id)
+    if ling_type_in_eaf is not None:
+        if not exist_ok:
+            msg = f'Trying to add a "{ling_type_id}" linguistic type but it is already present.'
+            raise ElementAlreadyPresentError(msg)
+        if same_elements(element, ling_type_in_eaf):
+            return
+        else:
+            msg = f'Linguistic type "{ling_type_id}" already exists but isn\'t the same as the one you are trying to ' \
+                  f'add. '
+            raise ValueError(msg)
+
+    # Add the element
+    insert_after_last(eaf_tree, element)
+    return element
+
+
 def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alignable, constraints, exist_ok=False):
     """
     Example (cv_id: "xds", ling_type_id: "XDS", ext_ref: "BLab", time_alignable: False,
@@ -338,16 +390,8 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
             msg = f'CV "{cv_id}" already exists but uses different external reference - "{ext_ref_in_eaf}"'
             raise ValueError(msg)
 
-    time_alignable = "true" if time_alignable else "false"
-    ling_type_attributes = dict(CONSTRAINTS=constraints,
-                                CONTROLLED_VOCABULARY_REF=cv_id,
-                                GRAPHIC_REFERENCES="false",
-                                LINGUISTIC_TYPE_ID=ling_type_id,
-                                TIME_ALIGNABLE=time_alignable)
-    if constraints is None:
-        del ling_type_attributes['CONSTRAINTS']
-    ling_type_element = Element(LINGUISTIC_TYPE, attrib=ling_type_attributes)
-    insert_after_last(eaf_tree, ling_type_element)
+    add_linguistic_type(eaf_tree=eaf_tree, ling_type_id=ling_type_id, time_alignable=time_alignable,
+                        constraints=constraints, cv_id=cv_id, exist_ok=False)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
     cv_element = Element(CONTROLLED_VOCABULARY, attrib=cv_attributes)
