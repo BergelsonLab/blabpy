@@ -18,6 +18,14 @@ import pandas as pd
 import requests
 from pympi import Eaf
 
+EXT_REF = 'EXT_REF'
+
+LINGUISTIC_TYPE = 'LINGUISTIC_TYPE'
+
+SYMBOLIC_ASSOCIATION = "Symbolic_Association"
+
+CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
+
 
 class EafPlus(Eaf):
     """
@@ -278,32 +286,33 @@ class CvAlreadyPresentError(ElementAlreadyPresentError):
     pass
 
 
-def add_cv(eaf_tree, cv_id, ext_ref, ling_type_id, exist_ok=False):
+def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alignable, constraints, exist_ok=False):
     """
-    Example (cv_id: "xds", ling_type_id: "XDS", ext_ref="BLab")
+    Example (cv_id: "xds", ling_type_id: "XDS", ext_ref: "BLab", time_alignable: False,
+             constraints: "Symbolic_Association")
     <LINGUISTIC_TYPE CONSTRAINTS="Symbolic_Association" CONTROLLED_VOCABULARY_REF="xds"
      GRAPHIC_REFERENCES="false" LINGUISTIC_TYPE_ID="XDS" TIME_ALIGNABLE="false"></LINGUISTIC_TYPE>
     <CONTROLLED_VOCABULARY CV_ID="xds" EXT_REF="BLab"></CONTROLLED_VOCABULARY>
     """
     # Avoid adding the same CV twice
-    cv_in_eaf = find_element(eaf_tree, 'CONTROLLED_VOCABULARY', CV_ID=cv_id)
+    cv_in_eaf = find_element(eaf_tree, CONTROLLED_VOCABULARY, CV_ID=cv_id)
 
     if cv_in_eaf is not None:
         if not exist_ok:
             raise CvAlreadyPresentError(f'Trying to add a "{cv_id}" CV but it is already present.')
-        ext_ref_in_eaf = cv_in_eaf.get('EXT_REF')
+        ext_ref_in_eaf = cv_in_eaf.get(EXT_REF)
         if ext_ref_in_eaf == ext_ref:
             return
         else:
             msg = f'CV "{cv_id}" already exists but uses different external reference - "{ext_ref_in_eaf}"'
             raise ValueError(msg)
 
-    ling_type_attributes = dict(CONSTRAINTS="Symbolic_Association",
+    ling_type_attributes = dict(CONSTRAINTS=constraints,
                                 CONTROLLED_VOCABULARY_REF=cv_id,
                                 GRAPHIC_REFERENCES="false",
                                 LINGUISTIC_TYPE_ID=ling_type_id,
-                                TIME_ALIGNABLE="false")
-    SubElement(eaf_tree.getroot(), 'LINGUISTIC_TYPE', attrib=ling_type_attributes)
+                                TIME_ALIGNABLE=time_alignable)
+    SubElement(eaf_tree.getroot(), LINGUISTIC_TYPE, attrib=ling_type_attributes)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
-    SubElement(eaf_tree.getroot(), 'CONTROLLED_VOCABULARY', attrib=cv_attributes)
+    SubElement(eaf_tree.getroot(), CONTROLLED_VOCABULARY, attrib=cv_attributes)
