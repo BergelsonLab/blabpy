@@ -5,7 +5,7 @@ setup(
     version="0.16.1",
     packages=find_packages(),
     python_requires='>=3.7',
-    install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click'],
+    install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click', 'requests'],
     include_package_data=True,
     package_data={'blabpy': ['vihi/intervals/etf_templates/*.etf',
                              'vihi/intervals/etf_templates/*.pfsx',
