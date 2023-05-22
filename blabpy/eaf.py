@@ -340,7 +340,7 @@ def same_elements(element1, element2):
     return element1.tag == element2.tag and element1.attrib == element2.attrib and element1.text == element2.text
 
 
-def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_id, exist_ok=False):
+def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_id, exist_identical_ok=False):
     """
     Add a linguistic type to an EAF file.
     :param eaf_tree: ElementTree of the EAF file.
@@ -348,8 +348,8 @@ def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_
     :param time_alignable: Whether the linguistic type is time alignable.
     :param constraints: Constraints on the linguistic type, set to None if no constraints.
     :param cv_id: ID of the controlled vocabulary, set to None if no controlled vocabulary.
-    :param exist_ok: Whether to raise an error if the linguistic type already exists. Will still raise an error if the
-    element exists but has different attributes.
+    :param exist_identical_ok: Whether to raise an error if the linguistic type already exists. Will still raise an
+    error if the element exists but has different attributes.
     :return: The added element.
 
     Example (ling_type_id: "XDS", time_alignable: False, constraints: "Symbolic_Association")
@@ -372,7 +372,7 @@ def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_
     # Avoid adding the same linguistic type twice
     ling_type_in_eaf = find_element(eaf_tree, LINGUISTIC_TYPE, LINGUISTIC_TYPE_ID=ling_type_id)
     if ling_type_in_eaf is not None:
-        if not exist_ok:
+        if not exist_identical_ok:
             msg = f'Trying to add a "{ling_type_id}" linguistic type but it is already present.'
             raise ElementAlreadyPresentError(msg)
         if same_elements(element, ling_type_in_eaf):
@@ -387,7 +387,8 @@ def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_
     return element
 
 
-def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alignable, constraints, exist_ok=False):
+def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alignable, constraints,
+                               exist_identical_ok=False):
     """
     Add a controlled vocabulary and a linguistic type to an EAF file.
     :param eaf_tree: ElementTree of the EAF file.
@@ -396,7 +397,7 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
     :param ling_type_id: ID of the linguistic type.
     :param time_alignable: Whether the linguistic type is time alignable.
     :param constraints: Constraints on the linguistic type, set to None if no constraints.
-    :param exist_ok: Whether to raise an error if the CV already exists. Will still raise an error if the
+    :param exist_identical_ok: Whether to raise an error if the CV already exists. Will still raise an error if the
     element exists but has different attributes.
 
     Example (cv_id: "xds", ling_type_id: "XDS", ext_ref: "BLab", time_alignable: False,
@@ -409,7 +410,7 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
     cv_in_eaf = find_element(eaf_tree, CONTROLLED_VOCABULARY, CV_ID=cv_id)
 
     if cv_in_eaf is not None:
-        if not exist_ok:
+        if not exist_identical_ok:
             raise CvAlreadyPresentError(f'Trying to add a "{cv_id}" CV but it is already present.')
         ext_ref_in_eaf = cv_in_eaf.get(EXT_REF)
         if ext_ref_in_eaf == ext_ref:
@@ -419,21 +420,21 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
             raise ValueError(msg)
 
     add_linguistic_type(eaf_tree=eaf_tree, ling_type_id=ling_type_id, time_alignable=time_alignable,
-                        constraints=constraints, cv_id=cv_id, exist_ok=False)
+                        constraints=constraints, cv_id=cv_id, exist_identical_ok=False)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
     cv_element = Element(CONTROLLED_VOCABULARY, attrib=cv_attributes)
     insert_after_last(eaf_tree, cv_element)
 
 
-def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_ok=False):
+def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_identical_ok=False):
     """
     Add a tier to an EAF file.
     :param eaf_tree: ElementTree of the EAF file.
     :param ling_type_ref: Linguistic type reference of the tier.
     :param tier_id: ID of the tier.
     :param parent_ref: Parent reference of the tier, set to None if no parent.
-    :param exist_ok: Whether to raise an error if the tier already exists. Will still raise an error if the
+    :param exist_identical_ok: Whether to raise an error if the tier already exists. Will still raise an error if the
     element exists but has different attributes.
     :return: The added element.
     """
@@ -446,7 +447,7 @@ def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_ok=False):
     # Avoid adding the same tier twice
     tier_in_eaf = find_element(eaf_tree, TIER, TIER_ID=tier_id)
     if tier_in_eaf is not None:
-        if not exist_ok:
+        if not exist_identical_ok:
             msg = f'Trying to add a "{tier_id}" tier but it is already present.'
             raise ElementAlreadyPresentError(msg)
         if same_elements(element, tier_in_eaf):
