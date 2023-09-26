@@ -4,7 +4,7 @@
 
 from pathlib import Path
 
-from blabpy.paths import PN_OPUS, get_pn_opus_path
+from blabpy.paths import PN_OPUS_PATH_ENV, get_pn_opus_path
 from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
 from blabpy.vihi.intervals.cli import cli_batch_create_files_with_random_regions
 from blabpy.utils import modified_environ
@@ -27,12 +27,12 @@ for row in info_spreadsheet.itertuples():
 # Works fine
 info_spreadsheet_path = zhenya_pn_opus_mock / 'info_spreadsheet.csv'
 info_spreadsheet.iloc[:2].to_csv(info_spreadsheet_path)
-with modified_environ(**{PN_OPUS: str(zhenya_pn_opus_mock)}):
+with modified_environ(**{PN_OPUS_PATH_ENV: str(zhenya_pn_opus_mock)}):
     args = [str(info_spreadsheet_path)]
     cli_batch_create_files_with_random_regions(args=args)
 
 # Throws an error
 info_spreadsheet.iloc[1:].to_csv(info_spreadsheet_path)
-with modified_environ(**{PN_OPUS: str(zhenya_pn_opus_mock)}):
+with modified_environ(**{PN_OPUS_PATH_ENV: str(zhenya_pn_opus_mock)}):
     args = [str(info_spreadsheet_path)]
     cli_batch_create_files_with_random_regions(args=args)
