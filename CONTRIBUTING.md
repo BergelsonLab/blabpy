@@ -1,3 +1,9 @@
+# Set Up Developmental Environment
+
+- Recommended IDE: PyCharm. Reason: Zhenya likes it.
+- Recommended Python environment: conda. Reason: Zhenya likes it.
+- Install the package in editable mode with `pip install -e .` in the repo root.
+
 # After version bump
 
 ## Update repo after implementing a change
