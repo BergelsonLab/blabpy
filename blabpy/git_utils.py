@@ -1,11 +1,42 @@
+from getpass import getuser
 from pathlib import Path
 
-from git import Repo, GitCommandError
+from git import Repo, GitCommandError, GitConfigParser, config
+
+from blabpy.os_utils import get_owner_id
+
+
+def trust_folder(folder: Path):
+    """
+    Checks if the current user is the owner of the folder.
+    If not, then checks if the folder has already been marked as 'safe.directory' in the global git config.
+    If not, marks it that way.
+    :param folder: A Path object pointing to the folder in question.
+
+    Git will not run many commands if the user running git is not the owner of the folder that contains the `.git`
+    folder. This is almost always the case when we have a repo on a shared drive - even if the user created a folder
+    there. To overrule this, git should be configured to trust that folder despite belonging to someone else.
+    """
+    # If the current user is the owner of the folder, it should already be trusted.
+    if get_owner_id(folder) == getuser():
+        return
+
+    # The folder might have already been added to the list of trusted folders in the global git config.
+    global_config = GitConfigParser(file_or_files=config.get_config_path('global'), read_only=False)
+    safe_directories = global_config.get_values('safe', 'directory')
+    for safe_directory in safe_directories:
+        if folder.resolve() == Path(safe_directory):
+            return
+
+    # Mark the folder as trusted
+    posix_path = folder.resolve().as_posix()
+    global_config.add_value('safe', 'directory', posix_path)
 
 
 def sparse_clone(remote_uri, folder_to_clone_into,
                  checked_out_folder, new_branch_name=None,
                  remote_name='origin', source_branch='main',
+                 mark_folder_as_safe=False,
                  depth=1):
     """
     Fetches the last commit from the source ref of a remote repository and does a sparse checkout into a new branch.
@@ -20,6 +51,8 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     # TODO: allow to checkout multiple folders
     :param checked_out_folder: Which folder to check out. That is the "sparse" part.
     :param source: The repo ref to branch from, defaults to "main".
+    :param mark_folder_as_safe: In case folder_to_clone_into is owned by someone other than the current user, should
+    this folder be marked as 'safe.directory'? Potentially unsafe, so defaults to False.
     :param depth: How many commits to fetch, defaults to 1.
     :return: A git.Repo object.
     """
@@ -35,6 +68,10 @@ def sparse_clone(remote_uri, folder_to_clone_into,
             raise ValueError(f'The folder {folder_to_clone_into} already exists and is not empty.')
     else:
         folder_to_clone_into.mkdir(parents=True, exist_ok=True)
+
+    # Tell git to trust the folder even if it is owned by someone other than the current user.
+    if mark_folder_as_safe:
+        trust_folder(folder_to_clone_into)
 
     # Initialize repo and add $remote_uri as the remote
     # git init

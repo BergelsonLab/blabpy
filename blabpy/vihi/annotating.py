@@ -24,6 +24,7 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
         new_branch_name=new_branch_name,
         remote_name='GitHub',
         source_branch='main',
+        mark_folder_as_safe=True,
         depth=1)
 
     return individual_folder
