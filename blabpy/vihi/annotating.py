@@ -22,7 +22,7 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
         folder_to_clone_into=individual_folder,
         checked_out_folder=recording_folder.relative_to(pn_opus_repo_path),
         new_branch_name=new_branch_name,
-        remote_name='GitHub',
+        remote_name='vihi_main',
         source_branch='main',
         mark_folder_as_safe=True,
         depth=1)
