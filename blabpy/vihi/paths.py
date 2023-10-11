@@ -116,18 +116,29 @@ def get_lena_subject_path(population, subject_id):
     return get_lena_population_path(population) / f'{population}_{subject_id}'
 
 
-def get_lena_recording_path(population, subject_id, recording_id):
+def get_lena_recording_path(population, subject_id, recording_id, assert_exists=False):
     """
     Find the LENA subject-level folder
     :param population: one of POPULATIONS
     :param subject_id: zero-padded three-digit string
     :param recording_id: --//--
+    :param assert_exists: If True and the recording doesn't exist, raises FileNotFoundError
     :return: Path object
     """
     _check_population(population)
     _check_id_string(subject_id)
     _check_id_string(recording_id)
-    return get_lena_subject_path(population, subject_id) / compose_full_recording_id(population, subject_id, recording_id)
+
+    subject_path = get_lena_subject_path(population=population, subject_id=subject_id)
+    full_recording_id = compose_full_recording_id(population, subject_id, recording_id)
+    recording_path = subject_path / full_recording_id
+
+    if assert_exists and not recording_path.exists():
+        raise FileNotFoundError(f'Couldn\'t find the recording folder at\n'
+                                f'{recording_path}\n'
+                                f'Double-check that {full_recording_id} is the correct ID.')
+
+    return recording_path
 
 
 def get_raw_data_dir():

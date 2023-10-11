@@ -10,7 +10,8 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
     :return: Path object to the checked-out folder.
     """
     pn_opus_repo_path = get_lena_path()
-    recording_folder = get_lena_recording_path(**parse_full_recording_id(full_recording_id))
+    recording_folder = get_lena_recording_path(**parse_full_recording_id(full_recording_id),
+                                               assert_exists=True)
 
     # The folder name and the branch name contain both the recording ID and the annotator's name.
     annotation_id = f'{full_recording_id}_{annotator_name.replace(" ", "-")}'
