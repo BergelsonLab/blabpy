@@ -36,6 +36,13 @@ def get_lena_path():
     return _get_modality_path('LENA')
 
 
+def get_lena_annotations_path():
+    """
+    Returns the path to the repo with annotations of LENA recordings.
+    """
+    return get_lena_path() / 'annotations'
+
+
 def _id_from_int(id_):
     """
     Converts integer subject and recordings ids to a 3-digit-long zero-paddes string
@@ -94,7 +101,7 @@ def get_lena_population_path(population):
     :return: Path object
     """
     _check_population(population)
-    return get_lena_path() / population
+    return get_lena_annotations_path() / population
 
 
 def get_lena_subject_path(population, subject_id):
@@ -123,6 +130,20 @@ def get_lena_recording_path(population, subject_id, recording_id):
     return get_lena_subject_path(population, subject_id) / compose_full_recording_id(population, subject_id, recording_id)
 
 
+def get_raw_data_dir():
+    """
+    Find the folder with the raw LENA files.
+    """
+    return get_lena_path() / 'rawish_data'
+
+
+def get_its_dir():
+    """
+    Find the folder with the LENA .its files
+    """
+    return get_raw_data_dir() / 'its'
+
+
 def get_its_path(population, subject_id, recording_id):
     """
     Find the .its file.
@@ -134,12 +155,9 @@ def get_its_path(population, subject_id, recording_id):
     _check_population(population)
     _check_id_string(subject_id)
     _check_id_string(recording_id)
-
-    subject_dir = get_lena_subject_path(population, subject_id)
-    assert subject_dir.exists(), 'Can\'t find the subject folder. Check the arguments.'
-
     full_recording_id = compose_full_recording_id(population, subject_id, recording_id)
-    its_path = subject_dir / full_recording_id / f'{full_recording_id}.its'
+
+    its_path = get_its_dir() / f'{full_recording_id}.its'
 
     return its_path
 
@@ -156,9 +174,9 @@ def get_rttm_path(population, subject_id, recording_id):
     _check_id_string(subject_id)
     _check_id_string(recording_id)
 
-    lena_path = get_lena_path()
+    annotations_path = get_lena_annotations_path()
     full_recording_id = compose_full_recording_id(population, subject_id, recording_id)
-    rttm_path = lena_path / 'derivatives' / 'vtc' / 'separated' / full_recording_id / 'all.rttm'
+    rttm_path = annotations_path / 'derivatives' / 'vtc' / 'separated' / full_recording_id / 'all.rttm'
 
     return rttm_path
 

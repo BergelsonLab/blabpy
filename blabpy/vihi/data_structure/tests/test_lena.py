@@ -2,7 +2,6 @@ from io import StringIO
 
 import pandas as pd
 
-from blabpy.vihi.paths import get_lena_path
 from blabpy.vihi.data_structure.lena import audit_recording_folder, audit_all_recordings
 
 
