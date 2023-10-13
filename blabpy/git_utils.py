@@ -1,7 +1,8 @@
 from getpass import getuser
 from pathlib import Path
 
-from git import Repo, GitCommandError, GitConfigParser, config
+from git import Repo, GitCommandError, GitConfigParser, config, RemoteProgress
+from tqdm import tqdm
 
 from blabpy.os_utils import get_owner_id
 
@@ -33,11 +34,23 @@ def trust_folder(folder: Path):
     global_config.add_value('safe', 'directory', posix_path)
 
 
+class TqdmGitProgress(RemoteProgress):
+    def __init__(self):
+        super().__init__()
+        self.pbar = tqdm()
+
+    def update(self, op_code, cur_count, max_count=None, message=''):
+        self.pbar.total = max_count
+        self.pbar.n = cur_count
+        self.pbar.refresh()
+
+
 def sparse_clone(remote_uri, folder_to_clone_into,
                  checked_out_folder, new_branch_name=None,
                  remote_name='origin', source_branch='main',
                  mark_folder_as_safe=False,
-                 depth=1):
+                 depth=1,
+                 show_fetch_progress=True):
     """
     Fetches the last commit from the source ref of a remote repository and does a sparse checkout into a new branch.
 
@@ -54,6 +67,7 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     :param mark_folder_as_safe: In case folder_to_clone_into is owned by someone other than the current user, should
     this folder be marked as 'safe.directory'? Potentially unsafe, so defaults to False.
     :param depth: How many commits to fetch, defaults to 1.
+    :param show_fetch_progress: The slowest part is fetching. Should a progress bar be shown?
     :return: A git.Repo object.
     """
     # TODO: Use a temporary folder and move/rename it to folder_to_clone_into if successful. This way, if the function
@@ -92,8 +106,8 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     # git switch -c "new_branch_name" "$remote_name"/"$main_branch" --no-track
     # git push -u "$remote_name" "new_branch_name"
     try:
-        # TODO: This is the slowest part of the function, consider adding a progress bar.
-        remote.fetch(source_branch, depth=depth)
+        progress = TqdmGitProgress() if show_fetch_progress else None
+        remote.fetch(source_branch, depth=depth, progress=progress)
     except GitCommandError as e:
         raise ValueError(f'Could not find branch `{source_branch}` on {remote_uri}.\n{e}')
     new_branch_name = new_branch_name or folder_to_clone_into.name
