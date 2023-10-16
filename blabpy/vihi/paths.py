@@ -43,6 +43,13 @@ def get_lena_annotations_path():
     return get_lena_path() / 'annotations'
 
 
+def get_lena_annotations_in_progress_path():
+    """
+    Returns the path to the folder where the annotations should be manually updated.
+    """
+    return get_lena_path() / 'annotations-in-progress'
+
+
 def _id_from_int(id_):
     """
     Converts integer subject and recordings ids to a 3-digit-long zero-paddes string
