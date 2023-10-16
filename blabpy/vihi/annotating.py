@@ -1,5 +1,5 @@
 from ..git_utils import sparse_clone
-from .paths import get_lena_recording_path, parse_full_recording_id, get_lena_path
+from .paths import get_lena_recording_path, parse_full_recording_id, get_lena_annotations_path
 
 
 def checkout_recording_for_annotation(full_recording_id, annotator_name):
@@ -9,7 +9,7 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
     :param annotator_name: "First Last"
     :return: Path object to the checked-out folder.
     """
-    pn_opus_repo_path = get_lena_path()
+    pn_opus_repo_path = get_lena_annotations_path()
     recording_folder = get_lena_recording_path(**parse_full_recording_id(full_recording_id),
                                                assert_exists=True)
 
