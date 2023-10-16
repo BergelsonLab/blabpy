@@ -18,6 +18,15 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
     new_branch_name = f'annotating/{annotation_id}'
 
     individual_folder = pn_opus_repo_path / 'annotations-in-progress' / annotation_id
+    if individual_folder.exists():
+        raise Exception(f'There is already a folder with in-progress annotations at\n'
+                        f'{individual_folder.as_posix()}\n'
+                        f'Continue annotating in that folder.\n'
+                        f'\n'
+                        f'If, however, that folder is empty or doesn\'t contain the annotation files,\n'
+                        f'it is possible that an error occurred while the script created that folder.\n'
+                        f'In that case, delete the folder completely and re-run the command.')
+
     _ = sparse_clone(
         remote_uri=pn_opus_repo_path,
         folder_to_clone_into=individual_folder,
