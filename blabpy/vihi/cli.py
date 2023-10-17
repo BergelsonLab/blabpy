@@ -43,4 +43,4 @@ def start(name, recording_id):
     annotation_folder = checkout_recording_for_annotation(full_recording_id=recording_id, annotator_name=name)
     os.chdir(annotation_folder)
     click.echo(f'Annotation files have been checked out into the following folder:'
-               f'\n{annotation_folder}.')
+               f'\n{annotation_folder}')
