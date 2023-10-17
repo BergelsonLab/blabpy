@@ -1,5 +1,3 @@
-import os
-
 import click
 
 from .pipeline import distribute_all_rttm as _distribute_all_rttm
@@ -41,6 +39,5 @@ def start(name, recording_id):
     # Checkout the recording folder from PN-OPUS.
     click.echo(f'Checking out {recording_id} for {name} to annotate (this may take a few minutes) ...')
     annotation_folder = checkout_recording_for_annotation(full_recording_id=recording_id, annotator_name=name)
-    os.chdir(annotation_folder)
     click.echo(f'Annotation files have been checked out into the following folder:'
                f'\n{annotation_folder}')
