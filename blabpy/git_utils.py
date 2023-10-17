@@ -116,3 +116,9 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     remote.push()
 
     return repo
+
+
+def set_user_name_and_email_for_repo(repo_path: Path, user_name: str, user_email: str):
+    repo = Repo(repo_path)
+    repo.config_writer().set_value("user", "name", user_name).release()
+    repo.config_writer().set_value("user", "email", user_email).release()

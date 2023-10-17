@@ -1,16 +1,17 @@
 import shutil
 import tempfile
 
-from ..git_utils import sparse_clone
+from ..git_utils import sparse_clone, set_user_name_and_email_for_repo
 from .paths import get_lena_recording_path, parse_full_recording_id, get_lena_annotations_path, get_lena_path, \
     get_lena_annotations_in_progress_path
 
 
-def checkout_recording_for_annotation(full_recording_id, annotator_name):
+def checkout_recording_for_annotation(full_recording_id, annotator_name, annotator_email):
     """
     Checks out a recording from the LENA repo into an individual folder for the annotator.
     :param full_recording_id: XX_MMM_NNN
     :param annotator_name: "First Last"
+    :param annotator_email: "user@domain.xxx"
     :return: Path object to the checked-out folder.
     """
     pn_opus_repo_path = get_lena_annotations_path()
@@ -44,5 +45,8 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name):
         # Only if the cloning was successful, move the temporary directory to the target location.
         print('Clone finished. Moving files to "annotations-in-progress".')
         shutil.move(temp_dir, individual_folder)
+
+    print('Setting user name and email for commits of your work.')
+    set_user_name_and_email_for_repo(repo_path=individual_folder, user_name=annotator_name, user_email=annotator_email)
 
     return individual_folder
