@@ -24,6 +24,7 @@ import pandas as pd
 import requests
 from pympi import Eaf
 
+from blabpy.utils import concatenate_dataframes
 
 # Element names
 EXTERNAL_REF = 'EXTERNAL_REF'
@@ -55,6 +56,9 @@ class EafPlus(Eaf):
     """
     This class is just pympi.Eaf plus a few extra methods.
     """
+
+    class AnnotationExtractionError(Exception):
+        pass
 
     def get_time_intervals(self, tier_id):
         """
@@ -145,28 +149,112 @@ class EafPlus(Eaf):
         if annotations_df is None:
             return None
 
-        # as we add daughter tiers, deepest_annotation_id column will change to their ids
-        annotations_df = annotations_df.rename(columns={'annotation_id': 'deepest_annotation_id'})
+        # Save the number of annotations to check that we don't duplicate any when we later merge them with daughter
+        # tier annotations.
         n_annotations = annotations_df.shape[0]
 
         # The annotations are in daughter tiers of the participant tier. Their IDs are in the format "xds@CHI".
         daughter_tier_ids = [tier_id_ for tier_id_ in self.tiers if tier_id_.endswith(f'@{tier_id}')]
 
-        for daughter_tier_id in daughter_tier_ids:
-            daughter_tier_type = daughter_tier_id.split('@')[0]
-            daughter_annotations_df = self._get_reference_annotations(tier_id=daughter_tier_id)
-            daughter_annotations_df = daughter_annotations_df.rename(columns={'annotation': daughter_tier_type})
-            # Merge with previously extracted annotations
-            annotations_df = (annotations_df.merge(daughter_annotations_df,
-                                                   how='left',
-                                                   left_on='deepest_annotation_id',
-                                                   right_on='parent_annotation_id')
-                              .drop(columns=['deepest_annotation_id', 'parent_annotation_id'])
-                              .rename(columns={'annotation_id': 'deepest_annotation_id'})
-                              )
+        # Gather all annotation from daughter tiers
+        daughter_annotations = concatenate_dataframes(
+            dataframes=[self._get_reference_annotations(tier_id=daughter_tier_id)
+                        for daughter_tier_id in daughter_tier_ids],
+            keys=daughter_tier_ids,
+            key_column_name='daughter_tier_id')
 
-        assert annotations_df.shape[0] == n_annotations
-        return annotations_df.drop(columns=['deepest_annotation_id'])
+        # Empty annotations ('') do not represent anything meaningful: they are just there to be filled by an annotator
+        # later.
+        daughter_annotations = daughter_annotations[daughter_annotations['annotation'] != '']
+
+        # Now, we are going to merge the participant annotations (annotations_df) with the daughter annotations
+        # (daughter_annotations) iteratively. Each time, we are going to add all daughter tiers one level deeper
+        # down the hierarchy. There can't be more levels that there are daughter tiers, so that's how many times we will
+        # try adding more annotations by merging. Each merge will add as many columns as there are daughter tiers on the
+        # current level - one column per daughter tier.
+        # For example, if we have the following hierarchy:
+        # FA1 -> x -> y -> z
+        #     \
+        #      -> a -> b
+        # then the three meaningful merges will add columns (x, a), (y, b), (z).
+        annotations_df['deepest_annotation_id'] = annotations_df['annotation_id']
+        annotations_df = annotations_df.rename(columns={'annotation_id': 'participant_annotation_id'})
+        daughter_annotations = daughter_annotations.rename(columns={'annotation': 'daughter_annotation'})
+        for level in range(len(daughter_tier_ids)):
+            annotations_df = (
+                annotations_df
+                .merge(
+                    daughter_annotations,
+                    how='left',
+                    left_on='deepest_annotation_id',
+                    right_on='parent_annotation_id',)
+                .drop(columns=['deepest_annotation_id', 'parent_annotation_id'])
+                .rename(columns={f'annotation_id': 'daughter_annotation_id'})
+                .assign(**{'deepest_annotation_id': lambda df: df['daughter_annotation_id']})
+                )
+
+            # Due to parallel daughter tier branches, we might need fewer iterations than there are daughter tiers. In
+            # that case, we'll have NaNs in the deepest_annotation_id column. We'll remove the empty columns we've just
+            # added and stop the loop.
+            just_added_columns = 'daughter_tier_id', 'daughter_annotation', 'daughter_annotation_id'
+            if annotations_df['deepest_annotation_id'].isna().all():
+                annotations_df = annotations_df.drop(columns=list(just_added_columns))
+                last_level = level - 1
+                break
+
+            # We are adding daughter_tier_id and daughter_annotation column every time, so we'll add a suffix to
+            # distinguish them.
+            suffix = f'_{level}'
+            annotations_df = annotations_df.rename(columns={col_name: f'{col_name}{suffix}'
+                                                            for col_name in just_added_columns})
+            last_level = level
+
+        # We only need annotations IDs from one level to keep track of parallel annotations one level deeper. There is
+        # no "deeper" for the last level.
+        annotations_df.drop(columns=[f'daughter_annotation_id_{last_level}', 'deepest_annotation_id'], inplace=True)
+        annotations_df_ = annotations_df.copy()
+
+        # ???
+        # We have to go in reverse order because ??? ~otherwise we'll lose parent_annotation_id in case of parallel tier branches~
+        for level in reversed(range(last_level + 1)):
+            # We need to keep track
+            if level == 0:
+                parent_annotation_id_column = 'participant_annotation_id'
+            else:
+                parent_annotation_id_column = f'daughter_annotation_id_{level - 1}'
+            annotations_df = (
+                annotations_df
+                # We need to pivot daughter tier IDs and annotation into columns and their values respectively.
+                # Everything else should at most collapse in case of parallel daughter annotation of the same parent
+                # annotation and should otherwise stay the same. Importantly, everything else includes the parent
+                # annotation ID so that parallel daughter annotations end up in the same row. To keep everything else
+                # intact, we'll set it those columns as index first.
+                .set_index(
+                        [c for c in annotations_df.columns.values if
+                         not (c.startswith('daughter_') and c.endswith(f'_{level}'))])
+                # Pivot 'daughter_tier_id', 'daughter_annotation' using `parent_annotation_id` as row ID.
+                .set_index([f'daughter_tier_id_{level}'], append=True)
+                .unstack(level=-1)
+                # Unstack saves the names of the pivoted columns in the columns index. We don't need that reminder.
+                .droplevel(level=0, axis=1)
+                .rename_axis(None, axis=1)
+                .reset_index(drop=False)
+                # Drop the parent annotation IDs - they are the deepest level IDs now, and we don't need them anymore.
+                .drop(columns=(list() if level == 0 else [parent_annotation_id_column]))
+                # Some annotations might not have had any daughter annotations at the level we've just unstacked. In
+                # that case, we'll have an <NA> column. It will be completely empty, because if daughter annotation
+                # IDs are missing, then the corresponding daughter annotations are missing too. We'll drop the column.
+                .drop(columns=pd.NA, errors='ignore')
+            )
+
+        # Remove the suffixes from the column names: xds@FA1 -> xds
+        annotations_df = annotations_df.rename(columns={col_name: col_name.split('@')[0]
+                                                        for col_name in annotations_df.columns.values})
+
+        if annotations_df.shape[0] != n_annotations:
+            raise self.AnnotationExtractionError('The number of annotations has changed during the extraction process.')
+
+        return annotations_df
 
     def get_full_annotations(self):
         """
