@@ -189,12 +189,12 @@ def _get_amended_regions(subj_month, regions_processed_auto):
     """
     regions_processed_original, regions_processed_amended = _load_data_for_special_cases(subj_month)
 
-    # Check that the regions_processed_auto dataframe is the same as the original one
+    # Check that the regions_processed_auto dataframe is the same as it was when the amendments were introduced
     msg = (f'The {subj_month} audio recording is a special case and regions from it have to be substituted for by the '
            f'ones saved for this recording within the `blabpy` package. However, these substitute regions are no '
            'longer valid because the automatically extracted regions have changed. Tell the lab tech to update the '
            'files in seedlings/data/regions_special-cases/{subj_month}/')
-    assert regions_processed_auto.equals(regions_processed_original), msg
+    assert regions_processed_auto.pipe(lambda df: df.equals(regions_processed_original.astype(df.dtypes))), msg
 
     return regions_processed_amended
 
