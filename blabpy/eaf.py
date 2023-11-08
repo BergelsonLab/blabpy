@@ -231,7 +231,6 @@ class EafPlus(Eaf):
         # We only need annotations IDs from one level to keep track of parallel annotations one level deeper. There is
         # no "deeper" for the last level.
         annotations_df.drop(columns=[f'daughter_annotation_id_{last_level}', 'deepest_annotation_id'], inplace=True)
-        annotations_df_ = annotations_df.copy()
 
         # ???
         # We have to go in reverse order because ??? ~otherwise we'll lose parent_annotation_id in case of parallel tier branches~
