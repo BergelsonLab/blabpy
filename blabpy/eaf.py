@@ -153,12 +153,21 @@ class EafPlus(Eaf):
         if annotations_df is None:
             return None
 
+        # Strip white space from annotations
+        annotations_df['annotation'] = annotations_df['annotation'].str.strip()
+
+        # I want to keep the annotation IDs to have a unique identifier. We'll be merging annotations_df with
+        # annotations from daughter tiers which will have their own 'annotation_id' column so we'll rename this one.
+        annotations_df = annotations_df.rename(columns={'annotation_id': 'participant_annotation_id'})
+
         # Save the number of annotations to check that we don't duplicate any when we later merge them with daughter
         # tier annotations.
         n_annotations = annotations_df.shape[0]
 
         # The annotations are in daughter tiers of the participant tier. Their IDs are in the format "xds@CHI".
         daughter_tier_ids = [tier_id_ for tier_id_ in self.tiers if tier_id_.endswith(f'@{tier_id}')]
+        if len(daughter_tier_ids) == 0:
+            return annotations_df
 
         # Gather all annotation from daughter tiers
         daughter_annotations = concatenate_dataframes(
@@ -167,9 +176,16 @@ class EafPlus(Eaf):
             keys=daughter_tier_ids,
             key_column_name='daughter_tier_id')
 
+        # If there aren't any daughter annotations, we are done.
+        if daughter_annotations.shape[0] == 0:
+            return annotations_df
+
         # Empty annotations ('') do not represent anything meaningful: they are just there to be filled by an annotator
         # later.
         daughter_annotations = daughter_annotations[daughter_annotations['annotation'] != '']
+
+        # Strip white space from annotations
+        daughter_annotations['annotation'] = daughter_annotations['annotation'].str.strip()
 
         # Now, we are going to merge the participant annotations (annotations_df) with the daughter annotations
         # (daughter_annotations) iteratively. Each time, we are going to add all daughter tiers one level deeper
@@ -181,8 +197,7 @@ class EafPlus(Eaf):
         #     \
         #      -> a -> b
         # then the three meaningful merges will add columns (x, a), (y, b), (z).
-        annotations_df['deepest_annotation_id'] = annotations_df['annotation_id']
-        annotations_df = annotations_df.rename(columns={'annotation_id': 'participant_annotation_id'})
+        annotations_df['deepest_annotation_id'] = annotations_df['participant_annotation_id']
         daughter_annotations = daughter_annotations.rename(columns={'annotation': 'daughter_annotation'})
         for level in range(len(daughter_tier_ids)):
             annotations_df = (
