@@ -3,7 +3,7 @@ from io import StringIO
 import pandas as pd
 
 from blabpy.vihi.intervals import templates
-from blabpy.vihi.intervals.intervals import create_eaf_from_template, _extract_interval_info
+from blabpy.vihi.intervals.intervals import create_eaf_from_template
 
 from blabpy.vihi.tests.test_pipeline import TEST_FULL_RECORDING_ID
 
