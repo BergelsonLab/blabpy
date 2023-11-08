@@ -8,6 +8,10 @@ Notes:
 - It would be cleaner to wrap the XML-tree-based functions in classes at some point.
 - Many functions are XML-general and could be moved to a separate module or aggregated in a separate class.
 
+Glossary:
+- *Aligned* vs. *referenced* annotations: Aligned annotations are the ones that have their own timestamps, e.g.,
+  participant utterances. Referenced don't have their own timestamps, e.g., xds, lex, vcm, etc.
+- *Daughter* vs. *parent* annotations: Tiers are organized in a hierachy
 
 TODO:
 [ ] Refactor add_* functions to use a single add_element function.
