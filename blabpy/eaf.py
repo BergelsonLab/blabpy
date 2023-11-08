@@ -221,15 +221,15 @@ class EafPlus(Eaf):
                 last_level = level - 1
                 break
 
-            # We are adding daughter_tier_id and daughter_annotation column every time, so we'll add a suffix to
-            # distinguish them.
-            suffix = f'_{level}'
-            annotations_df = annotations_df.rename(columns={col_name: f'{col_name}{suffix}'
-                                                            for col_name in just_added_columns})
-            last_level = level
+            else:
+                # We are adding `just_added_columns` every time, so we'll add a suffix to distinguish them.
+                suffix = f'_{level}'
+                annotations_df = annotations_df.rename(columns={col_name: f'{col_name}{suffix}'
+                                                                for col_name in just_added_columns})
+                last_level = level
 
         # We only need annotations IDs from one level to keep track of parallel annotations one level deeper. There is
-        # no "deeper" for the last level.
+        # no "deeper" for the last level, so we can drop its IDs.
         annotations_df.drop(columns=[f'daughter_annotation_id_{last_level}', 'deepest_annotation_id'], inplace=True)
 
         # ???
