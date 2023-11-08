@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from tqdm import tqdm
+
 from blabpy.eaf import EafPlus
 from blabpy.utils import concatenate_dataframes
 
@@ -15,11 +17,12 @@ def _extract_aclew_annotations_from_one_file(eaf_path):
     return eaf.get_full_annotations()
 
 
-def extract_aclew_annotations(path, recursive=True):
+def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
     """
     Extracts annotations from EAF files with ACLEW-style annotations.
     :param path: path to a folder with EAF files or a single EAF file.
     :param recursive: If path is a folder, whether to search for EAF files recursively - in subfolders, subsubfolders,
+    :param show_tqdm_pbar: Should we print a tqdm progress bar?
     etc.
     :return:
     """
@@ -35,9 +38,12 @@ def extract_aclew_annotations(path, recursive=True):
         glob_pattern = '*.eaf'
         if recursive:
             glob_pattern = '**/' + glob_pattern
-        eaf_paths = path.glob(glob_pattern)
+        eaf_paths = list(path.glob(glob_pattern))
     else:
         raise ValueError('path must be a file or a directory')
+
+    if show_tqdm_pbar:
+        eaf_paths = tqdm(eaf_paths)
 
     dataframes, filenames = zip(*((_extract_aclew_annotations_from_one_file(eaf_path), eaf_path.name)
                                   for eaf_path in eaf_paths))
