@@ -265,6 +265,35 @@ class EafPlus(Eaf):
                 .drop(columns=pd.NA, errors='ignore')
             )
 
+        # The comments might make it seem that we should be done by this point, but we are not. We have all the columns
+        # and all the data but there might still be multiple rows per annotation. Here is an example:
+        # 'baby', 'a1' - speaker-level annotation.
+        # daughter annotations:
+        # 'tier_id', 'ann_id', 'parent_ann_id', 'annotation'
+        # 'x21@FA1', 'a21',    'a1',            'A'
+        # 'x22@FA1', 'a22',    'a1',            'B'
+        # 'x31@FA1', 'a31',    'a21'            'C'
+        # Merging result:
+        # 'ann', 'speaker_ann_id', 'tier_id_0', 'ann_0', 'ann_id_0', 'tier_id_1', 'ann_1', 'ann_id_1'
+        # 'baby', 'a1',            'x21@FA1',   'A',     'a21',      'x31@FA1',   'C',     'a31'
+        # 'baby', 'a1',            'x22@FA1',   'B',     'a22',      <NA>,        <NA>,    <NA>
+        # Unstacking result:
+        # 'ann', 'speaker_ann_id', 'x31@FA1', 'x21@FA1', 'x22@FA1'
+        # 'baby', 'a1',            C,         'A',       '<NA>'
+        # 'baby', 'a1',            <NA>,      <NA>,       'B'
+        # We need to collapse the rows with the same annotation and speaker_ann_id. We'll do that by grouping by
+        # annotation and speaker_ann_id and concatenating the values in the other columns.
+        non_daughter_annotation_columns = [c for c in annotations_df.columns.values if '@' not in c]
+        annotations_df = (
+            annotations_df
+            .set_index(non_daughter_annotation_columns)
+            .groupby(non_daughter_annotation_columns)
+            .transform(lambda x: sorted(x, key=lambda k: pd.isna(k)))
+            .groupby(non_daughter_annotation_columns)
+            .last()
+            .reset_index(drop=False)
+        )
+
         # Remove the suffixes from the column names: xds@FA1 -> xds
         annotations_df = annotations_df.rename(columns={col_name: col_name.split('@')[0]
                                                         for col_name in annotations_df.columns.values})
