@@ -336,7 +336,7 @@ class EafPlus(Eaf):
         if drop_empty_tiers:
             all_annotations_df = all_annotations_df[all_annotations_df['annotation'].notna()]
 
-        return all_annotations_df
+        return all_annotations_df.sort_values(by=['onset', 'offset', 'participant']).reset_index(drop=True)
 
 
     def get_intervals(self):
