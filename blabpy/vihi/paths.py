@@ -1,3 +1,5 @@
+import re
+
 from ..paths import get_pn_opus_path
 
 
@@ -218,3 +220,39 @@ def get_eaf_path(population, subject_id, recording_id):
     eaf_path = subject_dir / full_recording_id / f'{full_recording_id}.eaf'
 
     return eaf_path
+
+
+def find_all_lena_recording_folders():
+    """
+    Find all LENA recording folders.
+    :return: list of Path objects
+    """
+    def _extract_group(regex, string):
+        match = re.match(regex, string)
+        return match.group(1) if match else None
+
+    lena_path = get_lena_path()
+    recordings = []
+    for population in POPULATIONS:
+        population_dir = lena_path / population
+        for subject_dir in population_dir.iterdir():
+            if not subject_dir.is_dir():
+                continue
+            subject_id = _extract_group(rf'{population}_(\d{{3}})', subject_dir.name)
+            if subject_id:
+                for recording_dir in subject_dir.iterdir():
+                    if not recording_dir.is_dir():
+                        continue
+                    recording_id = _extract_group(rf'{population}_{subject_id}_(\d{{3}})', recording_dir.name)
+                    if recording_id:
+                        recordings.append(recording_dir)
+
+    return recordings
+
+
+def find_all_lena_recording_ids():
+    """
+    Find all LENA recording folders and return a list of full recording ids.
+    :return: list of strings
+    """
+    return [path.name for path in find_all_lena_recording_folders()]

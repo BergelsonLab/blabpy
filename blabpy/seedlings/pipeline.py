@@ -261,7 +261,7 @@ def export_all_annotations_to_csv(working_folder=None, ignore_audio_annotation_p
     exporting audio annotations
     :return: tuple of paths to exported audio and video annotations respectively
     """
-    working_folder = working_folder or Path('.')
+    working_folder = working_folder or Path('')
 
     # Video annotations
     exported_video_annotations_folder = working_folder / 'exported_video_annotations'
@@ -284,7 +284,7 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
      - exports all annotations from cha and opf files, checks for exporting errors,
      - uses annotids to find basic level data in the current basic level files, mark rows where new one should be added.
     """
-    working_folder = working_folder or Path('.')
+    working_folder = working_folder or Path('')
     ensure_folder_exists_and_empty(working_folder)
 
     # Export
@@ -310,7 +310,7 @@ def scatter_updated_basic_level_files(working_folder=None, skip_backups_if_exist
     If there are none, copies the files to their place on PN-OPUS, making a backup there first.
     :return:
     """
-    working_folder = working_folder or Path('.')
+    working_folder = working_folder or Path('')
     merged_folders = {modality: _with_basic_level_folder(working_folder, modality) for modality in (AUDIO, VIDEO)}
 
     anything_missing = check_all_basic_level_for_missing(

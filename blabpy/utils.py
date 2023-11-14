@@ -5,6 +5,8 @@ from pathlib import Path
 import contextlib
 import os
 
+import pandas as pd
+
 
 def text_file_checksum(path: Path):
     """
@@ -100,3 +102,23 @@ def timed_lru_cache(seconds: int, maxsize: int = None):
         return wrapped_func
 
     return wrapper_cache
+
+
+def concatenate_dataframes(dataframes, keys, key_column_name):
+    """
+    Concatenates dataframes with the same columns. The resulting dataframe will have an additional column identifying
+    the dataframe from which each row originated.
+    :param dataframes: A list of dataframes to concatenate.
+    :param keys: A list of keys to identify the dataframes. Must be the same length as dataframes.
+    :param key_column_name: The name of the column with the dataframe identifiers.
+    :return: A dataframe with the concatenated dataframes. The dataframe has as many rows as the sum of the number of
+    rows in the dataframes and an additional column with the dataframe identifiers.
+    """
+    assert len(dataframes) == len(keys), 'Dataframes and keys must have the same length.'
+    concatenated = (pd.concat(objs=dataframes,
+                              keys=keys,
+                              names=[key_column_name, 'sub_df_index'])
+                    .reset_index(key_column_name, drop=False)
+                    .reset_index(drop=True))
+    concatenated[key_column_name] = concatenated[key_column_name].astype(pd.StringDtype())
+    return concatenated

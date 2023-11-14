@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.18.0] - 2023-11-08
+
+### Changed
+
+- Update `EafPlus.get_full_annotations_for_participant` to account for branching annotation tiers.
+
+### Added
+
+- New function `blabpy.pipeline.extract_aclew_annotations` that can do that for a single EAF file or for a folder with multiple EAF files.
+
 ## [0.17.0] - 2023-10-19
 
 ### Added
