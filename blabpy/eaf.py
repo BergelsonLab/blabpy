@@ -552,6 +552,19 @@ def find_elements(tree, tag, **attributes):
     return tree.findall(_make_find_xpath(tag, **attributes))
 
 
+def find_single_element(tree, tag, **attributes):
+    """
+    Find a single element in the tree. Raise an error if there are none or more than one.
+    """
+    elements = find_elements(tree, tag, **attributes)
+    if len(elements) == 0:
+        raise ValueError(f'Couldn\'t find any elements with tag "{tag}" and attributes {attributes}.')
+    elif len(elements) == 1:
+        return elements[0]
+    else:
+        raise ValueError(f'Found more than one element with tag "{tag}" and attributes {attributes}.')
+
+
 class ElementAlreadyPresentError(Exception):
     pass
 
