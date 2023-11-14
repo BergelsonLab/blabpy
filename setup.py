@@ -6,7 +6,7 @@ setup(
     packages=find_packages(),
     python_requires='>=3.7',
     install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click', 'requests',
-                      'GitPython', 'pywin32; sys_platform == "win32"'],
+                      'GitPython', 'pywin32; sys_platform == "win32"', 'pyprojroot'],
     include_package_data=True,
     package_data={'blabpy': ['vihi/intervals/etf_templates/*.etf',
                              'vihi/intervals/etf_templates/*.pfsx',
