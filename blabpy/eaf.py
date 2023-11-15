@@ -746,18 +746,20 @@ def find_child_annotation_ids(eaf_tree, parent_annotation_ids):
     ref_annotation_ids = [ref_annotation.attrib['ANNOTATION_ID']
                           for ref_annotation in ref_annotations]
 
-    current_parent_ids = parent_annotation_ids  # IDs of the annotations whose children we haven't added yet
+    # We'll make a list of both the parent and child ids first
+    ids_to_add = parent_annotation_ids  # IDs of the annotations whose children we haven't added yet
     parents_and_children_ids = list()
-    while len(current_parent_ids) > 0:
-        parents_and_children_ids.extend(current_parent_ids)
-        current_parent_ids = [annotation_id
-                              for annotation_id, parent_id
-                              in zip(ref_annotation_ids, ref_annotation_parent_ids)
-                              if parent_id in current_parent_ids]
+    while len(ids_to_add) > 0:
+        parents_and_children_ids.extend(ids_to_add)
+        ids_just_added = ids_to_add.copy()  # this is unnecessary but makes the code easier to read
+        ids_to_add = [annotation_id
+                      for annotation_id, parent_id
+                      in zip(ref_annotation_ids, ref_annotation_parent_ids)
+                      if parent_id in ids_just_added]
 
     children_ids = [annotation_id
-                    for annotation_id in ref_annotation_ids
-                    if annotation_id not in parents_and_children_ids]
+                    for annotation_id in parents_and_children_ids
+                    if annotation_id not in parent_annotation_ids]
 
     return children_ids
 
