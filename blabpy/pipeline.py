@@ -14,7 +14,7 @@ def _extract_aclew_annotations_from_one_file(eaf_path):
     """
     eaf_path = Path(eaf_path)
     eaf = EafPlus(eaf_path)
-    return eaf.get_full_annotations()
+    return eaf.get_annotations()
 
 
 def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):

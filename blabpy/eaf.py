@@ -303,10 +303,10 @@ class EafPlus(Eaf):
 
         return annotations_df
 
-    def get_full_annotations(self):
+    def get_annotations(self):
         """
         All participant-tier annotations, including daughter tiers (xds, vcm, ...)
-        :return: pd.DataFrame with columns participant, onset, offset, annotation, xds ,vcm, lex, and mwu
+        :return: pd.DataFrame with columns participant, onset, offset, annotation, xds ,vcm, ...
         """
         participant_tier_ids = self.get_participant_tier_ids()
         all_annotations = [self.get_full_annotations_for_participant(tier_id=participant_tier_id)
