@@ -74,7 +74,7 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
 
     # Delete all annotations that are not in the sampled intervals
     annotations_to_remove_df = annotations_df.loc[~is_in_either]
-    parent_ids_to_remove = annotations_to_remove_df.participant_annotation_id
+    parent_ids_to_remove = annotations_to_remove_df.participant_annotation_id.to_list()
     children_ids_to_remove = find_child_annotation_ids(eaf_tree, parent_ids_to_remove)
     annotations_with_parents = get_annotations_with_parents(eaf_tree)
     for a_id, (annotation, parent) in annotations_with_parents.items():
@@ -83,8 +83,8 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
 
     # Remove values of the child annotations of the annotations we are keeping
     annotations_to_keep_df = annotations_df.loc[is_in_either]
-    children_ids_to_remove_values = find_child_annotation_ids(eaf_tree,
-                                                              annotations_to_keep_df.participant_annotation_id)
+    parent_ids_to_keep = annotations_to_keep_df.participant_annotation_id.to_list()
+    children_ids_to_remove_values = find_child_annotation_ids(eaf_tree, parent_ids_to_keep)
 
     for a_id, (annotation, parent) in annotations_with_parents.items():
         if a_id in children_ids_to_remove_values:
