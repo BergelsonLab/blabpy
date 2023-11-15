@@ -721,3 +721,55 @@ def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_identical_ok=Fa
     # Add the element
     insert_after_last(eaf_tree, element)
     return element
+
+
+def get_annotation_values(tree, tier_id):
+    """
+    Return all the annotation values in the given tier.
+    """
+    tier = find_single_element(tree, 'TIER', TIER_ID=tier_id)
+    annotation_values = [find_single_element(annotation, 'ANNOTATION_VALUE').text
+                         for annotation in find_elements(tier, 'ANNOTATION')]
+    return annotation_values
+
+
+def find_child_annotation_ids(eaf_tree, parent_annotation_ids):
+    """
+    Find all the children of the given annotations.
+    :param eaf_tree: etree.ElementTree
+    :param parent_annotation_ids: iterable of strings with parent annotation ids
+    :return: list of etree.Element
+    """
+    ref_annotations = find_elements(eaf_tree, 'REF_ANNOTATION')
+    ref_annotation_parent_ids = [ref_annotation.attrib['ANNOTATION_REF']
+                                 for ref_annotation in ref_annotations]
+    ref_annotation_ids = [ref_annotation.attrib['ANNOTATION_ID']
+                          for ref_annotation in ref_annotations]
+
+    parent_ids = parent_annotation_ids  # list of IDs of the annotations whose children we haven't looked for yet
+    children_ids = list()
+    while len(parent_ids) > 0:
+        children_ids.extend(parent_ids)
+        parent_ids = [annotation_id
+                      for annotation_id, parent_id
+                      in zip(ref_annotation_ids, ref_annotation_parent_ids)
+                      if parent_id in parent_ids]
+
+    return children_ids
+
+
+def get_only_child(element):
+    if len(element) != 1:
+        raise ValueError(f'Expected one child, got {len(element)}')
+    return element[0]
+
+
+def get_annotations_with_parents(tree):
+    """
+    Finds all (aligned and reference) annotations in the tree and returns them in a dictionary with annotation IDs as
+    keys and (annotation, parent_tier) tuples as values.
+    Useful when you need to delete annotations.
+    """
+    return {get_only_child(annotation).attrib['ANNOTATION_ID']: (annotation, parent_tier)
+            for parent_tier in find_elements(tree, 'TIER')
+            for annotation in parent_tier}
