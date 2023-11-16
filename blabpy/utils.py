@@ -5,6 +5,7 @@ from pathlib import Path
 import contextlib
 import os
 
+from pyprojroot import find_root
 import pandas as pd
 
 
@@ -122,3 +123,13 @@ def concatenate_dataframes(dataframes, keys, key_column_name):
                     .reset_index(drop=True))
     concatenated[key_column_name] = concatenated[key_column_name].astype(pd.StringDtype())
     return concatenated
+
+
+def chdir_relative_to_project_root(relative_path, criterion='.git'):
+    """
+    Given a path relative to the project root, changes the current working directory to that path.
+    :param relative_path: Path of the desired working directory relative to the project root.
+    :return: None
+    """
+    this_folder = find_root('.git') / relative_path
+    os.chdir(str(this_folder))
