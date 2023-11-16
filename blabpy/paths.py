@@ -48,7 +48,7 @@ def get_pn_opus_path():
     str_paths = str_paths + DEFAULT_PN_OPUS_PATHS
 
     for str_path in str_paths:
-        path = Path(str_path)
+        path = Path(str_path).expanduser()
         if path.exists() and (path / '.pn_opus').exists():
             return path
     else:

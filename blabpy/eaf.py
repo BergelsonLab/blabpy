@@ -320,6 +320,30 @@ class EafPlus(Eaf):
 
         return all_annotations_df.sort_values(by=['onset', 'offset', 'participant'])
 
+    def get_intervals(self):
+        """
+        Find code, code_num, sampling_type, context tiers and put them into a dataframe.
+        :return:
+        """
+        data = dict()
+        for extra_info_type in ('code_num', 'sampling_type'):
+            data[extra_info_type] = self.get_values(extra_info_type)
+        data['onset'], data['offset'] = zip(*self.get_time_intervals('code'))
+        data['context_onset'], data['context_offset'] = zip(*self.get_time_intervals('context'))
+
+        # Check that the onsets and offsets are the same as in the on_off tier which contains the same information
+        # but in the format '{onset}_{offset}'.
+        on_off_parsed = list(map(lambda on_off: tuple(map(int, on_off.split('_'))),
+                                 self.get_values('on_off')))
+        assert (data['onset'], data['offset']) == tuple(
+            zip(*on_off_parsed)), 'onsets and offsets do not match the on_off tier'
+
+        intervals_df = (pd.DataFrame.from_dict(data)
+                        .sort_values(by='onset')
+                        .reset_index(drop=True)
+                        .convert_dtypes())
+        return intervals_df
+
 
 def path_to_tree(path):
     with Path(path).open('r') as f:
