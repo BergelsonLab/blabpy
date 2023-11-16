@@ -32,3 +32,12 @@ class TestEafPlus:
         )
         extracted_intervals = eaf.get_intervals()
         assert extracted_intervals.equals(original_intervals)
+
+    def test_get_annotations_and_intervals(self, eaf):
+        """Does it run at all? Do we at least get two non-empty dataframes?"""
+        annotations, intervals = eaf.get_annotations_and_intervals()
+
+        assert isinstance(annotations, pd.DataFrame)
+        assert isinstance(intervals, pd.DataFrame)
+        assert not annotations.empty
+        assert not intervals.empty
