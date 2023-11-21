@@ -16,8 +16,8 @@ def _extract_aclew_data_from_one_file(eaf_path):
     eaf = EafPlus(eaf_path)
     try:
         return eaf.get_annotations_and_intervals()
-    except EafInconsistencyError as e:
-        raise EafInconsistencyError(f'Error in {eaf_path}') from e
+    except Exception as e:
+        raise Exception(f'Error in {eaf_path}') from e
 
 
 def find_eaf_paths(path, recursive=True):
