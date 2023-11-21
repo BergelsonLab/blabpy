@@ -2,19 +2,22 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from blabpy.eaf import EafPlus
+from blabpy.eaf import EafPlus, EafInconsistencyError
 from blabpy.utils import concatenate_dataframes
 
 
-def _extract_aclew_annotations_from_one_file(eaf_path):
+def _extract_aclew_data_from_one_file(eaf_path):
     """
-    Extracts annotations from an EAF file with ACLEW-style annotations.
+    Extracts annotations and intervals from an EAF file with ACLEW-style annotations.
     :param eaf_path: pat to the EAF file.
     :return: pandas dataframe with annotations in all participant tiers.
     """
     eaf_path = Path(eaf_path)
     eaf = EafPlus(eaf_path)
-    return eaf.get_annotations()
+    try:
+        return eaf.get_annotations_and_intervals()
+    except EafInconsistencyError as e:
+        raise EafInconsistencyError(f'Error in {eaf_path}') from e
 
 
 def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
