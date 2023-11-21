@@ -20,14 +20,13 @@ def _extract_aclew_data_from_one_file(eaf_path):
         raise EafInconsistencyError(f'Error in {eaf_path}') from e
 
 
-def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
+def find_eaf_paths(path, recursive=True):
     """
-    Extracts annotations from EAF files with ACLEW-style annotations.
+    Finds EAF files in a directory.
     :param path: path to a folder with EAF files or a single EAF file.
     :param recursive: If path is a folder, whether to search for EAF files recursively - in subfolders, subsubfolders,
-    :param show_tqdm_pbar: Should we print a tqdm progress bar?
     etc.
-    :return:
+    :return: list of paths to EAF files.
     """
     if isinstance(path, (str, Path)):
         path = Path(path)
@@ -45,7 +44,10 @@ def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
         assert len(eaf_paths) > 0, 'no EAF files found in {}'.format(path)
     else:
         raise ValueError('path must be a file or a directory')
+    return eaf_paths
 
+
+def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
     if show_tqdm_pbar:
         eaf_paths = tqdm(eaf_paths)
 
