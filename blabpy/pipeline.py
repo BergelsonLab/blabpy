@@ -47,15 +47,32 @@ def find_eaf_paths(path, recursive=True):
     return eaf_paths
 
 
-def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
+def extract_aclew_data(path, recursive=True, show_tqdm_pbar=False):
+    """
+    Extracts annotations from EAF files with ACLEW-style annotations. Returns two tables: annotations and intervals.
+    Annotations table has one row per participant-level annotation, all extra annotations (vcm, xds, etc.) are
+    in their own columns. Intervals table has one row per coding interval. Tables can be merged using the eaf_filename
+    and code_num columns.
+    column.
+    :param path: path to a folder with EAF files or a single EAF file.
+    :param recursive: If path is a folder, whether to search for EAF files recursively - in subfolders, subsubfolders,
+    :param show_tqdm_pbar: Should we print a tqdm progress bar?
+    etc.
+    :return: annotations, intervals - two pandas dataframes.
+    """
+    eaf_paths = find_eaf_paths(path, recursive=recursive)
     if show_tqdm_pbar:
         eaf_paths = tqdm(eaf_paths)
 
-    dataframes, filenames = zip(*((_extract_aclew_annotations_from_one_file(eaf_path), eaf_path.name)
-                                  for eaf_path in eaf_paths))
-    assert len(dataframes) > 0, 'no EAF files found in {}'.format(path)
+    def extract_from_one_file(eaf_path):
+        # return (annotations, intervals, filename) tuple
+        return *_extract_aclew_data_from_one_file(eaf_path), eaf_path.name
+    annotations, intervals, filenames = (
+        zip(*(extract_from_one_file(eaf_path) for eaf_path in eaf_paths)))
 
-    return concatenate_dataframes(
-        dataframes=dataframes,
-        keys=filenames,
-        key_column_name='eaf_filename')
+    def concatenate(dataframes):
+        return concatenate_dataframes(
+            dataframes=dataframes,
+            keys=filenames,
+            key_column_name='eaf_filename')
+    return concatenate(annotations), concatenate(intervals)

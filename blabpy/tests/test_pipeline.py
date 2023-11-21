@@ -1,7 +1,7 @@
 from pandas.core.util.hashing import hash_pandas_object
 
 from blabpy.seedlings.paths import get_seedlings_path
-from blabpy.pipeline import extract_aclew_annotations
+from blabpy.pipeline import extract_aclew_data
 from blabpy.utils import text_file_checksum
 
 
@@ -30,7 +30,7 @@ def test_extract_aclew_annotations():
     assert eaf_checksums == eaf_checksums_expected
 
     # Run the function
-    annotations_df = extract_aclew_annotations(eaf_folder_path)
+    annotations_df = extract_aclew_data(eaf_folder_path)
 
     # Check the hash of the output. The row order is irrelevant, so adding up the row hashes is enough.
     assert hash_pandas_object(annotations_df, index=False).sum() == -2020487846706632565
