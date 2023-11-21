@@ -41,7 +41,8 @@ def extract_aclew_annotations(path, recursive=True, show_tqdm_pbar=False):
         glob_pattern = '*.eaf'
         if recursive:
             glob_pattern = '**/' + glob_pattern
-        eaf_paths = list(path.glob(glob_pattern))
+        eaf_paths = sorted(list(path.glob(glob_pattern)))
+        assert len(eaf_paths) > 0, 'no EAF files found in {}'.format(path)
     else:
         raise ValueError('path must be a file or a directory')
 
