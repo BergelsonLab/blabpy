@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.19.0] - 2023-11-21
+
+### Added
+
+- Add `get_intervals` and `get_annotations_and_intervals` to `blabpy.eaf.EafPlus`.
+- Unrelated: new function `blabpy.utils.chdir_relative_to_project_root` that's useful for one-time scripts.
+
+### Changed
+
+- Renamed:
+  - `extract_aclew_annotations` to `extract_aclew_data` in `blabpy.pipeline`. 
+  - `get_full_annotations` to `get_annotations` in `blabpy.eaf.EafPlus`.
+  - `get_annotations` now sorts the output by onset, offset, and participant for consistency.
+- `extract_aclew_data` now return both the annotations and the intervals.
+
+### Fixed
+
+- `get_pn_opus_path` now handles paths with `~`.
+
 ## [0.18.0] - 2023-11-08
 
 ### Changed

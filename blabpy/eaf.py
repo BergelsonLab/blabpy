@@ -56,6 +56,10 @@ ACLEW_ECV_URL = ('https://raw.githubusercontent.com/marisacasillas/DARCLE-AnnSch
 BLAB_ECV_URL = "https://raw.githubusercontent.com/BergelsonLab/public-files/main/ACLEW-blab-vocabularies.ecv"
 
 
+class EafInconsistencyError(Exception):
+    pass
+
+
 class EafPlus(Eaf):
     """
     This class is just pympi.Eaf plus a few extra methods.
@@ -303,10 +307,10 @@ class EafPlus(Eaf):
 
         return annotations_df
 
-    def get_full_annotations(self):
+    def get_annotations(self):
         """
         All participant-tier annotations, including daughter tiers (xds, vcm, ...)
-        :return: pd.DataFrame with columns participant, onset, offset, annotation, xds ,vcm, lex, and mwu
+        :return: pd.DataFrame with columns participant, onset, offset, annotation, xds ,vcm, ...
         """
         participant_tier_ids = self.get_participant_tier_ids()
         all_annotations = [self.get_full_annotations_for_participant(tier_id=participant_tier_id)
@@ -316,9 +320,87 @@ class EafPlus(Eaf):
                       keys=participant_tier_ids,
                       names=['participant', 'order'])
             .reset_index('participant', drop=False)
+            .sort_values(by=['onset', 'offset', 'participant'])
             .reset_index(drop=True))
 
-        return all_annotations_df.sort_values(by=['onset', 'offset', 'participant'])
+        return all_annotations_df
+
+    def get_intervals(self):
+        """
+        Find code, code_num, sampling_type, context tiers and put them into a dataframe.
+        :return:
+        """
+        data = dict()
+        for extra_info_type in ('code_num', 'sampling_type'):
+            data[extra_info_type] = self.get_values(extra_info_type)
+        data['onset'], data['offset'] = zip(*self.get_time_intervals('code'))
+        data['context_onset'], data['context_offset'] = zip(*self.get_time_intervals('context'))
+
+        # Check that the onsets and offsets are the same as in the on_off tier which contains the same information
+        # but in the format '{onset}_{offset}'. Allow minor differences up to 1000 ms.
+        on_off_onsets, on_off_offsets = zip(*(
+            map(int, on_off.split('_'))
+            for on_off in self.get_values('on_off')))
+        for onset, offsets, on_off_onset, on_off_offset in zip(
+                data['onset'], data['offset'], on_off_onsets, on_off_offsets):
+            if max(abs(onset - on_off_onset), abs(offsets - on_off_offset)) > 1000:
+                msg = (f'Onset and offset of the coding interval {onset} - {offsets} do not match the onset and offset '
+                       f'in the on_off tier {on_off_onset} - {on_off_offset}.')
+                raise EafInconsistencyError(msg)
+
+        intervals_df = (pd.DataFrame.from_dict(data)
+                        .sort_values(by='onset')
+                        .reset_index(drop=True)
+                        .convert_dtypes())
+        return intervals_df
+
+    @staticmethod
+    def _assign_annotations_to_intervals(annotations, intervals, id_column='code_num'):
+        """
+        Assigns annotations to intervals they are in.
+        Corner cases:
+        - Annotation only partially overlaps with an interval - assign to that interval, unless...
+        - ...Annotations overlaps with two consecutive intervals - assign to the first one.
+        :param annotations: A dataframe with columns `onset` and `offset`.
+        :param intervals: A dataframe with columns `onset` and `offset`.
+        :param id_column: The name of the column in `intervals` that is a unique identifier of the interval.
+        :return: A series with the same index as `annotations` and values from `intervals`' `id_column`.
+        """
+
+        def is_timestamp_in_interval(timestamp_series, onset, offset):
+            # In case there are two consecutive intervals and there is a timestamp that is exactly on the boundary,
+            # we will count it as being in the second interval by checking that timestamps happen strictly before the
+            # interval's offset.
+            return (onset <= timestamp_series) & (timestamp_series < offset)
+
+        def assign_timestamps_to_intervals(timestamp_series):
+            # One boolean column for each interval, code_num values as column names.
+            in_which_interval_dummies = pd.DataFrame.from_dict({
+                row[id_column]: is_timestamp_in_interval(timestamp_series, row.onset, row.offset)
+                for _, row in intervals.iterrows()
+            })
+            in_which_interval = pd.from_dummies(in_which_interval_dummies, default_category='-1').squeeze()
+            in_which_interval.name = id_column
+            return in_which_interval
+
+        # Some annotations cross the interval boundary, so we will count an annotation as being in the interval if its
+        # onset is in the interval. This will also take care of annotations that overlap with two intervals: onset will
+        # only be in one of them.
+        assignment_by_onset = assign_timestamps_to_intervals(annotations.onset)
+
+        # At this point, however, we are missing annotations whose onset is not in any interval but whose offset is. So,
+        # for each annotation that was not assigned to an interval by onset, we will assign it by offset.
+        assignment_by_offset = assign_timestamps_to_intervals(annotations.offset)
+        assignment = assignment_by_onset.where(lambda s: s != '-1', other=assignment_by_offset)
+
+        return assignment
+
+    def get_annotations_and_intervals(self):
+        annotations = self.get_annotations()
+        intervals = self.get_intervals()
+        assignment = self._assign_annotations_to_intervals(annotations, intervals)
+        annotations[assignment.name] = assignment
+        return annotations, intervals
 
 
 def path_to_tree(path):
