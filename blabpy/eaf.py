@@ -56,6 +56,10 @@ ACLEW_ECV_URL = ('https://raw.githubusercontent.com/marisacasillas/DARCLE-AnnSch
 BLAB_ECV_URL = "https://raw.githubusercontent.com/BergelsonLab/public-files/main/ACLEW-blab-vocabularies.ecv"
 
 
+class EafInconsistencyError(Exception):
+    pass
+
+
 class EafPlus(Eaf):
     """
     This class is just pympi.Eaf plus a few extra methods.
@@ -333,11 +337,16 @@ class EafPlus(Eaf):
         data['context_onset'], data['context_offset'] = zip(*self.get_time_intervals('context'))
 
         # Check that the onsets and offsets are the same as in the on_off tier which contains the same information
-        # but in the format '{onset}_{offset}'.
-        on_off_parsed = list(map(lambda on_off: tuple(map(int, on_off.split('_'))),
-                                 self.get_values('on_off')))
-        assert (data['onset'], data['offset']) == tuple(
-            zip(*on_off_parsed)), 'onsets and offsets do not match the on_off tier'
+        # but in the format '{onset}_{offset}'. Allow minor differences up to 1000 ms.
+        on_off_onsets, on_off_offsets = zip(*(
+            map(int, on_off.split('_'))
+            for on_off in self.get_values('on_off')))
+        for onset, offsets, on_off_onset, on_off_offset in zip(
+                data['onset'], data['offset'], on_off_onsets, on_off_offsets):
+            if max(abs(onset - on_off_onset), abs(offsets - on_off_offset)) > 1000:
+                msg = (f'Onset and offset of the coding interval {onset} - {offsets} do not match the onset and offset '
+                       f'in the on_off tier {on_off_onset} - {on_off_offset}.')
+                raise EafInconsistencyError(msg)
 
         intervals_df = (pd.DataFrame.from_dict(data)
                         .sort_values(by='onset')
