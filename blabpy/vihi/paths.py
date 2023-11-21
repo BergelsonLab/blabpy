@@ -231,10 +231,10 @@ def find_all_lena_recording_folders():
         match = re.match(regex, string)
         return match.group(1) if match else None
 
-    lena_path = get_lena_path()
+    lena_annotations_path = get_lena_annotations_path()
     recordings = []
     for population in POPULATIONS:
-        population_dir = lena_path / population
+        population_dir = lena_annotations_path / population
         for subject_dir in population_dir.iterdir():
             if not subject_dir.is_dir():
                 continue
@@ -256,3 +256,11 @@ def find_all_lena_recording_ids():
     :return: list of strings
     """
     return [path.name for path in find_all_lena_recording_folders()]
+
+
+def find_all_lena_eaf_paths():
+    """
+    Find all LENA .eaf files.
+    :return: list of Path objects
+    """
+    return [folder / f'{folder.name}.eaf' for folder in find_all_lena_recording_folders()]
