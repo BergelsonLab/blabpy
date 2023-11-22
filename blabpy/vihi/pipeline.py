@@ -178,10 +178,13 @@ def create_reliability_test_file(eaf_path, output_dir=None):
         eaf_tree, eaf, random_seed=random_seed)
 
     # Save the result and the log
-    output_eaf_stem = f'{eaf_path.stem}_for-reliability'
-    tree_to_eaf(eaf_tree_new, output_dir / f'{output_eaf_stem}.eaf')
-    with open(output_dir / f'{output_eaf_stem}.log', 'w') as f:
+    output_eaf_path = output_dir / f'{eaf_path.stem}_for-reliability.eaf'
+    tree_to_eaf(eaf_tree_new, output_eaf_path)
+    log_path = output_dir / f'{output_eaf_stem}.log'
+    with log_path.open('w') as f:
         f.write(f'Sampled intervals (code_num values): {sampled_code_nums}\n')
         f.write(f'Their sampling types: {sampled_sampling_types}\n')
         f.write(f'Name of the original file: {eaf_path.stem}\n')
         f.write(f'Blabpy version: {version("blabpy")}\n')
+
+    return output_eaf_path, log_path
