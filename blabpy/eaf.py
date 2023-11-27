@@ -333,6 +333,9 @@ class EafPlus(Eaf):
                               .reset_index(drop=True)
                               .convert_dtypes())
 
+        if drop_empty_tiers:
+            all_annotations_df = all_annotations_df[all_annotations_df['annotation'].notna()]
+
         return all_annotations_df
 
 
