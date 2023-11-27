@@ -180,7 +180,7 @@ def create_reliability_test_file(eaf_path, output_dir=None):
     # Save the result and the log
     output_eaf_path = output_dir / f'{eaf_path.stem}_for-reliability.eaf'
     tree_to_eaf(eaf_tree_new, output_eaf_path)
-    log_path = output_dir / f'{output_eaf_stem}.log'
+    log_path = output_dir / f'{output_eaf_path.stem}.log'
     with log_path.open('w') as f:
         f.write(f'Sampled intervals (code_num values): {sampled_code_nums}\n')
         f.write(f'Their sampling types: {sampled_sampling_types}\n')
