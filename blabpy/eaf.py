@@ -117,6 +117,7 @@ class EafPlus(Eaf):
         Get aligned annotations for a given tier.
         :param tier_id: tier id, e.g., CHI
         :return: a dataframe with columns onset, offset, annotation, annotation_id
+        If the tier exists but there are no annotations, return a dataframe with all Nones.
         """
         # Load times and annotations. If there aren't any, substitute placeholder to return a DataFrame with all Nones
         # in the end.
@@ -147,15 +148,16 @@ class EafPlus(Eaf):
         else:
             return pd.DataFrame(columns=['annotation', 'annotation_id', 'parent_annotation_id'])
 
-    def get_full_annotations_for_participant(self, tier_id):
+    def get_flattened_annotations_for_tier(self, tier_id):
         """
-        Return annotations for a given participant tier, including daughter annotations (vcm, lex, ...)
+        Return annotations for a given participant tier as a table with one row per annotation and one column per
+        each daughter tier (vcm, lex, ...)
         :param tier_id: participant's tier id
-        :return: pd.DataFrame with columns onset, offset, annotation, xds (non-chi), or vcm, lex, and mwu (CHI)
+        :return: pd.DataFrame with columns onset, offset, annotation, participant_annotation_id, and one column per
+        daughter tier. If the tier exists but contains no annotations, return a dataframe with no daughter tier columns
+        and all Nones in the other columns.
         """
         annotations_df = self._get_aligned_annotations(tier_id=tier_id)
-        if annotations_df is None:
-            return None
 
         # Strip white space from annotations
         annotations_df['annotation'] = annotations_df['annotation'].str.strip()
@@ -180,13 +182,13 @@ class EafPlus(Eaf):
             keys=daughter_tier_ids,
             key_column_name='daughter_tier_id')
 
-        # If there aren't any daughter annotations, we are done.
-        if daughter_annotations.shape[0] == 0:
-            return annotations_df
-
         # Empty annotations ('') do not represent anything meaningful: they are just there to be filled by an annotator
         # later.
         daughter_annotations = daughter_annotations[daughter_annotations['annotation'] != '']
+
+        # If there aren't any daughter annotations, we are done.
+        if daughter_annotations.shape[0] == 0:
+            return annotations_df
 
         # Strip white space from annotations
         daughter_annotations['annotation'] = daughter_annotations['annotation'].str.strip()
@@ -307,23 +309,32 @@ class EafPlus(Eaf):
 
         return annotations_df
 
-    def get_annotations(self):
+    def get_annotations(self, drop_empty_tiers=True):
         """
-        All participant-tier annotations, including daughter tiers (xds, vcm, ...)
+        All participant-tier annotations, including daughter tiers (xds, vcm, ...). Empty tiers are dropped by default.
+        To keep them, set `drop_empty_tiers=False`.
+        :param drop_empty_tiers: Whether to drop tiers with no annotations.
         :return: pd.DataFrame with columns participant, onset, offset, annotation, xds ,vcm, ...
         """
         participant_tier_ids = self.get_participant_tier_ids()
-        all_annotations = [self.get_full_annotations_for_participant(tier_id=participant_tier_id)
+        all_annotations = [self.get_flattened_annotations_for_tier(tier_id=participant_tier_id)
                            for participant_tier_id in participant_tier_ids]
         all_annotations_df = (
             pd.concat(objs=all_annotations,
                       keys=participant_tier_ids,
                       names=['participant', 'order'])
-            .reset_index('participant', drop=False)
-            .sort_values(by=['onset', 'offset', 'participant'])
-            .reset_index(drop=True))
+            .reset_index('participant', drop=False))
+
+        if drop_empty_tiers:
+            all_annotations_df = all_annotations_df[all_annotations_df['annotation'].notna()]
+
+        all_annotations_df = (all_annotations_df
+                              .sort_values(by=['onset', 'offset', 'participant'])
+                              .reset_index(drop=True)
+                              .convert_dtypes())
 
         return all_annotations_df
+
 
     def get_intervals(self):
         """
@@ -379,7 +390,9 @@ class EafPlus(Eaf):
                 row[id_column]: is_timestamp_in_interval(timestamp_series, row.onset, row.offset)
                 for _, row in intervals.iterrows()
             })
-            in_which_interval = pd.from_dummies(in_which_interval_dummies, default_category='-1').squeeze()
+            # pd.from_dummies() returns a dataframe with a single column. Initially, I used .squeeze() to convert it to
+            # a series, but for a single-row single-column dataframe, squeeze() returns a scalar, not a series.
+            in_which_interval = pd.from_dummies(in_which_interval_dummies, default_category='-1').iloc[:, 0]
             in_which_interval.name = id_column
             return in_which_interval
 
@@ -393,10 +406,23 @@ class EafPlus(Eaf):
         assignment_by_offset = assign_timestamps_to_intervals(annotations.offset)
         assignment = assignment_by_onset.where(lambda s: s != '-1', other=assignment_by_offset)
 
+        # Finally, there can be placeholder rows with no onset or offset in annotations_df (e.g., placeholder empty
+        # annotations for empty tiers). These currently have '-1' assigned, but we are going to replace them with
+        # <NA>s to differentiate between annotations outside any interval and these placeholder ones.
+        assignment.loc[annotations.onset.isna() | annotations.offset.isna()] = pd.NA
+
         return assignment
 
-    def get_annotations_and_intervals(self):
-        annotations = self.get_annotations()
+    def get_annotations_and_intervals(self, drop_empty_tiers=True):
+        """
+        Return annotations and intervals as dataframes. See `get_annotations` and `get_intervals` for details.
+        :param drop_empty_tiers: see `get_annotations`
+        :return: annotations, intervals where:
+         - annotations is the output of `get_annotations` with a new `code_num` column that matches annotations to
+           intervals and
+         - intervals is the output of `get_intervals`.
+        """
+        annotations = self.get_annotations(drop_empty_tiers=drop_empty_tiers)
         intervals = self.get_intervals()
         assignment = self._assign_annotations_to_intervals(annotations, intervals)
         annotations[assignment.name] = assignment
@@ -500,6 +526,7 @@ def tree_to_path(tree, path):
 def tree_to_eaf(tree, path):
     tree_to_path(tree, path)
 
+
 def get_all(eaf_tree, tag, id_attrib):
     return {element.get(id_attrib): element
             for element in eaf_tree.findall(f'.//{tag}')}
@@ -512,6 +539,7 @@ def _make_find_xpath(tag, **attributes):
     else:
         attributes_filter = ''
     return f'.//{tag}{attributes_filter}'
+
 
 def find_element(tree, tag, **attributes):
     return tree.find(_make_find_xpath(tag, **attributes))
