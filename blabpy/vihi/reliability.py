@@ -93,9 +93,9 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
             annotation_value.text = ''
 
     # Remove intervals that we are not keeping
-    for tier_id in ('code', 'context', 'sampling_type', 'code_num'):
+    for tier_id in ('code', 'context', 'sampling_type', 'code_num', 'on_off'):
         tier = find_single_element(eaf_tree, 'TIER', TIER_ID=tier_id)
-        for i, annotation in enumerate(tier):
+        for i, annotation in list(enumerate(tier)):
             if i not in sampled_sampling_types_id:
                 tier.remove(annotation)
 
