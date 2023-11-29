@@ -69,7 +69,7 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
 
         return is_in
 
-    annotations_df = eaf.get_full_annotations().reset_index(drop=True)
+    annotations_df = eaf.get_annotations().reset_index(drop=True)
     is_in_either = is_annotation_in_intervals(sampled_intervals)
 
     # Delete all annotations that are not in the sampled intervals
