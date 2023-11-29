@@ -735,7 +735,7 @@ def get_annotation_values(tree, tier_id):
 
 def find_child_annotation_ids(eaf_tree, parent_annotation_ids):
     """
-    Find all the children of the given annotations.
+    Find all the children of the given annotations (recursively).
     :param eaf_tree: etree.ElementTree
     :param parent_annotation_ids: iterable of strings with parent annotation ids
     :return: list of etree.Element
