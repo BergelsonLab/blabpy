@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.1] - 2023-11-30
+
+### Fixed
+
+- When creating reliability assessment files (see `blabpy.vihi.pipeline` and `blabpy.vihi.reliability`), descendants of the removed interval-level annotations (of code, context, etc.) are now removed as well.
+
 ## [0.20.0] - 2023-11-30
 
 ### Added

@@ -92,11 +92,10 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     # Remove all intervals that we are not keeping and their daughter annotations
     for tier_id in ('code', 'context', 'sampling_type', 'code_num', 'on_off'):
         tier = find_single_element(eaf_tree, 'TIER', TIER_ID=tier_id)
-        for i, annotation in list(enumerate(tier)):
-            if i not in sampled_intervals_indices:
-
-                tier.remove(annotation)
-
+        annotations_ids_to_remove = [annotation[0].attrib['ANNOTATION_ID']
+                                     for i, annotation in list(enumerate(tier))
+                                     if i not in sampled_intervals_indices]
+        remove_annotations_and_all_descendants(annotations_ids_to_remove)
         assert len(tier) == sampled_intervals_df.shape[0]
 
     sampled_code_nums = sampled_intervals_df.code_num.to_list()
