@@ -333,7 +333,10 @@ class EafPlus(Eaf):
                               .reset_index(drop=True)
                               .convert_dtypes())
 
-        return all_annotations_df
+        if drop_empty_tiers:
+            all_annotations_df = all_annotations_df[all_annotations_df['annotation'].notna()]
+
+        return all_annotations_df.sort_values(by=['onset', 'offset', 'participant']).reset_index(drop=True)
 
 
     def get_intervals(self):
@@ -549,6 +552,19 @@ def find_elements(tree, tag, **attributes):
     return tree.findall(_make_find_xpath(tag, **attributes))
 
 
+def find_single_element(tree, tag, **attributes):
+    """
+    Find a single element in the tree. Raise an error if there are none or more than one.
+    """
+    elements = find_elements(tree, tag, **attributes)
+    if len(elements) == 0:
+        raise ValueError(f'Couldn\'t find any elements with tag "{tag}" and attributes {attributes}.')
+    elif len(elements) == 1:
+        return elements[0]
+    else:
+        raise ValueError(f'Found more than one element with tag "{tag}" and attributes {attributes}.')
+
+
 class ElementAlreadyPresentError(Exception):
     pass
 
@@ -705,3 +721,61 @@ def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_identical_ok=Fa
     # Add the element
     insert_after_last(eaf_tree, element)
     return element
+
+
+def get_annotation_values(tree, tier_id):
+    """
+    Return all the annotation values in the given tier.
+    """
+    tier = find_single_element(tree, 'TIER', TIER_ID=tier_id)
+    annotation_values = [find_single_element(annotation, 'ANNOTATION_VALUE').text
+                         for annotation in find_elements(tier, 'ANNOTATION')]
+    return annotation_values
+
+
+def find_child_annotation_ids(eaf_tree, parent_annotation_ids):
+    """
+    Find all the children of the given annotations (recursively).
+    :param eaf_tree: etree.ElementTree
+    :param parent_annotation_ids: iterable of strings with parent annotation ids
+    :return: list of etree.Element
+    """
+    ref_annotations = find_elements(eaf_tree, 'REF_ANNOTATION')
+    ref_annotation_parent_ids = [ref_annotation.attrib['ANNOTATION_REF']
+                                 for ref_annotation in ref_annotations]
+    ref_annotation_ids = [ref_annotation.attrib['ANNOTATION_ID']
+                          for ref_annotation in ref_annotations]
+
+    # We'll make a list of both the parent and child ids first
+    ids_to_add = parent_annotation_ids  # IDs of the annotations whose children we haven't added yet
+    parents_and_children_ids = list()
+    while len(ids_to_add) > 0:
+        parents_and_children_ids.extend(ids_to_add)
+        ids_just_added = ids_to_add.copy()  # this is unnecessary but makes the code easier to read
+        ids_to_add = [annotation_id
+                      for annotation_id, parent_id
+                      in zip(ref_annotation_ids, ref_annotation_parent_ids)
+                      if parent_id in ids_just_added]
+
+    children_ids = [annotation_id
+                    for annotation_id in parents_and_children_ids
+                    if annotation_id not in parent_annotation_ids]
+
+    return children_ids
+
+
+def get_only_child(element):
+    if len(element) != 1:
+        raise ValueError(f'Expected one child, got {len(element)}')
+    return element[0]
+
+
+def get_annotations_with_parents(tree):
+    """
+    Finds all (aligned and reference) annotations in the tree and returns them in a dictionary with annotation IDs as
+    keys and (annotation, parent_tier) tuples as values.
+    Useful when you need to delete annotations.
+    """
+    return {get_only_child(annotation).attrib['ANNOTATION_ID']: (annotation, parent_tier)
+            for parent_tier in find_elements(tree, 'TIER')
+            for annotation in parent_tier}

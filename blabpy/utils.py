@@ -133,3 +133,14 @@ def chdir_relative_to_project_root(relative_path, criterion='.git'):
     """
     this_folder = find_root('.git') / relative_path
     os.chdir(str(this_folder))
+
+
+def ensure_folder_exists_and_empty(folder_path):
+    """
+    Check that folder is either empty or does not yet exist. In the latter case, creates it.
+    :param folder_path:
+    :return:
+    """
+    assert not (folder_path.exists() and any(folder_path.iterdir())), \
+        'The folder should be empty or not yet exist'
+    folder_path.mkdir(parents=True, exist_ok=True)

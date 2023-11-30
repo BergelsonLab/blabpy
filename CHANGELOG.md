@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0] - 2023-11-30
+
+### Added
+
+- `blabpy.vihi.reliability` module for preparing EAF for reliability coding.
+- `blabpy.vihi.pipeline.create_reliability_test_file` that add input-output for this.
+
 ## [0.19.1] - 2023-11-27
 
 ### Added
