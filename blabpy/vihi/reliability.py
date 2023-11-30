@@ -12,6 +12,10 @@ from blabpy.eaf import EafPlus, get_annotation_values, get_annotations_with_pare
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
 
 
+class NoAnnotationsError(Exception):
+    pass
+
+
 def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed):
     """
     Prepare the .eaf files for reliability tests. Select one interval of each type, remove annotation values from all
@@ -30,7 +34,10 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
         random_state = None
 
     # Find all non-empty intervals.
-    annotations_df, intervals_df = eaf.get_annotations_and_intervals(drop_empty_tiers=False)
+    annotations_df, intervals_df = eaf.get_annotations_and_intervals()
+    if annotations_df.shape[0] == 0:
+        raise NoAnnotationsError()
+
     non_empty_intervals_df = intervals_df.loc[lambda df: df.code_num.isin(annotations_df.code_num)]
     sampled_intervals_df = (non_empty_intervals_df
                             .loc[lambda df: df.sampling_type.isin(SAMPLING_TYPES_TO_SAMPLE)]

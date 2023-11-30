@@ -12,7 +12,7 @@ import pandas as pd
 
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
     select_best_intervals, _extract_interval_info, INTERVALS_FOR_ANNOTATION_COUNT, INTERVALS_EXTRA_COUNT
-from .reliability import prepare_eaf_for_reliability
+from .reliability import prepare_eaf_for_reliability, NoAnnotationsError
 from ..its import Its, ItsNoTimeZoneInfo
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path
 from ..utils import df_to_list_of_tuples
@@ -167,6 +167,8 @@ def distribute_all_rttm():
 
 def create_reliability_test_file(eaf_path, output_dir=None):
     output_dir = output_dir or Path()
+    output_eaf_path = output_dir / f'{eaf_path.stem}_for-reliability.eaf'
+    log_path = output_dir / f'{output_eaf_path.stem}.log'
 
     # Load both as an EafPlus and as a tree
     eaf = EafPlus(eaf_path)
@@ -174,13 +176,24 @@ def create_reliability_test_file(eaf_path, output_dir=None):
 
     # Prepare the file for reliability tests
     random_seed = list(map(ord, eaf_path.stem))
-    eaf_tree_new, (sampled_code_nums, sampled_sampling_types) = prepare_eaf_for_reliability(
-        eaf_tree, eaf, random_seed=random_seed)
+    try:
+        eaf_tree_new, (sampled_code_nums, sampled_sampling_types) = prepare_eaf_for_reliability(
+            eaf_tree, eaf, random_seed=random_seed)
+    except NoAnnotationsError:
+        # Write error message to the log
+        with log_path.open('w') as f:
+            f.write(f'No annotations in {eaf_path}\n')
+        raise NoAnnotationsError(f'No annotations in {eaf_path}')
+    except Exception as e:
+        # Write error message to the log
+        with log_path.open('w') as f:
+            f.write(f'Error in {eaf_path}\n')
+            f.write(f'{e}\n')
+        raise Exception(f'Error in {eaf_path}') from e
 
     # Save the result and the log
-    output_eaf_path = output_dir / f'{eaf_path.stem}_for-reliability.eaf'
+
     tree_to_eaf(eaf_tree_new, output_eaf_path)
-    log_path = output_dir / f'{output_eaf_path.stem}.log'
     with log_path.open('w') as f:
         f.write(f'Sampled intervals (code_num values): {sampled_code_nums}\n')
         f.write(f'Their sampling types: {sampled_sampling_types}\n')
