@@ -432,6 +432,76 @@ class EafPlus(Eaf):
         return annotations, intervals
 
 
+class EafTree(object):
+    """An XML tree representation of an EAF file."""
+    def __init__(self, tree):
+        self.tree = tree
+
+    @classmethod
+    def from_path(cls, path):
+        with Path(path).open('r') as f:
+            return cls(element_tree.parse(f))
+
+    @classmethod
+    def from_url(cls, url):
+        u = requests.get(url)
+        with StringIO() as f:
+            f.write(u.content.decode())
+            f.seek(0)
+            tree = element_tree.parse(f)
+        return tree
+
+    @classmethod
+    def from_uri(cls, uri):
+        uri = str(uri)
+        # TODO: parse the uri with urlparse instead of using startswith
+        if uri.startswith('http'):
+            return cls.from_uri(uri)
+        else:
+            path = uri.replace('file:', '')
+            return cls.from_path(path)
+
+    @classmethod
+    def from_eaf(cls, eaf_uri: str):
+        return cls.from_uri(eaf_uri)
+
+    def to_string(self):
+        return element_to_string(self.tree.getroot(), children=True)
+
+    def to_file(self, path):
+        Path(path).write_text(self.to_string())
+
+    def to_eaf(self, path):
+        self.to_file(path)
+
+    @staticmethod
+    def _make_find_xpath(tag, **attributes):
+        if attributes:
+            attribute_filters = [f'@{name}="{value}"' for name, value in attributes.items()]
+            attributes_filter = '[' + ' and '.join(attribute_filters) + ']'
+        else:
+            attributes_filter = ''
+        return f'.//{tag}{attributes_filter}'
+
+    def find_element(self, tag, **attributes):
+        return self.tree.find(_make_find_xpath(tag, **attributes))
+
+    def find_elements(self, tag, **attributes):
+        return self.tree.findall(_make_find_xpath(tag, **attributes))
+
+    def find_single_element(self, tag, **attributes):
+        """
+        Find a single element in the tree. Raise an error if there are none or more than one.
+        """
+        elements = self.find_elements(tag, **attributes)
+        if len(elements) == 0:
+            raise ValueError(f'Couldn\'t find any elements with tag "{tag}" and attributes {attributes}.')
+        elif len(elements) == 1:
+            return elements[0]
+        else:
+            raise ValueError(f'Found more than one element with tag "{tag}" and attributes {attributes}.')
+
+
 def path_to_tree(path):
     with Path(path).open('r') as f:
         return element_tree.parse(f)
