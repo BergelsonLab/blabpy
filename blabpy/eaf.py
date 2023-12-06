@@ -432,6 +432,11 @@ class EafElement(object):
     def id(self):
         return self.element.attrib[self.ID]
 
+    def _validate_no_text(self):
+        text = self.element.text.strip()
+        if text:
+            raise ValueError(f'{self.TAG} element must not have text, had "{text}" instead.')
+
 
 class Annotation(EafElement):
     TAG = 'ANNOTATION'
@@ -630,8 +635,7 @@ class Tier(EafElement):
         if not attribute_names.issubset(necessary_attributes.union(possible_extra_attributes)):
             raise ValueError(f'Tier element must not have any other attributes than {necessary_attributes} and '
                              f'{possible_extra_attributes}.')
-        if self.element.text:
-            raise ValueError(f'Tier element must not have text.')
+        self._validate_no_text()
 
 
 class LinguisticType(EafElement):
@@ -688,8 +692,7 @@ class LinguisticType(EafElement):
         if not attribute_names.issubset(self.NECESSARY_ATTRIBUTES.union(self.POSSIBLE_EXTRA_ATTRIBUTES)):
             raise ValueError(f'LinguisticType element must not have any other attributes than {self.NECESSARY_ATTRIBUTES} '
                              f'and {self.POSSIBLE_EXTRA_ATTRIBUTES}.')
-        if self.element.text:
-            raise ValueError(f'LinguisticType element must not have text.')
+        self._validate_no_text()
 
 
 class ControlledVocabularyEntry(EafElement):
@@ -784,8 +787,7 @@ class ControlledVocabulary(EafElement):
         if not attribute_names.issubset(self.NECESSARY_ATTRIBUTES.union(self.POSSIBLE_EXTRA_ATTRIBUTES)):
             raise ValueError(f'Controlled vocabulary element must not have any other attributes than '
                              f'{self.NECESSARY_ATTRIBUTES} and {self.POSSIBLE_EXTRA_ATTRIBUTES}.')
-        if self.element.text:
-            raise ValueError(f'Controlled vocabulary element must not have text.')
+        self._validate_no_text()
 
     def parse(self):
         """
