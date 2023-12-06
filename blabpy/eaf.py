@@ -468,6 +468,10 @@ class Annotation(EafElement):
         return self.element[0]
 
     @property
+    def id(self):
+        return self.inner_element.attrib[self.ID]
+
+    @property
     def annotation_type(self):
         return self.inner_element.tag
 
@@ -592,8 +596,9 @@ class Tier(EafElement):
     def __init__(self, tier_element, eaf_tree):
         self._element = tier_element
         self._eaf_tree = eaf_tree
-        self.annotations = [Annotation(annotation_element, tier=self)
-                            for annotation_element in tier_element]
+        annotations = [Annotation(annotation_element, eaf_tree=eaf_tree, tier=self)
+                       for annotation_element in tier_element]
+        self.annotations = {annotation.id: annotation for annotation in annotations}
         self._parent = None
         self._children = None
 
@@ -970,6 +975,22 @@ class EafTree(XMLTree):
     @classmethod
     def from_eaf(cls, eaf_uri: str):
         return cls.from_uri(eaf_uri)
+
+    def __init__(self, tree):
+        super().__init__(tree)
+        self.external_references = self._parse_elements(ExternalReference)
+        self.controlled_vocabularies = self._parse_elements(ControlledVocabulary, eaf_tree=self)
+        self.linguistic_types = self._parse_elements(LinguisticType, eaf_tree=self)
+        self.tiers = self._parse_elements(Tier, eaf_tree=self)
+        self.annotations = {id_: annotation
+                            for tier in self.tiers.values()
+                            for id_, annotation in tier.annotations.items()}
+
+        # TODO: connect parents and children
+
+    def _parse_elements(self, element_class, *args, **kwargs):
+        elements = [element_class(element, *args, **kwargs) for element in self.find_elements(element_class.TAG)]
+        return {element.id: element for element in elements}
 
 
 def path_to_tree(path):
