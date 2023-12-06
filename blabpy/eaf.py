@@ -938,7 +938,7 @@ class XMLTree(object):
 
 class ControlledVocabularyResource(XMLTree):
     """
-    TODO: should this be an XMLTree subclass?
+    An XML tree representation of a controlled vocabulary resource.
     """
     TAG = 'CV_RESOURCE'
 
