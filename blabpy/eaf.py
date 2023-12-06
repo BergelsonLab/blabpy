@@ -543,8 +543,8 @@ class Annotation(EafElement):
         inner_element = self.element[0]
         if len(inner_element) != 1:
             raise ValueError(f'Inner annotation element must have exactly one child element.')
-        if inner_element.attrib or inner_element.text:
-            raise ValueError(f'Inner annotation element must not have attributes or text.')
+        if inner_element.text and not inner_element.text.isspace():
+            raise ValueError(f'Inner annotation element must not have text.')
 
         attribute_names = set(inner_element.attrib.keys())
         if inner_element.tag == self.ALIGNABLE_ANNOTATION:
@@ -565,8 +565,8 @@ class Annotation(EafElement):
         value_element = inner_element[0]
         if value_element.tag != self.ANNOTATION_VALUE:
             raise ValueError(f'Inner annotation element must have {self.ANNOTATION_VALUE} as its child element.')
-        if value_element.attrib or value_element.text:
-            raise ValueError(f'Inner annotation element must not have attributes or text.')
+        if value_element.attrib:
+            raise ValueError(f'Inner annotation element must not have attributes.')
 
         # For tiers with controlled vocabularies, check that CVE_REF and annotation value are both present and
         # consistent or both absent.
