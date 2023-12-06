@@ -456,12 +456,17 @@ class Annotation(EafElement):
     TIME_SLOT_REF2 = 'TIME_SLOT_REF2'
     CVE_REF = 'CVE_REF'
 
-    def __init__(self, annotation_element, tier):
+    def __init__(self, annotation_element, eaf_tree, tier):
         self._element = annotation_element
+        self._eaf_tree = eaf_tree
         self.tier = tier
         self.validate()
         self._parent = None
         self._children = None
+
+    @property
+    def eaf_tree(self):
+        return self._eaf_tree
 
     @property
     def inner_element(self):
@@ -574,7 +579,7 @@ class Annotation(EafElement):
 
         # For tiers with controlled vocabularies, check that CVE_REF and annotation value are both present and
         # consistent or both absent.
-        if self.annotation_type == self.REF_ANNOTATION and self.tier.uses_cv:
+        if self.eaf_tree.validate_cv_entries and self.annotation_type == self.REF_ANNOTATION and self.tier.uses_cv:
             value = value_element.text
             not_empty = value != ''
             cve_ref = self.inner_element.attrib.get(self.CVE_REF)
@@ -881,28 +886,28 @@ class XMLTree(object):
         return self._tree
 
     @classmethod
-    def from_path(cls, path):
+    def from_path(cls, path, *args, **kwargs):
         with Path(path).open('r') as f:
-            return cls(element_tree.parse(f))
+            return cls(element_tree.parse(f), *args, **kwargs)
 
     @classmethod
-    def from_url(cls, url):
+    def from_url(cls, url, *args, **kwargs):
         u = requests.get(url)
         with StringIO() as f:
             f.write(u.content.decode())
             f.seek(0)
             tree = element_tree.parse(f)
-        return tree
+        return cls(tree, *args, **kwargs)
 
     @classmethod
-    def from_uri(cls, uri):
+    def from_uri(cls, uri, *args, **kwargs):
         uri = str(uri)
         # TODO: parse the uri with urlparse instead of using startswith
         if uri.startswith('http'):
-            return cls.from_url(uri)
+            return cls.from_url(uri, *args, **kwargs)
         else:
             path = uri.replace('file:', '')
-            return cls.from_path(path)
+            return cls.from_path(path, *args, **kwargs)
 
     def to_string(self):
         return element_to_string(self.tree.getroot(), children=True)
@@ -976,8 +981,10 @@ class EafTree(XMLTree):
     def from_eaf(cls, eaf_uri: str):
         return cls.from_uri(eaf_uri)
 
-    def __init__(self, tree):
+    def __init__(self, tree, validate_cv_entries=True):
         super().__init__(tree)
+        self.validate_cv_entries = validate_cv_entries
+
         self.external_references = self._parse_elements(ExternalReference)
         self.controlled_vocabularies = self._parse_elements(ControlledVocabulary, eaf_tree=self)
         self.linguistic_types = self._parse_elements(LinguisticType, eaf_tree=self)
