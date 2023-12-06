@@ -589,12 +589,17 @@ class Tier(EafElement):
     PARENT_REF = 'PARENT_REF'
     PARTICIPANT = 'PARTICIPANT'
 
-    def __init__(self, tier_element):
+    def __init__(self, tier_element, eaf_tree):
         self._element = tier_element
+        self._eaf_tree = eaf_tree
         self.annotations = [Annotation(annotation_element, tier=self)
                             for annotation_element in tier_element]
         self._parent = None
         self._children = None
+
+    @property
+    def eaf_tree(self):
+        return self._eaf_tree
 
     @property
     def linguistic_type_ref(self):
@@ -654,11 +659,15 @@ class LinguisticType(EafElement):
     CONTROLLED_VOCABULARY_REF = 'CONTROLLED_VOCABULARY_REF'
     POSSIBLE_EXTRA_ATTRIBUTES = {CONSTRAINTS, CONTROLLED_VOCABULARY_REF}
 
-    def __init__(self, linguistic_type_element):
+    def __init__(self, linguistic_type_element, eaf_tree):
         self._element = linguistic_type_element
+        self._eaf_tree = eaf_tree
         self.validate()
-        if self.uses_cv:
-            self._cv = None
+
+    @property
+    def eaf_tree(self):
+        return self._eaf_tree
+
     @property
     def time_alignable(self):
         return self.element.attrib[self.TIME_ALIGNABLE]
@@ -753,13 +762,16 @@ class ControlledVocabulary(EafElement):
     NECESSARY_ATTRIBUTES = {ID}
     POSSIBLE_EXTRA_ATTRIBUTES = {EXT_REF}
 
-    def __init__(self, cv_element, external_references):
+    def __init__(self, cv_element, eaf_tree):
         self._element = cv_element
+        self._eaf_tree = eaf_tree
         self.validate()
         if not self.ext_ref:
             self._description, self._entries = self.parse()
-        else:
-            self._external_reference = external_references[self.ext_ref]
+
+    @property
+    def eaf_tree(self):
+        return self._eaf_tree
 
     @property
     def ext_ref(self):
