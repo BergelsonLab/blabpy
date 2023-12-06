@@ -758,7 +758,7 @@ class ControlledVocabulary(EafElement):
 
     @property
     def ext_ref(self):
-        return self.element.get[self.EXT_REF]
+        return self.element.get(self.EXT_REF)
 
     @property
     def _external_cv(self):
