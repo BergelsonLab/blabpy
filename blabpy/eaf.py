@@ -18,7 +18,7 @@ TODO:
 [ ] Currently, many attributes are implicitly hard-coded via `attributes=dict(ATTRIBUTE=value)`. Switch to using
     `attributes={ATTRIBUTE: value}` after defining corresponding constants (ATTRIBUTE = 'ATTRIBUTE' in this case).
 """
-
+import functools
 from io import StringIO
 from pathlib import Path
 from xml.etree import ElementTree as element_tree
@@ -29,23 +29,6 @@ import requests
 from pympi import Eaf
 
 from blabpy.utils import concatenate_dataframes
-
-# Element names
-EXTERNAL_REF = 'EXTERNAL_REF'
-LINGUISTIC_TYPE = 'LINGUISTIC_TYPE'
-CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
-TIER = 'TIER'
-
-# Property names
-
-## Linguistic type properties
-CONTROLLED_VOCABULARY_REF = 'CONTROLLED_VOCABULARY_REF'
-CONSTRAINTS = 'CONSTRAINTS'
-## External reference properties
-EXT_REF = 'EXT_REF'
-EXT_REF_ID = 'EXT_REF_ID'
-## Tier properties
-PARENT_REF = 'PARENT_REF'
 
 # Property values
 SYMBOLIC_ASSOCIATION = "Symbolic_Association"
@@ -432,6 +415,454 @@ class EafPlus(Eaf):
         return annotations, intervals
 
 
+class EafElement(object):
+    """
+    Base class for all EAF elements.
+    TODO:
+    - move __init__(), element(), id(), and validate() here,
+    - define mandatory constants (TAG, ID, etc.),
+    - define MandatoryAttribute, ConditionalAttribute, and OptionalAttribute classes,
+    - move conditional_property() here,
+    """
+    @property
+    def element(self):
+        return self._element
+
+    @property
+    def id(self):
+        return self.element.attrib[self.ID]
+
+
+class Annotation(EafElement):
+    TAG = 'ANNOTATION'
+    ID = 'ANNOTATION_ID'
+
+    ALIGNABLE_ANNOTATION = 'ALIGNABLE_ANNOTATION'
+    REF_ANNOTATION = 'REF_ANNOTATION'
+    ANNOTATION_VALUE = 'ANNOTATION_VALUE'
+
+    ANNOTATION_REF = 'ANNOTATION_REF'
+    TIME_SLOT_REF1 = 'TIME_SLOT_REF1'
+    TIME_SLOT_REF2 = 'TIME_SLOT_REF2'
+    CVE_REF = 'CVE_REF'
+
+    def __init__(self, annotation_element, tier):
+        self._element = annotation_element
+        self.tier = tier
+        self.validate()
+        self._parent = None
+        self._children = None
+
+    @property
+    def inner_element(self):
+        return self.element[0]
+
+    @property
+    def annotation_type(self):
+        return self.inner_element.tag
+
+    @staticmethod
+    def conditional_property(annotation_type):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(self):
+                if self.annotation_type != annotation_type:
+                    raise ValueError(f'Only {annotation_type}s have {func.__name__}.')
+                return func(self)
+            return property(wrapper)
+        return decorator
+
+    @conditional_property(ALIGNABLE_ANNOTATION)
+    def time_slot_ref1(self):
+        return self.inner_element.attrib[self.TIME_SLOT_REF1]
+
+    @conditional_property(ALIGNABLE_ANNOTATION)
+    def time_slot_ref2(self):
+        return self.inner_element.attrib[self.TIME_SLOT_REF2]
+
+    @conditional_property(REF_ANNOTATION)
+    def annotation_ref(self):
+        return self.inner_element.attrib[self.ANNOTATION_REF]
+
+    @conditional_property(REF_ANNOTATION)
+    def parent(self):
+        if self.annotation_ref is not None and self._parent is None:
+            raise ValueError(f'The parent tier has not been assigned, tell lab technician.')
+        return self._parent
+
+    @conditional_property(REF_ANNOTATION)
+    def children(self):
+        # Should be a list, possibly an empty one
+        if self._children is None:
+            raise ValueError(f'The parent tier has not been loaded, tell lab technician.')
+        return self._children
+
+    @conditional_property(REF_ANNOTATION)
+    def cve_ref(self):
+        return self.inner_element.attrib[self.CVE_REF]
+
+    def validate(self):
+        """
+        Check that the annotation element either looks like this:
+
+        <ANNOTATION>
+            <ALIGNABLE_ANNOTATION ANNOTATION_ID="a62" TIME_SLOT_REF1="ts14" TIME_SLOT_REF2="ts15">
+                <ANNOTATION_VALUE>hi.</ANNOTATION_VALUE>
+            </ALIGNABLE_ANNOTATION>
+        </ANNOTATION>
+
+        or like this:
+
+        <ANNOTATION>
+            <REF_ANNOTATION ANNOTATION_ID="a926" ANNOTATION_REF="a146" CVE_REF="cveid0">
+                <ANNOTATION_VALUE>C</ANNOTATION_VALUE>
+            </REF_ANNOTATION>
+        </ANNOTATION>
+
+        With the CVE_REF attribute being there iff the tier uses a controlled vocabulary.
+        """
+        # Validate outer element
+        if self.element.tag != self.TAG:
+            raise ValueError(f'Annotation element must have {self.TAG} as its tag.')
+        if len(self.element) != 1:
+            raise ValueError(f'Annotation element must have exactly one child element.')
+        if self.element.attrib or self.element.text:
+            raise ValueError(f'Annotation element must not have attributes or text.')
+
+        # Validate inner element
+        inner_element = self.element[0]
+        if len(inner_element) != 1:
+            raise ValueError(f'Inner annotation element must have exactly one child element.')
+        if inner_element.attrib or inner_element.text:
+            raise ValueError(f'Inner annotation element must not have attributes or text.')
+
+        attribute_names = set(inner_element.attrib.keys())
+        if inner_element.tag == self.ALIGNABLE_ANNOTATION:
+            if attribute_names != {'ANNOTATION_ID', 'TIME_SLOT_REF1', 'TIME_SLOT_REF2'}:
+                raise ValueError(f'ALIGNABLE_ANNOTATION must have {self.ID}, {self.TIME_SLOT_REF1},'
+                                 f' and {self.TIME_SLOT_REF2} attributes.')
+        elif inner_element.tag == self.REF_ANNOTATION:
+            necessary_attributes = {'ANNOTATION_ID', 'ANNOTATION_REF'}
+            conditional_attributes = {'CVE_REF'}
+            if not necessary_attributes.issubset(attribute_names):
+                raise ValueError(f'REF_ANNOTATION must have {self.ID} and {self.ANNOTATION_REF} attributes.')
+            if not attribute_names.issubset(necessary_attributes.union(conditional_attributes)):
+                raise ValueError(f'REF_ANNOTATION must not have any other attributes than {necessary_attributes} and '
+                                 f'{conditional_attributes}.')
+        else:
+            raise ValueError(f'Unknown annotation type: {inner_element.tag}')
+
+        value_element = inner_element[0]
+        if value_element.tag != self.ANNOTATION_VALUE:
+            raise ValueError(f'Inner annotation element must have {self.ANNOTATION_VALUE} as its child element.')
+        if value_element.attrib or value_element.text:
+            raise ValueError(f'Inner annotation element must not have attributes or text.')
+
+        # For tiers with controlled vocabularies, check that CVE_REF and annotation value are both present and
+        # consistent or both absent.
+        if self.annotation_type == self.REF_ANNOTATION and self.tier.uses_cv:
+            value = value_element.text
+            not_empty = value != ''
+            cve_ref = self.inner_element.attrib.get(self.CVE_REF)
+            has_cve_ref = cve_ref is not None
+            if has_cve_ref != not_empty:
+                raise ValueError(f'For tiers with controlled vocabularies, {self.CVE_REF} attribute must be present iff '
+                                 f'there is a non-empty value.')
+            if not_empty and (value != self.tier.cv.entries[cve_ref]):
+                raise ValueError(f'Value {value} does not match the {cve_ref} item in the controlled vocabulary.')
+
+
+class Tier(EafElement):
+    TAG = 'TIER'
+    ID = 'TIER_ID'
+    LINGUISTIC_TYPE_REF = 'LINGUISTIC_TYPE_REF'
+    PARENT_REF = 'PARENT_REF'
+    PARTICIPANT = 'PARTICIPANT'
+
+    def __init__(self, tier_element):
+        self._element = tier_element
+        self.annotations = [Annotation(annotation_element, tier=self)
+                            for annotation_element in tier_element]
+        self._parent = None
+        self._children = None
+
+    @property
+    def linguistic_type_ref(self):
+        return self.element.attrib[self.LINGUISTIC_TYPE_REF]
+
+    @property
+    def parent_ref(self):
+        return self.element.attrib.get(self.PARENT_REF)
+
+    @property
+    def parent(self):
+        if self.parent_ref is not None and self._parent is None:
+            raise ValueError(f'The parent tier has not been assigned, tell lab technician.')
+        return self._parent
+
+    @property
+    def children(self):
+        # Should be a list, possibly an empty one
+        if self._children is None:
+            raise ValueError(f'The parent tier has not been loaded, tell lab technician.')
+        return self._children
+
+    @property
+    def participant(self):
+        return self.element.attrib.get(self.PARTICIPANT)
+
+    @property
+    def uses_cv(self):
+        return self.linguistic_type_ref.uses_cv
+
+    @property
+    def cv(self):
+        return self.linguistic_type_ref.cv
+
+    def validate(self):
+        if self.element.tag != self.TAG:
+            raise ValueError(f'Tier element must have {self.TAG} as its tag.')
+        necessary_attributes = {self.LINGUISTIC_TYPE_REF, self.ID}
+        possible_extra_attributes = {self.PARENT_REF, self.PARTICIPANT}
+        attribute_names = set(self.element.attrib.keys())
+        if not necessary_attributes.issubset(attribute_names):
+            raise ValueError(f'Tier element must have {self.LINGUISTIC_TYPE_REF} and {self.ID} attributes.')
+        if not attribute_names.issubset(necessary_attributes.union(possible_extra_attributes)):
+            raise ValueError(f'Tier element must not have any other attributes than {necessary_attributes} and '
+                             f'{possible_extra_attributes}.')
+        if self.element.text:
+            raise ValueError(f'Tier element must not have text.')
+
+
+class LinguisticType(EafElement):
+    TAG = 'LINGUISTIC_TYPE'
+    ID = 'LINGUISTIC_TYPE_ID'
+    TIME_ALIGNABLE = 'TIME_ALIGNABLE'
+    GRAPHIC_REFERENCES = 'GRAPHIC_REFERENCES'
+    NECESSARY_ATTRIBUTES = {ID, TIME_ALIGNABLE, GRAPHIC_REFERENCES}
+
+    CONSTRAINTS = 'CONSTRAINTS'
+    CONTROLLED_VOCABULARY_REF = 'CONTROLLED_VOCABULARY_REF'
+    POSSIBLE_EXTRA_ATTRIBUTES = {CONSTRAINTS, CONTROLLED_VOCABULARY_REF}
+
+    def __init__(self, linguistic_type_element):
+        self._element = linguistic_type_element
+        self.validate()
+        if self.uses_cv:
+            self._cv = None
+    @property
+    def time_alignable(self):
+        return self.element.attrib[self.TIME_ALIGNABLE]
+
+    @property
+    def graphic_references(self):
+        return self.element.attrib[self.GRAPHIC_REFERENCES]
+
+    @property
+    def constraints(self):
+        return self.element.attrib.get(self.CONSTRAINTS)
+
+    @property
+    def controlled_vocabulary_ref(self):
+        return self.element.attrib.get(self.CONTROLLED_VOCABULARY_REF)
+
+    @property
+    def uses_cv(self):
+        return self.controlled_vocabulary_ref is not None
+
+    @property
+    def cv(self):
+        if not self.uses_cv:
+            raise ValueError(f'This linguistic type does not use a controlled vocabulary.')
+        elif self._cv is None:
+            raise ValueError(f'The controlled vocabulary has not been loaded, tell lab technician.')
+        else:
+            return self._cv
+
+    def validate(self):
+        if self.element.tag != self.TAG:
+            raise ValueError(f'LinguisticType element must have {self.TAG} as its tag.')
+        attribute_names = set(self.element.attrib.keys())
+        if not self.NECESSARY_ATTRIBUTES.issubset(attribute_names):
+            raise ValueError(f'LinguisticType element must have {self.NECESSARY_ATTRIBUTES} attributes.')
+        if not attribute_names.issubset(self.NECESSARY_ATTRIBUTES.union(self.POSSIBLE_EXTRA_ATTRIBUTES)):
+            raise ValueError(f'LinguisticType element must not have any other attributes than {self.NECESSARY_ATTRIBUTES} '
+                             f'and {self.POSSIBLE_EXTRA_ATTRIBUTES}.')
+        if self.element.text:
+            raise ValueError(f'LinguisticType element must not have text.')
+
+
+class ControlledVocabularyEntry(EafElement):
+    TAG = 'CV_ENTRY_ML'
+    ID = 'CVE_ID'
+    CVE_VALUE = 'CVE_VALUE'
+    ALL_ATTRIBUTES = {ID}
+
+    def __init__(self, cv_entry_element):
+        """
+        <CV_ENTRY_ML CVE_ID="cveid0">
+            <CVE_VALUE DESCRIPTION="Present" LANG_REF="und">P</CVE_VALUE>
+        </CV_ENTRY_ML>
+        """
+        self._element = cv_entry_element
+        self.validate()
+
+    @property
+    def value_element(self):
+        return self._element[0]
+
+    @property
+    def description(self):
+        return self.value_element.attrib['DESCRIPTION']
+
+    @property
+    def value(self):
+        return self.value_element.text
+
+    def validate(self):
+        if self.element.tag != self.TAG:
+            raise ValueError(f'Controlled vocabulary entry element must have {self.TAG} as its tag.')
+        attribute_names = set(self.element.attrib.keys())
+        if self.ALL_ATTRIBUTES != attribute_names:
+            raise ValueError(f'Controlled vocabulary entry element must have {self.ALL_ATTRIBUTES} attributes and only'
+                             f' them.')
+
+        (self._value_element, ) = self.element
+        if self._value_element.tag != self.CVE_VALUE:
+            raise ValueError(f'Controlled vocabulary entry element must have {self.CVE_VALUE} as its child element.')
+        if self._value_element.attrib.keys() != {'DESCRIPTION', 'LANG_REF'}:
+            raise ValueError(f'Controlled vocabulary entry element must have DESCRIPTION and LANG_REF attributes.')
+        if not self._value_element.text:
+            raise ValueError(f'Controlled vocabulary entry element must have text.')
+
+
+class ControlledVocabulary(EafElement):
+    TAG = 'CONTROLLED_VOCABULARY'
+    ID = 'CV_ID'
+    DESCRIPTION = 'DESCRIPTION'
+    EXT_REF = 'EXT_REF'
+    # TODO: it isn't necessary to have EXT_REF, the CV can be defined in the element itself. Allow for that.
+    NECESSARY_ATTRIBUTES = {ID}
+    POSSIBLE_EXTRA_ATTRIBUTES = {EXT_REF}
+
+    def __init__(self, cv_element, external_references):
+        self._element = cv_element
+        self.validate()
+        if not self.ext_ref:
+            self._description, self._entries = self.parse()
+        else:
+            self._external_reference = external_references[self.ext_ref]
+
+    @property
+    def ext_ref(self):
+        return self.element.get[self.EXT_REF]
+
+    @property
+    def _external_cv(self):
+        return self._external_reference.cv_resource.cvs[self.id]
+
+    @property
+    def description(self):
+        if self.ext_ref:
+            return self._external_cv.description
+        else:
+            return self._description
+
+    @property
+    def entries(self):
+        if self.ext_ref:
+            return self._external_cv.entries
+        else:
+            return self._entries
+
+    def validate(self):
+        if self.element.tag != self.TAG:
+            raise ValueError(f'Controlled vocabulary element must have {self.TAG} as its tag.')
+        attribute_names = set(self.element.attrib.keys())
+        if not self.NECESSARY_ATTRIBUTES.issubset(attribute_names):
+            raise ValueError(f'Controlled vocabulary element must have {self.NECESSARY_ATTRIBUTES} attributes.')
+        if not attribute_names.issubset(self.NECESSARY_ATTRIBUTES.union(self.POSSIBLE_EXTRA_ATTRIBUTES)):
+            raise ValueError(f'Controlled vocabulary element must not have any other attributes than '
+                             f'{self.NECESSARY_ATTRIBUTES} and {self.POSSIBLE_EXTRA_ATTRIBUTES}.')
+        if self.element.text:
+            raise ValueError(f'Controlled vocabulary element must not have text.')
+
+    def parse(self):
+        """
+        <CONTROLLED_VOCABULARY CV_ID="present">
+            <DESCRIPTION LANG_REF="und">generalized flag</DESCRIPTION>
+            <CV_ENTRY_ML CVE_ID="cveid0">
+                <CVE_VALUE DESCRIPTION="Present" LANG_REF="und">P</CVE_VALUE>
+            </CV_ENTRY_ML>
+        </CONTROLLED_VOCABULARY>
+        """
+        (description_element, ) = [el for el in self.element if el.tag == self.DESCRIPTION]
+        entry_elements = [ControlledVocabularyEntry(el)
+                          for el in self.element if el.tag == ControlledVocabularyEntry.TAG]
+        return description_element, {entry.id: entry for entry in entry_elements}
+
+
+class ExternalReference(EafElement):
+    TAG = 'EXTERNAL_REF'
+    ID = 'EXT_REF_ID'
+    TYPE = 'TYPE'
+    VALUE = 'VALUE'
+    NECESSARY_ATTRIBUTES = {ID, TYPE, VALUE}
+
+    def __init__(self, ext_ref_element):
+        self._element = ext_ref_element
+        self.validate()
+        self.cv_resource = self.parse()
+
+    @property
+    def ext_ref_id(self):
+        return self.element.attrib[self.ID]
+
+    @property
+    def type(self):
+        return self.element.attrib[self.TYPE]
+
+    @property
+    def value(self):
+        return self.element.attrib[self.VALUE]
+
+    def validate(self):
+        if self.element.tag != self.TAG:
+            raise ValueError(f'External reference element must have {self.TAG} as its tag.')
+        attribute_names = set(self.element.attrib.keys())
+        if not self.NECESSARY_ATTRIBUTES.issubset(attribute_names):
+            raise ValueError(f'External reference element must have {self.NECESSARY_ATTRIBUTES} '
+                             f'attributes.')
+        if self.element.text:
+            raise ValueError(f'External reference element must not have text.')
+
+    def parse(self):
+        return ControlledVocabularyResource.from_uri(self.value)
+
+
+class ControlledVocabularyResource(object):
+    """
+    TODO: should this be an XMLTree subclass?
+    """
+    TAG = 'CV_RESOURCE'
+
+    def __init__(self, cv_resource_tree):
+        self._tree = cv_resource_tree
+        self.cvs = [ControlledVocabulary(cv_element, external_references={})
+                    for cv_element in self.tree]
+        # TODO: add a class for languages
+        self.language = self.tree.find_single_element('LANGUAGE')
+        # TODO: validate including xml schemas and such
+
+    @classmethod
+    def from_uri(cls, uri):
+        return cls(XMLTree.from_uri(uri))
+
+    @property
+    def tree(self):
+        return self._tree
+
+
 class XMLTree(object):
     def __init__(self, tree):
         self.tree = tree
@@ -700,13 +1131,13 @@ def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_
                       LINGUISTIC_TYPE_ID=ling_type_id,
                       TIME_ALIGNABLE=time_alignable)
     if constraints is None:
-        del attributes[CONSTRAINTS]
+        del attributes[LinguisticType.CONSTRAINTS]
     if cv_id is None:
-        del attributes[CONTROLLED_VOCABULARY_REF]
-    element = Element(LINGUISTIC_TYPE, attrib=attributes)
+        del attributes[LinguisticType.CONTROLLED_VOCABULARY_REF]
+    element = Element(LinguisticType.TAG, attrib=attributes)
 
     # Avoid adding the same linguistic type twice
-    ling_type_in_eaf = find_element(eaf_tree, LINGUISTIC_TYPE, LINGUISTIC_TYPE_ID=ling_type_id)
+    ling_type_in_eaf = find_element(eaf_tree, LinguisticType.TAG, LINGUISTIC_TYPE_ID=ling_type_id)
     if ling_type_in_eaf is not None:
         if not exist_identical_ok:
             msg = f'Trying to add a "{ling_type_id}" linguistic type but it is already present.'
@@ -743,12 +1174,12 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
     <CONTROLLED_VOCABULARY CV_ID="xds" EXT_REF="BLab"></CONTROLLED_VOCABULARY>
     """
     # Avoid adding the same CV twice
-    cv_in_eaf = find_element(eaf_tree, CONTROLLED_VOCABULARY, CV_ID=cv_id)
+    cv_in_eaf = find_element(eaf_tree, ControlledVocabulary.TAG, CV_ID=cv_id)
 
     if cv_in_eaf is not None:
         if not exist_identical_ok:
             raise CvAlreadyPresentError(f'Trying to add a "{cv_id}" CV but it is already present.')
-        ext_ref_in_eaf = cv_in_eaf.get(EXT_REF)
+        ext_ref_in_eaf = cv_in_eaf.get(ControlledVocabulary.EXT_REF)
         if ext_ref_in_eaf == ext_ref:
             return
         else:
@@ -759,7 +1190,7 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
                         constraints=constraints, cv_id=cv_id, exist_identical_ok=False)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
-    cv_element = Element(CONTROLLED_VOCABULARY, attrib=cv_attributes)
+    cv_element = Element(ControlledVocabulary.TAG, attrib=cv_attributes)
     insert_after_last(eaf_tree, cv_element)
 
 
@@ -777,11 +1208,11 @@ def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_identical_ok=Fa
     # Create the element
     attributes = dict(LINGUISTIC_TYPE_REF=ling_type_ref, TIER_ID=tier_id)
     if parent_ref is not None:
-        attributes[PARENT_REF] = parent_ref
-    element = Element(TIER, attrib=attributes)
+        attributes[Tier.PARENT_REF] = parent_ref
+    element = Element(Tier.TAG, attrib=attributes)
     
     # Avoid adding the same tier twice
-    tier_in_eaf = find_element(eaf_tree, TIER, TIER_ID=tier_id)
+    tier_in_eaf = find_element(eaf_tree, Tier.TAG, TIER_ID=tier_id)
     if tier_in_eaf is not None:
         if not exist_identical_ok:
             msg = f'Trying to add a "{tier_id}" tier but it is already present.'
