@@ -499,7 +499,7 @@ class Annotation(EafElement):
     def children(self):
         # Should be a list, possibly an empty one
         if self._children is None:
-            raise ValueError(f'The parent tier has not been loaded, tell lab technician.')
+            raise ValueError(f'The children tiers have not been assigned, tell lab technician.')
         return self._children
 
     @conditional_property(REF_ANNOTATION)
