@@ -923,7 +923,7 @@ class ControlledVocabularyResource(XMLTree):
                     for cv_element in self.tree.getroot()
                     if cv_element.tag == ControlledVocabulary.TAG]
         # TODO: add a class for languages
-        self.language = self.tree.find_single_element('LANGUAGE')
+        self.language = self.find_single_element('LANGUAGE')
         # TODO: validate including xml schemas and such
 
     @classmethod
