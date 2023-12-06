@@ -970,10 +970,6 @@ class ControlledVocabularyResource(XMLTree):
     def language(self):
         return self._language
 
-    @classmethod
-    def from_uri(cls, uri):
-        return cls(XMLTree.from_uri(uri))
-
 
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
