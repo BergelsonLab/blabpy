@@ -432,8 +432,7 @@ class EafPlus(Eaf):
         return annotations, intervals
 
 
-class EafTree(object):
-    """An XML tree representation of an EAF file."""
+class XMLTree(object):
     def __init__(self, tree):
         self.tree = tree
 
@@ -500,6 +499,11 @@ class EafTree(object):
             return elements[0]
         else:
             raise ValueError(f'Found more than one element with tag "{tag}" and attributes {attributes}.')
+
+
+class EafTree(XMLTree):
+    """An XML tree representation of an EAF file."""
+    pass
 
 
 def path_to_tree(path):
