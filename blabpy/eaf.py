@@ -886,14 +886,10 @@ class XMLTree(object):
         uri = str(uri)
         # TODO: parse the uri with urlparse instead of using startswith
         if uri.startswith('http'):
-            return cls.from_uri(uri)
+            return cls.from_url(uri)
         else:
             path = uri.replace('file:', '')
             return cls.from_path(path)
-
-    @classmethod
-    def from_eaf(cls, eaf_uri: str):
-        return cls.from_uri(eaf_uri)
 
     def to_string(self):
         return element_to_string(self.tree.getroot(), children=True)
