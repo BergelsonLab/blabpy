@@ -930,7 +930,9 @@ class XMLTree(object):
 
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
-    pass
+    @classmethod
+    def from_eaf(cls, eaf_uri: str):
+        return cls.from_uri(eaf_uri)
 
 
 def path_to_tree(path):
