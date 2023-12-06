@@ -840,32 +840,13 @@ class ExternalReference(EafElement):
         return ControlledVocabularyResource.from_uri(self.value)
 
 
-class ControlledVocabularyResource(object):
-    """
-    TODO: should this be an XMLTree subclass?
-    """
-    TAG = 'CV_RESOURCE'
-
-    def __init__(self, cv_resource_tree):
-        self._tree = cv_resource_tree
-        self.cvs = [ControlledVocabulary(cv_element, external_references={})
-                    for cv_element in self.tree]
-        # TODO: add a class for languages
-        self.language = self.tree.find_single_element('LANGUAGE')
-        # TODO: validate including xml schemas and such
-
-    @classmethod
-    def from_uri(cls, uri):
-        return cls(XMLTree.from_uri(uri))
+class XMLTree(object):
+    def __init__(self, tree):
+        self._tree = tree
 
     @property
     def tree(self):
         return self._tree
-
-
-class XMLTree(object):
-    def __init__(self, tree):
-        self.tree = tree
 
     @classmethod
     def from_path(cls, path):
@@ -926,6 +907,26 @@ class XMLTree(object):
             return elements[0]
         else:
             raise ValueError(f'Found more than one element with tag "{tag}" and attributes {attributes}.')
+
+
+class ControlledVocabularyResource(XMLTree):
+    """
+    TODO: should this be an XMLTree subclass?
+    """
+    TAG = 'CV_RESOURCE'
+
+    def __init__(self, cv_resource_tree):
+        super().__init__(cv_resource_tree)
+        self.cvs = [ControlledVocabulary(cv_element, external_references={})
+                    for cv_element in self.tree.getroot()
+                    if cv_element.tag == ControlledVocabulary.TAG]
+        # TODO: add a class for languages
+        self.language = self.tree.find_single_element('LANGUAGE')
+        # TODO: validate including xml schemas and such
+
+    @classmethod
+    def from_uri(cls, uri):
+        return cls(XMLTree.from_uri(uri))
 
 
 class EafTree(XMLTree):
