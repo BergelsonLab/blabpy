@@ -433,9 +433,9 @@ class EafElement(object):
         return self.element.attrib[self.ID]
 
     def _validate_no_text(self):
-        text = self.element.text.strip()
-        if text:
-            raise ValueError(f'{self.TAG} element must not have text, had "{text}" instead.')
+        text = self.element.text
+        if text and not text.isspace():
+            raise ValueError(f'{self.TAG} element must not have text, had "{text.strip()}" instead.')
 
 
 class Annotation(EafElement):
