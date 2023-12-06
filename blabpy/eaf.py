@@ -437,6 +437,11 @@ class EafElement(object):
         if text and not text.isspace():
             raise ValueError(f'{self.TAG} element must not have text, had "{text.strip()}" instead.')
 
+    def _validate_no_attributes(self):
+        attributes = self.element.attrib
+        if attributes:
+            raise ValueError(f'{self.TAG} element must not have attributes, had "{attributes}" instead.')
+
 
 class Annotation(EafElement):
     TAG = 'ANNOTATION'
@@ -531,8 +536,8 @@ class Annotation(EafElement):
             raise ValueError(f'Annotation element must have {self.TAG} as its tag.')
         if len(self.element) != 1:
             raise ValueError(f'Annotation element must have exactly one child element.')
-        if self.element.attrib or self.element.text:
-            raise ValueError(f'Annotation element must not have attributes or text.')
+        self._validate_no_attributes()
+        self._validate_no_text()
 
         # Validate inner element
         inner_element = self.element[0]
@@ -835,8 +840,7 @@ class ExternalReference(EafElement):
         if not self.NECESSARY_ATTRIBUTES.issubset(attribute_names):
             raise ValueError(f'External reference element must have {self.NECESSARY_ATTRIBUTES} '
                              f'attributes.')
-        if self.element.text:
-            raise ValueError(f'External reference element must not have text.')
+        self._validate_no_text()
 
     def parse(self):
         return ControlledVocabularyResource.from_uri(self.value)
