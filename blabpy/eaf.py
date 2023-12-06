@@ -578,7 +578,7 @@ class Annotation(EafElement):
             if has_cve_ref != not_empty:
                 raise ValueError(f'For tiers with controlled vocabularies, {self.CVE_REF} attribute must be present iff '
                                  f'there is a non-empty value.')
-            if not_empty and (value != self.tier.cv.entries[cve_ref]):
+            if not_empty and (value != self.tier.cv.entries[cve_ref].value):
                 raise ValueError(f'Value {value} does not match the {cve_ref} item in the controlled vocabulary.')
 
 
@@ -606,6 +606,10 @@ class Tier(EafElement):
         return self.element.attrib[self.LINGUISTIC_TYPE_REF]
 
     @property
+    def linguistic_type(self):
+        return self.eaf_tree.linguistic_types[self.linguistic_type_ref]
+
+    @property
     def parent_ref(self):
         return self.element.attrib.get(self.PARENT_REF)
 
@@ -628,11 +632,11 @@ class Tier(EafElement):
 
     @property
     def uses_cv(self):
-        return self.linguistic_type_ref.uses_cv
+        return self.linguistic_type.uses_cv
 
     @property
     def cv(self):
-        return self.linguistic_type_ref.cv
+        return self.linguistic_type.cv
 
     def validate(self):
         if self.element.tag != self.TAG:
@@ -692,10 +696,8 @@ class LinguisticType(EafElement):
     def cv(self):
         if not self.uses_cv:
             raise ValueError(f'This linguistic type does not use a controlled vocabulary.')
-        elif self._cv is None:
-            raise ValueError(f'The controlled vocabulary has not been loaded, tell lab technician.')
         else:
-            return self._cv
+            return self.eaf_tree.controlled_vocabularies[self.controlled_vocabulary_ref]
 
     def validate(self):
         if self.element.tag != self.TAG:
@@ -778,20 +780,27 @@ class ControlledVocabulary(EafElement):
         return self.element.get(self.EXT_REF)
 
     @property
-    def _external_cv(self):
-        return self._external_reference.cv_resource.cvs[self.id]
+    def external_reference(self):
+        if self.ext_ref:
+            return self.eaf_tree.external_references[self.ext_ref]
+        else:
+            raise ValueError(f'This controlled vocabulary does not have an external reference.')
+
+    @property
+    def external_cv(self):
+        return self.external_reference.cv_resource.cvs[self.id]
 
     @property
     def description(self):
         if self.ext_ref:
-            return self._external_cv.description
+            return self.external_cv.description
         else:
             return self._description
 
     @property
     def entries(self):
         if self.ext_ref:
-            return self._external_cv.entries
+            return self.external_cv.entries
         else:
             return self._entries
 
@@ -935,12 +944,21 @@ class ControlledVocabularyResource(XMLTree):
 
     def __init__(self, cv_resource_tree):
         super().__init__(cv_resource_tree)
-        self.cvs = [ControlledVocabulary(cv_element, external_references={})
-                    for cv_element in self.tree.getroot()
-                    if cv_element.tag == ControlledVocabulary.TAG]
+        cvs = [ControlledVocabulary(cv_element, eaf_tree=None)
+               for cv_element in self.tree.getroot()
+               if cv_element.tag == ControlledVocabulary.TAG]
+        self._cvs = {cv.id: cv for cv in cvs}
         # TODO: add a class for languages
-        self.language = self.find_single_element('LANGUAGE')
+        self._language = self.find_single_element('LANGUAGE')
         # TODO: validate including xml schemas and such
+
+    @property
+    def cvs(self):
+        return self._cvs
+
+    @property
+    def language(self):
+        return self._language
 
     @classmethod
     def from_uri(cls, uri):
