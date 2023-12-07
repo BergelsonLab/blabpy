@@ -46,8 +46,22 @@ class TestEafPlus:
 
 
 class TestEafTree:
-    def test_from_path(self):
+    def test_from_path_to_template(self):
         EafTree.from_path(sample_etf_path)
+
+    def test_from_path_to_eaf_with_invalid_entries(self, eaf_path):
+        EafTree.from_path(eaf_path, validate_cv_entries=False)
+
+    @pytest.mark.skip
+    def test_from_path_to_eaf(self, eaf_path):
+        """
+        Skipping for now, but I should (not necessarily all of that, not necessarily in that order):
+        - Allow skipping specific tiers.
+        - Differentiate between wrong values from CV and values not in CV.
+        - Fix VIHI files.
+        - Allow validate_cv_entries to take values of 'error', 'warn', 'ignore', and 'fix' that will fix some errors.
+        """
+        EafTree.from_path(eaf_path)
 
     def test_from_url(self):
         # TODO: Implement
@@ -60,8 +74,9 @@ class TestEafTree:
         EafTree.from_path(sample_etf_path)
 
     @pytest.fixture(scope='module')
-    def sample_eaf_tree(self):
-        return EafTree.from_path(sample_etf_path)
+    def sample_eaf_tree(self, eaf_path):
+        # TODO: remove validate_cv_entries=False once the VIHI files are fixed and we find a way to not copy values.
+        return EafTree.from_path(eaf_path, validate_cv_entries=False)
 
     def test_to_string(self, sample_eaf_tree):
         sample_eaf_tree.to_string()
@@ -94,3 +109,7 @@ class TestEafTree:
         # Test that an error is raised if there are no elements
         with pytest.raises(ValueError):
             sample_eaf_tree.find_single_element('ANNOTATION')
+
+    def test_annotation_gather_descendants(self, sample_eaf_tree):
+        annotation = next(iter(sample_eaf_tree.annotations.values()))
+        annotation.gather_descendants()
