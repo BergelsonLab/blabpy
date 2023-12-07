@@ -509,7 +509,7 @@ class Annotation(EafElement):
     def parent(self):
         return self.eaf_tree.annotations[self.annotation_ref]
 
-    @conditional_property(REF_ANNOTATION)
+    @property
     def children(self):
         # Should be a list, possibly an empty one
         if self._children is None:
@@ -531,6 +531,16 @@ class Annotation(EafElement):
     def append_child(self, child):
         self._children = self._children or list()
         self._children.append(child)
+
+    def gather_descendants(self):
+        """
+        Gather all descendants of this annotation as a list of Annotation objects.
+        :return: a list of annotations
+        """
+        descendants = list()
+        for child in self.children:
+            descendants.extend([child] + child.gather_descendants())
+        return descendants
 
     @conditional_property(REF_ANNOTATION)
     def cve_ref(self):
@@ -666,6 +676,16 @@ class Tier(EafElement):
     def append_child(self, child):
         self._children = self._children or list()
         self._children.append(child)
+
+    def gather_descendants(self):
+        """
+        Gather all descendants of this annotation as a list of Tier objects.
+        :return: a list of annotations
+        """
+        descendants = list()
+        for child in self.children:
+            descendants.extend([child] + child.gather_descendants())
+        return descendants
 
     @property
     def participant(self):
