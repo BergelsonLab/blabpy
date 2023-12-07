@@ -475,6 +475,22 @@ class Annotation(EafElement):
         return self.element[0]
 
     @property
+    def value_element(self):
+        return self.inner_element[0]
+
+    @property
+    def value(self):
+        return self.value_element.text
+
+    @value.setter
+    def value(self, value):
+        if self.tier.uses_cv:
+            cv = self.tier.cv
+            cve_ref = cv.get_id_of_value(value)
+            self.inner_element.attrib[self.CVE_REF] = cve_ref
+        self.value_element.text = value
+
+    @property
     def id(self):
         return self.inner_element.attrib[self.ID]
 
@@ -575,7 +591,7 @@ class Annotation(EafElement):
         self._validate_no_text()
 
         # Validate inner element
-        inner_element = self.element[0]
+        inner_element = self.inner_element
         if len(inner_element) != 1:
             raise ValueError(f'Inner annotation element must have exactly one child element.')
         if inner_element.text and not inner_element.text.isspace():
@@ -597,7 +613,7 @@ class Annotation(EafElement):
         else:
             raise ValueError(f'Unknown annotation type: {inner_element.tag}')
 
-        value_element = inner_element[0]
+        value_element = self.value_element
         if value_element.tag != self.ANNOTATION_VALUE:
             raise ValueError(f'Inner annotation element must have {self.ANNOTATION_VALUE} as its child element.')
         if value_element.attrib:
@@ -606,15 +622,14 @@ class Annotation(EafElement):
         # For tiers with controlled vocabularies, check that CVE_REF and annotation value are both present and
         # consistent or both absent.
         if self.eaf_tree.validate_cv_entries and self.annotation_type == self.REF_ANNOTATION and self.tier.uses_cv:
-            value = value_element.text
-            not_empty = value != ''
+            not_empty = self.value != ''
             cve_ref = self.inner_element.attrib.get(self.CVE_REF)
             has_cve_ref = cve_ref is not None
             if has_cve_ref != not_empty:
                 raise ValueError(f'For tiers with controlled vocabularies, {self.CVE_REF} attribute must be present iff '
                                  f'there is a non-empty value.')
-            if not_empty and (value != self.tier.cv.entries[cve_ref].value):
-                raise ValueError(f'Value {value} does not match the {cve_ref} item in the controlled vocabulary.')
+            if not_empty and (self.value != self.tier.cv.entries[cve_ref].value):
+                raise ValueError(f'Value {self.value} does not match the {cve_ref} item in the controlled vocabulary.')
 
 
 class Tier(EafElement):
@@ -864,6 +879,10 @@ class ControlledVocabulary(EafElement):
             return self.external_cv.entries
         else:
             return self._entries
+
+    def get_id_of_value(self, value):
+        (cve_id,) = {cve_id for cve_id, cv_entry in self.entries.items() if cv_entry.value == value}
+        return cve_id
 
     def validate(self):
         if self.element.tag != self.TAG:
