@@ -14,6 +14,9 @@ Glossary:
 - *Daughter* vs. *parent* annotations: Tiers are organized in a hierachy
 
 TODO:
+[ ] Add superclasses/mixins:
+    [ ] Add a superclass for Annotation and Tier - smth like EafElementWithRelations.
+    [ ] Add a superclass for Annotation and ControlledVocabularyEntry - smth like EafElementWithInnerElements
 [ ] Refactor add_* functions to use a single add_element function.
 [ ] Currently, many attributes are implicitly hard-coded via `attributes=dict(ATTRIBUTE=value)`. Switch to using
     `attributes={ATTRIBUTE: value}` after defining corresponding constants (ATTRIBUTE = 'ATTRIBUTE' in this case).
@@ -513,6 +516,22 @@ class Annotation(EafElement):
             raise ValueError(f'The children tiers have not been assigned, tell lab technician.')
         return self._children
 
+    @property
+    def children_assigned(self):
+        return self._children is not None
+
+    def mark_as_childless(self):
+        if self._children is not None:
+            if len(self._children) > 0:
+                raise ValueError(f'Can\'t mark annotation {self.id} as childless because it has children.')
+            else:
+                raise ValueError(f'Annotation {self.id} has already been marked as childless.')
+        self._children = []
+
+    def append_child(self, child):
+        self._children = self._children or list()
+        self._children.append(child)
+
     @conditional_property(REF_ANNOTATION)
     def cve_ref(self):
         return self.inner_element.attrib[self.CVE_REF]
@@ -631,6 +650,22 @@ class Tier(EafElement):
         if self._children is None:
             raise ValueError(f'The parent tier has not been loaded, tell lab technician.')
         return self._children
+
+    @property
+    def children_assigned(self):
+        return self._children is not None
+
+    def mark_as_childless(self):
+        if self._children is not None:
+            if len(self._children) > 0:
+                raise ValueError(f'Can\'t mark tier {self.id} as childless because it has children.')
+            else:
+                raise ValueError(f'Tier {self.id} has already been marked as childless.')
+        self._children = []
+
+    def append_child(self, child):
+        self._children = self._children or list()
+        self._children.append(child)
 
     @property
     def participant(self):
@@ -985,11 +1020,33 @@ class EafTree(XMLTree):
                             for tier in self.tiers.values()
                             for id_, annotation in tier.annotations.items()}
 
-        # TODO: connect parents and children
+        self.assign_children()
 
     def _parse_elements(self, element_class, *args, **kwargs):
         elements = [element_class(element, *args, **kwargs) for element in self.find_elements(element_class.TAG)]
         return {element.id: element for element in elements}
+
+    def assign_children(self):
+        """
+        Assigns children to tiers and annotations. For elements that haven't been assigned a single child at the end,
+        changes `.
+        :return:
+        """
+        for tier in self.tiers.values():
+            if tier.parent_ref is not None:
+                tier.parent.append_child(tier)
+
+        for tier in self.tiers.values():
+            if tier.children_assigned is False:
+                tier.mark_as_childless()
+
+        for annotation in self.annotations.values():
+            if annotation.annotation_type == Annotation.REF_ANNOTATION:
+                annotation.parent.append_child(annotation)
+
+        for annotation in self.annotations.values():
+            if annotation.children_assigned is False:
+                annotation.mark_as_childless()
 
 
 def path_to_tree(path):
