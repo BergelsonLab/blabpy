@@ -4,7 +4,8 @@ import xml
 import pandas as pd
 import pytest
 
-from blabpy.eaf import EafPlus, EafTree
+from blabpy.eaf import EafPlus
+from blabpy.eaf.eaf_tree import EafTree
 from blabpy.vihi.intervals.templates import basic_00_07 as sample_etf_path
 from blabpy.vihi.paths import get_eaf_path
 
