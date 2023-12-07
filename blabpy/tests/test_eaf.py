@@ -74,6 +74,10 @@ class TestEafTree:
         EafTree.from_path(sample_etf_path)
 
     @pytest.fixture(scope='module')
+    def sample_etf_tree(self):
+        return EafTree.from_path(sample_etf_path)
+
+    @pytest.fixture(scope='module')
     def sample_eaf_tree(self, eaf_path):
         # TODO: remove validate_cv_entries=False once the VIHI files are fixed and we find a way to not copy values.
         return EafTree.from_path(eaf_path, validate_cv_entries=False)
@@ -92,13 +96,13 @@ class TestEafTree:
     def test_to_eaf(self, sample_eaf_tree):
         self.test_to_file(sample_eaf_tree)
 
-    def test_find_element(self, sample_eaf_tree):
-        first_ling_type = sample_eaf_tree.find_element('LINGUISTIC_TYPE')
-        assert type(first_ling_type) == xml.etree.ElementTree.Element
+    def test_find_element(self, sample_etf_tree):
+        first_ling_type = sample_etf_tree.find_element('LINGUISTIC_TYPE')
+        assert isinstance(first_ling_type, xml.etree.ElementTree.Element)
 
-    def test_find_elements(self, sample_eaf_tree):
-        ling_types = sample_eaf_tree.find_elements('LINGUISTIC_TYPE')
-        assert type(ling_types) == list
+    def test_find_elements(self, sample_etf_tree):
+        ling_types = sample_etf_tree.find_elements('LINGUISTIC_TYPE')
+        assert isinstance(ling_types, list)
         assert len(ling_types) == 5
 
     def test_find_single_element(self, sample_eaf_tree):
