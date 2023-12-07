@@ -461,7 +461,6 @@ class Annotation(EafElement):
         self._eaf_tree = eaf_tree
         self.tier = tier
         self.validate()
-        self._parent = None
         self._children = None
 
     @property
@@ -505,9 +504,7 @@ class Annotation(EafElement):
 
     @conditional_property(REF_ANNOTATION)
     def parent(self):
-        if self.annotation_ref is not None and self._parent is None:
-            raise ValueError(f'The parent tier has not been assigned, tell lab technician.')
-        return self._parent
+        return self.eaf_tree.annotations[self.annotation_ref]
 
     @conditional_property(REF_ANNOTATION)
     def children(self):
@@ -604,7 +601,6 @@ class Tier(EafElement):
         annotations = [Annotation(annotation_element, eaf_tree=eaf_tree, tier=self)
                        for annotation_element in tier_element]
         self.annotations = {annotation.id: annotation for annotation in annotations}
-        self._parent = None
         self._children = None
 
     @property
@@ -625,9 +621,9 @@ class Tier(EafElement):
 
     @property
     def parent(self):
-        if self.parent_ref is not None and self._parent is None:
-            raise ValueError(f'The parent tier has not been assigned, tell lab technician.')
-        return self._parent
+        if self.parent_ref is None:
+            raise ValueError(f'Tier {self.id} doesn\'t have a parent.')
+        return self.eaf_tree.tiers[self.parent_ref]
 
     @property
     def children(self):
