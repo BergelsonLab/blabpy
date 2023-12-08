@@ -17,8 +17,8 @@ from ..its import Its, ItsNoTimeZoneInfo
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path
 from ..utils import df_to_list_of_tuples
 from ..vtc import read_rttm, split_rttm
-from ..eaf import EafPlus, eaf_to_tree, get_annotation_values, find_child_annotation_ids, get_annotations_with_parents, \
-    find_single_element, tree_to_eaf
+from ..eaf.eaf_utils import tree_to_eaf, eaf_to_tree
+from ..eaf import EafPlus
 
 
 def gather_recordings(full_recording_id, forced_timezone=None):

@@ -1,3 +1,18 @@
+"""
+Module with the EafTree classes that represent EafFile contents as an xml.etree.ElementTree.ElementTree object with
+convenient access to all the data. As much as possible, all the data is stored in the ElementTree object itself, so that
+that object always represent the current state of data and can be written to disk at any time. Avoiding moving data from
+xml representation to internal representation and then recreating xml representation when writing to disk as is done in
+pympi.Eaf (and EafPlus) makes it easier to avoid inconsistencies and makes diffs between the input and the output .eaf
+files to the minimum.
+
+TODO:
+[ ] Add superclasses/mixins:
+    [ ] Add a superclass for Annotation and Tier - smth like EafElementWithRelations.
+    [ ] Add a superclass for Annotation and ControlledVocabularyEntry - smth like EafElementWithInnerElements
+[ ] Do not duplicate functionality from etree_utils, call those functions instead.
+"""
+
 import functools
 from io import StringIO
 from pathlib import Path
@@ -5,7 +20,7 @@ from xml.etree import ElementTree as element_tree
 
 import requests
 
-from blabpy.eaf import element_to_string, _make_find_xpath
+from blabpy.eaf.etree_utils import element_to_string, _make_find_xpath
 
 
 class EafElement(object):

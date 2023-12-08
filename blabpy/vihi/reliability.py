@@ -6,8 +6,8 @@ from xml.etree.ElementTree import ElementTree
 
 import numpy as np
 
-from blabpy.eaf import EafPlus, get_annotation_values, get_annotations_with_parents, find_child_annotation_ids, \
-    find_single_element
+from blabpy.eaf.etree_utils import find_single_element
+from blabpy.eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
 
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
 
