@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.0] - 2023-12-08
+
+### Added
+
+- `blabpy.eaf.eaf_tree.EafTree` class that allows to work with EAF files as XML trees.
+  Easy to navigate that tree because elements are interconnected respecting for the XML and ACLEW hierarchies.
+  Editing is controlled so that all changes propagate to all the necessary places in the tree.
+  This is great for those of us on the more neurotic side of the spectrum.
+
 ## [0.20.1] - 2023-11-30
 
 ### Fixed
