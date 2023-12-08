@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.21.1] - 2023-12-08
+
+### Fixed
+
+- `blabpy.eaf` is usable again, after removing circular imports introduced by refactoring it in the previous version.
+
 ## [0.21.0] - 2023-12-08
 
 ### Added
