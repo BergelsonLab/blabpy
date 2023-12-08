@@ -2,7 +2,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from blabpy.eaf import EafPlus, EafInconsistencyError
+from blabpy.eaf import EafPlus
 from blabpy.utils import concatenate_dataframes
 
 
