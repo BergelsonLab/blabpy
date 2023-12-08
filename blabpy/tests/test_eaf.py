@@ -106,14 +106,14 @@ class TestEafTree:
         assert isinstance(ling_types, list)
         assert len(ling_types) == 5
 
-    def test_find_single_element(self, sample_eaf_tree):
-        sample_eaf_tree.find_single_element('EXTERNAL_REF')
+    def test_find_single_element(self, sample_etf_tree):
+        sample_etf_tree.find_single_element('EXTERNAL_REF')
         # Test that an error is raised if there is more than one element
         with pytest.raises(ValueError):
-            sample_eaf_tree.find_single_element('LINGUISTIC_TYPE')
+            sample_etf_tree.find_single_element('LINGUISTIC_TYPE')
         # Test that an error is raised if there are no elements
         with pytest.raises(ValueError):
-            sample_eaf_tree.find_single_element('ANNOTATION')
+            sample_etf_tree.find_single_element('ANNOTATION')
 
     def test_annotation_gather_descendants(self, sample_eaf_tree):
         annotation = next(iter(sample_eaf_tree.annotations.values()))
