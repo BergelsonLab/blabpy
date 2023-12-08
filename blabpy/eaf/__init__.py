@@ -14,11 +14,13 @@ Glossary:
 - *Daughter* vs. *parent* annotations: Tiers are organized in a hierachy
 
 TODO:
+[ ] Add superclasses/mixins:
+    [ ] Add a superclass for Annotation and Tier - smth like EafElementWithRelations.
+    [ ] Add a superclass for Annotation and ControlledVocabularyEntry - smth like EafElementWithInnerElements
 [ ] Refactor add_* functions to use a single add_element function.
 [ ] Currently, many attributes are implicitly hard-coded via `attributes=dict(ATTRIBUTE=value)`. Switch to using
     `attributes={ATTRIBUTE: value}` after defining corresponding constants (ATTRIBUTE = 'ATTRIBUTE' in this case).
 """
-
 from io import StringIO
 from pathlib import Path
 from xml.etree import ElementTree as element_tree
@@ -28,24 +30,9 @@ import pandas as pd
 import requests
 from pympi import Eaf
 
+from .eaf_tree import Tier, LinguisticType, ControlledVocabulary
+
 from blabpy.utils import concatenate_dataframes
-
-# Element names
-EXTERNAL_REF = 'EXTERNAL_REF'
-LINGUISTIC_TYPE = 'LINGUISTIC_TYPE'
-CONTROLLED_VOCABULARY = 'CONTROLLED_VOCABULARY'
-TIER = 'TIER'
-
-# Property names
-
-## Linguistic type properties
-CONTROLLED_VOCABULARY_REF = 'CONTROLLED_VOCABULARY_REF'
-CONSTRAINTS = 'CONSTRAINTS'
-## External reference properties
-EXT_REF = 'EXT_REF'
-EXT_REF_ID = 'EXT_REF_ID'
-## Tier properties
-PARENT_REF = 'PARENT_REF'
 
 # Property values
 SYMBOLIC_ASSOCIATION = "Symbolic_Association"
@@ -626,13 +613,13 @@ def add_linguistic_type(eaf_tree, ling_type_id, time_alignable, constraints, cv_
                       LINGUISTIC_TYPE_ID=ling_type_id,
                       TIME_ALIGNABLE=time_alignable)
     if constraints is None:
-        del attributes[CONSTRAINTS]
+        del attributes[LinguisticType.CONSTRAINTS]
     if cv_id is None:
-        del attributes[CONTROLLED_VOCABULARY_REF]
-    element = Element(LINGUISTIC_TYPE, attrib=attributes)
+        del attributes[LinguisticType.CONTROLLED_VOCABULARY_REF]
+    element = Element(LinguisticType.TAG, attrib=attributes)
 
     # Avoid adding the same linguistic type twice
-    ling_type_in_eaf = find_element(eaf_tree, LINGUISTIC_TYPE, LINGUISTIC_TYPE_ID=ling_type_id)
+    ling_type_in_eaf = find_element(eaf_tree, LinguisticType.TAG, LINGUISTIC_TYPE_ID=ling_type_id)
     if ling_type_in_eaf is not None:
         if not exist_identical_ok:
             msg = f'Trying to add a "{ling_type_id}" linguistic type but it is already present.'
@@ -669,12 +656,12 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
     <CONTROLLED_VOCABULARY CV_ID="xds" EXT_REF="BLab"></CONTROLLED_VOCABULARY>
     """
     # Avoid adding the same CV twice
-    cv_in_eaf = find_element(eaf_tree, CONTROLLED_VOCABULARY, CV_ID=cv_id)
+    cv_in_eaf = find_element(eaf_tree, ControlledVocabulary.TAG, CV_ID=cv_id)
 
     if cv_in_eaf is not None:
         if not exist_identical_ok:
             raise CvAlreadyPresentError(f'Trying to add a "{cv_id}" CV but it is already present.')
-        ext_ref_in_eaf = cv_in_eaf.get(EXT_REF)
+        ext_ref_in_eaf = cv_in_eaf.get(ControlledVocabulary.EXT_REF)
         if ext_ref_in_eaf == ext_ref:
             return
         else:
@@ -685,7 +672,7 @@ def add_cv_and_linguistic_type(eaf_tree, cv_id, ext_ref, ling_type_id, time_alig
                         constraints=constraints, cv_id=cv_id, exist_identical_ok=False)
 
     cv_attributes = dict(CV_ID=cv_id, EXT_REF=ext_ref)
-    cv_element = Element(CONTROLLED_VOCABULARY, attrib=cv_attributes)
+    cv_element = Element(ControlledVocabulary.TAG, attrib=cv_attributes)
     insert_after_last(eaf_tree, cv_element)
 
 
@@ -703,11 +690,11 @@ def add_tier(eaf_tree, ling_type_ref, tier_id, parent_ref, exist_identical_ok=Fa
     # Create the element
     attributes = dict(LINGUISTIC_TYPE_REF=ling_type_ref, TIER_ID=tier_id)
     if parent_ref is not None:
-        attributes[PARENT_REF] = parent_ref
-    element = Element(TIER, attrib=attributes)
+        attributes[Tier.PARENT_REF] = parent_ref
+    element = Element(Tier.TAG, attrib=attributes)
     
     # Avoid adding the same tier twice
-    tier_in_eaf = find_element(eaf_tree, TIER, TIER_ID=tier_id)
+    tier_in_eaf = find_element(eaf_tree, Tier.TAG, TIER_ID=tier_id)
     if tier_in_eaf is not None:
         if not exist_identical_ok:
             msg = f'Trying to add a "{tier_id}" tier but it is already present.'
