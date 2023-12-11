@@ -34,15 +34,67 @@ def trust_folder(folder: Path):
     global_config.add_value('safe', 'directory', posix_path)
 
 
-class TqdmGitProgress(RemoteProgress):
-    def __init__(self):
-        super().__init__()
-        self.pbar = tqdm()
+class TqdmRemoteProgress(RemoteProgress):
+    """
+    A tqdm progress bar for GitPython operations.
 
-    def update(self, op_code, cur_count, max_count=None, message=''):
-        self.pbar.total = max_count
-        self.pbar.n = cur_count
-        self.pbar.refresh()
+    Note: adapted from https://stackoverflow.com/a/71285627
+    """
+    OP_CODES = [
+        "BEGIN",
+        "CHECKING_OUT",
+        "COMPRESSING",
+        "COUNTING",
+        "END",
+        "FINDING_SOURCES",
+        "RECEIVING",
+        "RESOLVING",
+        "WRITING",
+    ]
+    OP_CODE_MAP = {
+        getattr(RemoteProgress, _op_code): _op_code for _op_code in OP_CODES
+    }
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.progress_bar = None
+        self.curr_op = None
+
+    @classmethod
+    def get_curr_op(cls, op_code: int) -> str:
+        """Get OP name from OP code."""
+        # Extract the operation code from op_code
+        op_code_masked = op_code & RemoteProgress.OP_MASK
+        return cls.OP_CODE_MAP.get(op_code_masked, "?").title()
+
+    def update(
+        self,
+        op_code: int,
+        cur_count: str | float,
+        max_count: str | float | None = None,
+        message: str | None = "",
+    ) -> None:
+        cur_count = float(cur_count)
+        max_count = float(max_count)
+
+        # Start new tqdm bar on each BEGIN-flag
+        if op_code & self.BEGIN:
+            self.curr_op = self.get_curr_op(op_code)
+            self.progress_bar = tqdm(total=100, desc=f"{self.curr_op:12}", unit="%")
+
+        # Calculate the percentage
+        if max_count > 0:
+            percentage = int((cur_count / max_count) * 100)
+        else:
+            percentage = 0
+
+        # Update the progress bar
+        self.progress_bar.n = percentage
+        self.progress_bar.set_postfix_str(f"{percentage}% {message}")
+
+        # End progress monitoring on each END-flag, otherwise the last bar will be stuck at the last reported percentage
+        if op_code & RemoteProgress.END:
+            self.progress_bar.close()
 
 
 def sparse_clone(remote_uri, folder_to_clone_into,
@@ -61,9 +113,10 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     :param remote_uri: URL of a cloud-based repo, e.g., on GitHub, or a path to the folder with the repo.
     :param folder_to_clone_into: Folder to clone into. If exists, must be empty.
     :param new_branch_name: Name of the branch to check out. If none, the name of the folder_to_clone_into is used.
+    :param remote_name: Name of the remote to add to the repo. Defaults to 'origin'.
+    :param source_branch: Name of the branch to fetch. Defaults to 'main'.
     # TODO: allow to checkout multiple folders
     :param checked_out_folder: Which folder to check out. That is the "sparse" part.
-    :param source: The repo ref to branch from, defaults to "main".
     :param mark_folder_as_safe: In case folder_to_clone_into is owned by someone other than the current user, should
     this folder be marked as 'safe.directory'? Potentially unsafe, so defaults to False.
     :param depth: How many commits to fetch, defaults to 1.
@@ -71,7 +124,7 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     :return: A git.Repo object.
     """
     # TODO: Use a temporary folder and move/rename it to folder_to_clone_into if successful. This way, if the function
-    #  fails, the folder_to_clone_into is not left in a half-finished state, occupuying the path we need for the next
+    #  fails, the folder_to_clone_into is not left in a half-finished state, occupying the path we need for the next
     #  attempt.
 
     # Make sure that the folder to clone to, exists and is empty.
@@ -106,7 +159,7 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     # git switch -c "new_branch_name" "$remote_name"/"$main_branch" --no-track
     # git push -u "$remote_name" "new_branch_name"
     try:
-        progress = TqdmGitProgress() if show_fetch_progress else None
+        progress = TqdmRemoteProgress() if show_fetch_progress else None
         remote.fetch(source_branch, depth=depth, progress=progress)
     except GitCommandError as e:
         raise ValueError(f'Could not find branch `{source_branch}` on {remote_uri}.\n{e}')

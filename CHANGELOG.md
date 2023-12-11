@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.22.0] - 2023-12-11
+
+### Improved
+
+The progress bar for git operation now creates a new bar for each stage of the operation instead of confusingly resetting several times.
+
+### Fixed
+
+Updated the docstring of `blabpy.git_utils.sparse_clone`: added missing parameters, fixed typos.
+
 ## [0.21.1] - 2023-12-08
 
 ### Fixed
