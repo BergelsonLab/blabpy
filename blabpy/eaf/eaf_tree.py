@@ -89,6 +89,13 @@ class Annotation(EafElement):
 
     @value.setter
     def value(self, value):
+        self.value_element.text = value
+
+    def clear_value(self):
+        self.value_element.text = ''
+
+    @value.setter
+    def value(self, value):
         if self.tier.uses_cv:
             cv = self.tier.cv
             cve_ref = cv.get_id_of_value(value)
@@ -166,6 +173,10 @@ class Annotation(EafElement):
     @conditional_property(REF_ANNOTATION)
     def cve_ref(self):
         return self.inner_element.attrib[self.CVE_REF]
+
+    @cve_ref.setter
+    def cve_ref(self, cve_ref):
+        self.inner_element.attrib[self.CVE_REF] = cve_ref
 
     def validate(self):
         """

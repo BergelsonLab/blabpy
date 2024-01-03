@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0]
+
+### Added
+
+- Setters for properties `value` and `cve_ref` of class `Annotation` (in `blabpy.eaf.eaf_tree`) setters that update the XML tree accordingly.
+- A convenience method `Annotation.clear_value()` that sets the annotation value to an empty string.
+
 ## [0.22.0] - 2023-12-11
 
 ### Improved
