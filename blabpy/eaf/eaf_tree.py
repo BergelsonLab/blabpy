@@ -20,7 +20,7 @@ from xml.etree import ElementTree as element_tree
 
 import requests
 
-from blabpy.eaf.etree_utils import element_to_string, _make_find_xpath
+from blabpy.eaf.etree_utils import element_to_string, _make_find_xpath, no_text_in_element
 
 
 class EafElement(object):
@@ -41,8 +41,8 @@ class EafElement(object):
         return self.element.attrib[self.ID]
 
     def _validate_no_text(self):
-        text = self.element.text
-        if text and not text.isspace():
+        if not no_text_in_element(self.element):
+            text = self.element.text
             raise ValueError(f'{self.TAG} element must not have text, had "{text.strip()}" instead.')
 
     def _validate_no_attributes(self):
@@ -93,6 +93,9 @@ class Annotation(EafElement):
 
     def clear_value(self):
         self.value_element.text = ''
+
+    def value_not_set(self):
+        return no_text_in_element(self.value_element)
 
     @value.setter
     def value(self, value):
@@ -238,7 +241,7 @@ class Annotation(EafElement):
         # For tiers with controlled vocabularies, check that CVE_REF and annotation value are both present and
         # consistent or both absent.
         if self.eaf_tree.validate_cv_entries and self.annotation_type == self.REF_ANNOTATION and self.tier.uses_cv:
-            not_empty = self.value != ''
+            not_empty = not self.value_not_set()
             cve_ref = self.inner_element.attrib.get(self.CVE_REF)
             has_cve_ref = cve_ref is not None
             if has_cve_ref != not_empty:

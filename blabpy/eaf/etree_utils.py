@@ -173,3 +173,8 @@ def get_only_child(element):
     if len(element) != 1:
         raise ValueError(f'Expected one child, got {len(element)}')
     return element[0]
+
+
+def no_text_in_element(element):
+    text = element.text
+    return (text is None) or (text == '') or text.isspace()

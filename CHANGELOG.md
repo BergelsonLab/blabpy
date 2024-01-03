@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.23.0]
+## [0.23.0] - 2023-01-03
+
+### Fixed
+
+- `blabpy.eaf.eaf_tree` now correctly treats annotations with "", None, and all-whitespace value as empty.
+
+## [0.23.0] - 2023-01-03
 
 ### Added
 
