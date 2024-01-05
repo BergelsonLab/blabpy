@@ -27,7 +27,7 @@ class EafElement(object):
     """
     Base class for all EAF elements.
     TODO:
-    - move __init__(), element(), id(), and validate() here,
+    - move __init__() and validate() here,
     - define mandatory constants (TAG, ID, etc.),
     - define MandatoryAttribute, ConditionalAttribute, and OptionalAttribute classes,
     - move conditional_property() here,
@@ -158,6 +158,20 @@ class Annotation(EafElement):
             else:
                 raise ValueError(f'Annotation {self.id} has already been marked as childless.')
         self._children = []
+
+    @property
+    def onset(self):
+        if self.annotation_type == self.ALIGNABLE_ANNOTATION:
+            return self.eaf_tree.time_slots[self.time_slot_ref1].time_value
+        else:
+            return self.parent.onset
+
+    @property
+    def offset(self):
+        if self.annotation_type == self.ALIGNABLE_ANNOTATION:
+            return self.eaf_tree.time_slots[self.time_slot_ref2].time_value
+        else:
+            return self.parent.offset
 
     def append_child(self, child):
         self._children = self._children or list()
@@ -660,6 +674,23 @@ class ControlledVocabularyResource(XMLTree):
         return self._language
 
 
+class TimeSlot(EafElement):
+    """
+    <TIME_ORDER>
+        <TIME_SLOT TIME_SLOT_ID="ts1" TIME_VALUE="3060000"></TIME_SLOT>
+    """
+    TAG = 'TIME_SLOT'
+    ID = 'TIME_SLOT_ID'
+    TIME_VALUE = 'TIME_VALUE'
+
+    def __init__(self, time_slot_element, eaf_tree):
+        self._element = time_slot_element
+
+    @property
+    def time_value(self):
+        return self.element.attrib[self.TIME_VALUE]
+
+
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
     @classmethod
@@ -677,6 +708,7 @@ class EafTree(XMLTree):
         self.annotations = {id_: annotation
                             for tier in self.tiers.values()
                             for id_, annotation in tier.annotations.items()}
+        self.time_slots = self._parse_elements(TimeSlot, eaf_tree=self)
 
         self.assign_children()
 

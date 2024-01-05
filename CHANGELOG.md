@@ -1,12 +1,18 @@
 # Changelog
 
-## [0.23.0] - 2023-01-03
+## [0.24.0] - 2024-01-03
+
+### Added
+
+- `EafTree` now parses timestamps which are accessible via properties `onset` and `offset` of `Annotation`s.
+
+## [0.23.1] - 2024-01-03
 
 ### Fixed
 
 - `blabpy.eaf.eaf_tree` now correctly treats annotations with "", None, and all-whitespace value as empty.
 
-## [0.23.0] - 2023-01-03
+## [0.23.0] - 2024-01-03
 
 ### Added
 
