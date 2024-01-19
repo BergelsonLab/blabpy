@@ -140,38 +140,40 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     if mark_folder_as_safe:
         trust_folder(folder_to_clone_into)
 
-    # Initialize repo and add $remote_uri as the remote
+    # Initialize repo
     # git init
-    # git remote add "$remote_name" "$remote_uri"
-    repo = Repo.init(folder_to_clone_into)
-    remote = repo.create_remote(remote_name, remote_uri)
+    # Note: context manager is used so that repo is closed automatically, otherwise Windows doesn't release some files.
+    with Repo.init(folder_to_clone_into) as repo:
+        # Set up the remote
+        # git remote add "$remote_name" "$remote_uri"
+        remote = repo.create_remote(remote_name, remote_uri)
 
-    # Set up to only check out the checked_out_folder
-    # git config core.sparseCheckout true
-    # git sparse-checkout init
-    # git sparse-checkout set "$checked_out_folder"
-    repo.git.config('core.sparsecheckout', 'true')
-    repo.git.execute(['git', 'sparse-checkout', 'init'])
-    repo.git.execute(['git', 'sparse-checkout', 'set', checked_out_folder.as_posix()])
+        # Set up to only check out the checked_out_folder
+        # git config core.sparseCheckout true
+        # git sparse-checkout init
+        # git sparse-checkout set "$checked_out_folder"
+        repo.git.config('core.sparsecheckout', 'true')
+        repo.git.execute(['git', 'sparse-checkout', 'init'])
+        repo.git.execute(['git', 'sparse-checkout', 'set', checked_out_folder.as_posix()])
 
-    # Download the last commit and make a new branch pointing to it
-    # git fetch --depth=1 "$remote_name" "$main_branch"
-    # git switch -c "new_branch_name" "$remote_name"/"$main_branch" --no-track
-    # git push -u "$remote_name" "new_branch_name"
-    try:
-        progress = TqdmRemoteProgress() if show_fetch_progress else None
-        remote.fetch(source_branch, depth=depth, progress=progress)
-    except GitCommandError as e:
-        raise ValueError(f'Could not find branch `{source_branch}` on {remote_uri}.\n{e}')
-    new_branch_name = new_branch_name or folder_to_clone_into.name
-    new_branch = repo.create_head(new_branch_name, f'{remote_name}/{source_branch}')
-    new_branch.checkout()
-    remote.push()
+        # Download the last commit and make a new branch pointing to it
+        # git fetch --depth=1 "$remote_name" "$main_branch"
+        # git switch -c "new_branch_name" "$remote_name"/"$main_branch" --no-track
+        # git push -u "$remote_name" "new_branch_name"
+        try:
+            progress = TqdmRemoteProgress() if show_fetch_progress else None
+            remote.fetch(source_branch, depth=depth, progress=progress)
+        except GitCommandError as e:
+            raise ValueError(f'Could not find branch `{source_branch}` on {remote_uri}.\n{e}')
+        new_branch_name = new_branch_name or folder_to_clone_into.name
+        new_branch = repo.create_head(new_branch_name, f'{remote_name}/{source_branch}')
+        new_branch.checkout()
+        remote.push()
 
     return repo
 
 
 def set_user_name_and_email_for_repo(repo_path: Path, user_name: str, user_email: str):
-    repo = Repo(repo_path)
-    repo.config_writer().set_value("user", "name", user_name).release()
-    repo.config_writer().set_value("user", "email", user_email).release()
+    with Repo(repo_path) as repo:
+        repo.config_writer().set_value("user", "name", user_name).release()
+        repo.config_writer().set_value("user", "email", user_email).release()
