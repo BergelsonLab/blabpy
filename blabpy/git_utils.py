@@ -168,7 +168,7 @@ def sparse_clone(remote_uri, folder_to_clone_into,
         new_branch_name = new_branch_name or folder_to_clone_into.name
         new_branch = repo.create_head(new_branch_name, f'{remote_name}/{source_branch}')
         new_branch.checkout()
-        remote.push()
+        remote.push(f'{new_branch_name}:{new_branch_name}')
 
     return repo
 
