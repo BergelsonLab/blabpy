@@ -8,6 +8,7 @@ import numpy as np
 
 from blabpy.eaf.etree_utils import find_single_element
 from blabpy.eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
+from blabpy.eaf import EafPlus
 
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
 
