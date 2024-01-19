@@ -152,7 +152,7 @@ def sparse_clone(remote_uri, folder_to_clone_into,
     # git sparse-checkout set "$checked_out_folder"
     repo.git.config('core.sparsecheckout', 'true')
     repo.git.execute(['git', 'sparse-checkout', 'init'])
-    repo.git.execute(['git', 'sparse-checkout', 'set', str(checked_out_folder)])
+    repo.git.execute(['git', 'sparse-checkout', 'set', checked_out_folder.as_posix()])
 
     # Download the last commit and make a new branch pointing to it
     # git fetch --depth=1 "$remote_name" "$main_branch"
