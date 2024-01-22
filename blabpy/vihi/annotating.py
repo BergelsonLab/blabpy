@@ -32,7 +32,7 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name, annotat
     temp_dir_root = get_lena_path() / '.tmp'
     temp_dir_root.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir=temp_dir_root) as temp_dir:
-        _ = sparse_clone(
+        repo = sparse_clone(
             remote_uri=pn_opus_repo_path,
             folder_to_clone_into=temp_dir,
             checked_out_folder=recording_folder_in_repo,
@@ -42,8 +42,14 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name, annotat
             mark_folder_as_safe=True,
             depth=1)
 
-        # Only if the cloning was successful, move the temporary directory to the target location.
-        print('Clone finished. Moving files to "annotations-in-progress".')
+        print('Clone finished successfully.')
+
+        # Set up EAF normalization
+        print('Adding finishing touches to the clone.')
+        # The reason for ".git/.." is that at some point I thought it was a good idea because it
+        repo.git.config('filter.eaf-normalize.clean', '.git/../eaf-normalize.py')
+
+        print('Moving the cloned folder to the target location.')
         shutil.move(temp_dir, individual_folder)
 
     print('Setting user name and email for commits of your work.')
