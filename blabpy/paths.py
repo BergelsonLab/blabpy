@@ -25,6 +25,8 @@ def _get_pn_opus_path_error(checked_paths):
         f'\n  - {", ".join(checked_paths)}\n'
         f'\n  If it is mounted elsewhere, either remount it or set an'
         f'\n  environment variable {PN_OPUS_PATH_ENV} to the mount location.'
+        f'\n  For example, if PN-OPUS is mounted to /Volumes/pn-opus, run'
+        f'\n  `export {PN_OPUS_PATH_ENV}=/Volumes/pn-opus` in your terminal.\n'
         '- Check that it has a special `.pn_opus` file in the root. If not,\n'
         'create it (the contents don\'t matter)'
     )
