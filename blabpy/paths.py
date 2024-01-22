@@ -50,7 +50,7 @@ def get_pn_opus_path():
     for str_path in str_paths:
         path = Path(str_path).expanduser()
         if path.exists() and (path / '.pn_opus').exists():
-            return path
+            return path.absolute()
     else:
         raise _get_pn_opus_path_error(checked_paths=str_paths)
 
