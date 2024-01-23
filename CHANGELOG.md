@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1] - 2024-01-23
+
+### Fixed
+
+- I messed up 0.25.0 and had to force-push the updated version to GitHub and delete the incorrect version from PyPI.
+  PyPI doesn't allow re-uploading the same version, so I had to bump the version number.
+
 ## [0.25.0] - 2024-01-23
 
 ### Fixed
