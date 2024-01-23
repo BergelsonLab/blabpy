@@ -24,7 +24,10 @@ def trust_folder(folder: Path):
 
     # The folder might have already been added to the list of trusted folders in the global git config.
     global_config = GitConfigParser(file_or_files=config.get_config_path('global'), read_only=False)
-    safe_directories = global_config.get_values('safe', 'directory')
+    try:
+        safe_directories = global_config.get_values('safe', 'directory')
+    except KeyError:
+        safe_directories = list()
     for safe_directory in safe_directories:
         if folder.resolve() == Path(safe_directory):
             return
