@@ -80,7 +80,8 @@ class TqdmRemoteProgress(RemoteProgress):
         # Start new tqdm bar on each BEGIN-flag
         if op_code & self.BEGIN:
             self.curr_op = self.get_curr_op(op_code)
-            self.progress_bar = tqdm(total=100, desc=f"{self.curr_op:12}", unit="%")
+            self.progress_bar = tqdm(total=100, desc=f"{self.curr_op:12}", unit="%",
+                                     bar_format='{l_bar}{bar:12}{r_bar}')
 
         # Calculate the percentage
         if max_count > 0:
