@@ -34,12 +34,10 @@ def start(name, recording_id, email):
     # Confirm that we are starting from scratch.
     click.clear()
     click.echo(f'Hello, {name}!')
-    click.echo('\nOnly setting up annotation files before you start annotating is supported at this time.')
-    click.confirm(f'Is this the first time you are going to annotate {recording_id}?', abort=True)
 
     # Checkout the recording folder from PN-OPUS.
-    click.echo(f'Checking out {recording_id} for {name} to annotate (this may take a few minutes) ...')
+    click.echo(f'Making a copy of {recording_id} for {name} to annotate (this may take a few minutes) ...')
     annotation_folder = checkout_recording_for_annotation(full_recording_id=recording_id, annotator_name=name,
                                                           annotator_email=email)
-    click.echo(f'Annotation files have been checked out into the following folder:'
+    click.echo(f'Annotation files have been copied into the following folder:'
                f'\n{annotation_folder}')

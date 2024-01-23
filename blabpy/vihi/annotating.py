@@ -42,17 +42,17 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name, annotat
             mark_folder_as_safe=True,
             depth=1)
 
-        print('Clone finished successfully.')
+        print('Copying to a temporary location finished successfully.')
 
         # Set up EAF normalization
-        print('Adding finishing touches to the clone.')
+        print('Adding finishing touches to the copy.')
         # The reason for ".git/.." is that at some point I thought it was a good idea because it
         repo.git.config('filter.eaf-normalize.clean', '.git/../eaf-normalize.py')
 
-        print('Moving the cloned folder to the target location.')
+        print('Moving the copied folder to the target location.')
         shutil.move(temp_dir, individual_folder)
 
-    print('Setting user name and email for commits of your work.')
+    print('Setting user name and email so that your committed changes are saved.')
     set_user_name_and_email_for_repo(repo_path=individual_folder, user_name=annotator_name, user_email=annotator_email)
 
     return individual_folder
