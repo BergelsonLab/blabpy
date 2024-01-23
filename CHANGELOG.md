@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.0] - 2024-01-23
+
+### Fixed
+
+- Parallel annotation is ready to start being used by RAs:
+  - Multiple bug fixes.
+  - Improved messages.
+
 ## [0.24.0] - 2024-01-03
 
 ### Added
