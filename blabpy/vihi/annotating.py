@@ -52,7 +52,7 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name, annotat
         print('Moving the copied folder to the target location.')
         shutil.move(temp_dir, individual_folder)
 
-    print('Setting user name and email so that your committed changes are saved.')
+    print('Setting user name and email so that your committed changes are signed.')
     set_user_name_and_email_for_repo(repo_path=individual_folder, user_name=annotator_name, user_email=annotator_email)
 
     return individual_folder
