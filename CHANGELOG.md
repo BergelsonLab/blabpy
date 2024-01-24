@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.2] - 2024-01-24
+
+### Fixed
+
+- For the purposes of testing the reliability of closed-set VIHI annotations, we now consider an interval as annotated only if it has at least one annotated segment that is fully inside the interval.
+  Before, intervals that contained one segment that started inside the interval but ended outside of it were considered annotated too and some of those got sample for the reliability testing.
+
 ## [0.25.1] - 2024-01-23
 
 ### Fixed

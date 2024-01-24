@@ -5,6 +5,7 @@ from copy import deepcopy
 from xml.etree.ElementTree import ElementTree
 
 import numpy as np
+import pandas as pd
 
 from blabpy.eaf.etree_utils import find_single_element
 from blabpy.eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
@@ -39,9 +40,18 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     if annotations_df.shape[0] == 0:
         raise NoAnnotationsError()
 
-    non_empty_intervals_df = intervals_df.loc[lambda df: df.code_num.isin(annotations_df.code_num)]
-    sampled_intervals_df = (non_empty_intervals_df
-                            .loc[lambda df: df.sampling_type.isin(SAMPLING_TYPES_TO_SAMPLE)]
+    # For the purposes of reliability testing, we will consider intervals to be non-empty if they contain at least one
+    # annotation that is completely within the bound of that interval.
+    non_empty_intervals = (
+        pd.merge(annotations_df, intervals_df, on='code_num', how='left', validate='many_to_one',
+                 suffixes=('', '_interval'))
+        .loc[lambda df: df.onset_interval.le(df.onset) & df.offset.le(df.offset_interval)]
+        .code_num.unique().tolist()
+     )
+
+    sampled_intervals_df = (intervals_df
+                            .loc[lambda df: df.sampling_type.isin(SAMPLING_TYPES_TO_SAMPLE)
+                                 & df.code_num.isin(non_empty_intervals)]
                             .groupby('sampling_type')
                             .sample(1, random_state=random_state))
 
