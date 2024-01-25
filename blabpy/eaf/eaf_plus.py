@@ -89,7 +89,7 @@ class EafPlus(Eaf):
             return pd.DataFrame.from_dict({
                 'annotation': annotations,
                 'annotation_id': daughter_ids,
-                'parent_annotation_id': parent_ids,})
+                'parent_annotation_id': parent_ids, })
         else:
             return pd.DataFrame(columns=['annotation', 'annotation_id', 'parent_annotation_id'])
 
@@ -157,11 +157,11 @@ class EafPlus(Eaf):
                     daughter_annotations,
                     how='left',
                     left_on='deepest_annotation_id',
-                    right_on='parent_annotation_id',)
+                    right_on='parent_annotation_id', )
                 .drop(columns=['deepest_annotation_id', 'parent_annotation_id'])
                 .rename(columns={f'annotation_id': 'daughter_annotation_id'})
                 .assign(**{'deepest_annotation_id': lambda df: df['daughter_annotation_id']})
-                )
+            )
 
             # Due to parallel daughter tier branches, we might need fewer iterations than there are daughter tiers. In
             # that case, we'll have NaNs in the deepest_annotation_id column. We'll remove the empty columns we've just
@@ -199,8 +199,8 @@ class EafPlus(Eaf):
                 # annotation ID so that parallel daughter annotations end up in the same row. To keep everything else
                 # intact, we'll set it those columns as index first.
                 .set_index(
-                        [c for c in annotations_df.columns.values if
-                         not (c.startswith('daughter_') and c.endswith(f'_{level}'))])
+                    [c for c in annotations_df.columns.values if
+                     not (c.startswith('daughter_') and c.endswith(f'_{level}'))])
                 # Pivot 'daughter_tier_id', 'daughter_annotation' using `parent_annotation_id` as row ID.
                 .set_index([f'daughter_tier_id_{level}'], append=True)
                 .unstack(level=-1)
@@ -283,7 +283,6 @@ class EafPlus(Eaf):
 
         return all_annotations_df.sort_values(by=['onset', 'offset', 'participant']).reset_index(drop=True)
 
-
     def get_intervals(self):
         """
         Find code, code_num, sampling_type, context tiers and put them into a dataframe.
@@ -354,6 +353,19 @@ class EafPlus(Eaf):
         assignment_by_offset = assign_timestamps_to_intervals(annotations.offset)
         assignment = assignment_by_onset.where(lambda s: s != '-1', other=assignment_by_offset)
 
+        # # There is an extra corner case: if an annotations start in an interval, ends outside of it, and this is the
+        # # only annotation in the interval, then it will be assigned to the interval by offset.
+        # # Note: the code below will find annotations that are the only ones with onset in a given interval, including
+        # # those with the offset in the same interval. That is OK, because reassigning them by the offset will have no
+        # # effect.
+        # corner_case_intervals = (
+        #     assignment_by_onset
+        #     .loc[lambda s: s != '-1']  # We don't want to reassign unassigned annotations
+        #     .value_counts()
+        #     .loc[lambda cnt: cnt == 1]
+        #     .index.to_list())
+        # assignment = assignment.where(lambda s: ~s.isin(corner_case_intervals), other=assignment_by_offset)
+        #
         # Finally, there can be placeholder rows with no onset or offset in annotations_df (e.g., placeholder empty
         # annotations for empty tiers). These currently have '-1' assigned, but we are going to replace them with
         # <NA>s to differentiate between annotations outside any interval and these placeholder ones.
