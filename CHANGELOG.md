@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.26.0]
+
+### Added
+
+- When EAF files are exported to pandas dataframes, we now differentiate between missing segments that get "NA" values in the output table and empty segmwents that get "".
+
+### Fixed
+
+- EAF export no longer breaks when an intermediary annotation segment is empty. For example, it is no longer a problem to have a non-empty CDS segment while its parent XDS segment is empty.
+
 ## [0.25.2] - 2024-01-24
 
 ### Fixed
