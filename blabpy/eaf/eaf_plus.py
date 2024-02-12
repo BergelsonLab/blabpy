@@ -127,10 +127,6 @@ class EafPlus(Eaf):
             keys=daughter_tier_ids,
             key_column_name='daughter_tier_id')
 
-        # Empty annotations ('') do not represent anything meaningful: they are just there to be filled by an annotator
-        # later.
-        daughter_annotations = daughter_annotations[daughter_annotations['annotation'] != '']
-
         # If there aren't any daughter annotations, we are done.
         if daughter_annotations.shape[0] == 0:
             return annotations_df
