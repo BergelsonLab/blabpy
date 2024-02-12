@@ -8,10 +8,10 @@
 
 ## Update repo after implementing a change
 
+- Merge branch into `main` (or do nothing if the change is a single commit done directly on `main`).
 - Edit version in `setup.py`.
 - Add new block in `CHANGELOG.md`.
 - Commit.
-- Merge branch into `main` (or do nothing if the change is a single commit done directly on `main`).
 - Push.
 - Tag and push:
     
