@@ -50,10 +50,13 @@ def find_eaf_paths(path, recursive=True):
 def extract_aclew_data(path, recursive=True, show_tqdm_pbar=False):
     """
     Extracts annotations from EAF files with ACLEW-style annotations. Returns two tables: annotations and intervals.
-    Annotations table has one row per participant-level annotation, all extra annotations (vcm, xds, etc.) are
-    in their own columns. Intervals table has one row per coding interval. Tables can be merged using the eaf_filename
+
+    - Annotations table has one row per participant-level annotation, all extra annotations (vcm, xds, etc.) are
+    in their own columns. A missing child-tier segment is represented as NA, an empty one - as an empty string.
+
+    - Intervals table has one row per coding interval. Tables can be merged using the eaf_filename
     and code_num columns.
-    column.
+
     :param path: path to a folder with EAF files or a single EAF file.
     :param recursive: If path is a folder, whether to search for EAF files recursively - in subfolders, subsubfolders,
     :param show_tqdm_pbar: Should we print a tqdm progress bar?
