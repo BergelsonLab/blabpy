@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.27.0]
+
+### Added
+
+When extracting annotations from EAF files, extract `is_silent` tier too.
+
 ## [0.26.0]
 
 ### Added

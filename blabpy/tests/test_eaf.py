@@ -46,6 +46,16 @@ class TestEafPlus:
         assert not intervals.empty
 
 
+def test_eaf_plus_get_intervals():
+    """
+    Before running this, clone vihi_lena into the "data" folder in the same folder as this test file:
+    git clone https://github.com/bergelsonlab/vihi_lena --depth 1
+    """
+    eaf_plus = EafPlus('data/vihi_lena/VI/VI_004/VI_004_415/VI_004_415.eaf')
+    intervals = eaf_plus.get_intervals()
+    assert intervals.shape == (35, 7)
+    assert intervals.columns.tolist() == ['code_num', 'sampling_type', 'is_silent', 'onset', 'offset', 'context_onset', 'context_offset']
+
 class TestEafTree:
     def test_from_path_to_template(self):
         EafTree.from_path(sample_etf_path)

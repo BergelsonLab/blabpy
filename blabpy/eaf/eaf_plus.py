@@ -43,9 +43,16 @@ class EafPlus(Eaf):
         :param tier_id:
         :return: list of values
         """
-        # Same logic as in get_time_intervals
-        aligned_annotations = self.tiers[tier_id][0]
-        values = [value for _, _, value, _ in aligned_annotations.values()]
+        if tier_id not in self.tiers:
+            return None
+
+        aligned_annotations, reference_annotations = self.tiers[tier_id][:2]
+        if aligned_annotations and reference_annotations:
+            raise ValueError('Both aligned and reference annotations are present in the tier.')
+        if aligned_annotations:
+            values = [value for _, _, value, _ in aligned_annotations.values()]
+        elif reference_annotations:
+            values = [value for _, value, _, _ in reference_annotations.values()]
 
         return values
 
@@ -279,14 +286,13 @@ class EafPlus(Eaf):
 
         return all_annotations_df.sort_values(by=['onset', 'offset', 'participant']).reset_index(drop=True)
 
-
     def get_intervals(self):
         """
         Find code, code_num, sampling_type, context tiers and put them into a dataframe.
         :return:
         """
         data = dict()
-        for extra_info_type in ('code_num', 'sampling_type'):
+        for extra_info_type in ('code_num', 'sampling_type', 'is_silent'):
             data[extra_info_type] = self.get_values(extra_info_type)
         data['onset'], data['offset'] = zip(*self.get_time_intervals('code'))
         data['context_onset'], data['context_offset'] = zip(*self.get_time_intervals('context'))
