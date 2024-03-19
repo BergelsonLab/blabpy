@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.28.0]
+
+### Added
+
+When extracting annotations from VIHI EAF files, extract high-volubility interval ranks used when they were selected from `selected_regions.csv` files.
+
 ## [0.27.0]
 
 ### Added
