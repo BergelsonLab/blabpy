@@ -16,7 +16,7 @@ from .reliability import prepare_eaf_for_reliability, NoAnnotationsError
 from ..its import Its, ItsNoTimeZoneInfo
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path, get_lena_annotations_path, \
     find_all_lena_eaf_paths
-from ..utils import df_to_list_of_tuples
+from ..utils import df_to_list_of_tuples, concatenate_dataframes
 from ..vtc import read_rttm, split_rttm
 from ..eaf.eaf_utils import tree_to_eaf, eaf_to_tree
 from ..eaf import EafPlus
@@ -228,5 +228,20 @@ def extract_aclew_data(lena_annotations_path=None, show_tqdm_pbar=False):
     # Remove excluded recordings
     annotations = annotations[annotations.eaf_filename.isin(eaf_filenames)]
     intervals = intervals[intervals.eaf_filename.isin(eaf_filenames)]
+
+    def read_selected_regions(csv_path):
+        df = pd.read_csv(csv_path, dtype={'code_num': 'string',
+                                          'rank': pd.Int64Dtype()})
+        return df[['code_num', 'rank']]
+
+    selected_regions_paths = [eaf_path.parent / 'selected_regions.csv' for eaf_path in eaf_paths]
+    selected_regions = concatenate_dataframes(
+        dataframes=list(map(read_selected_regions, selected_regions_paths)),
+        keys=list(map(lambda p: p.name, eaf_paths)),
+        key_column_name='eaf_filename')
+
+    intervals = pd.merge(intervals, selected_regions, on=['eaf_filename', 'code_num'],
+                         how='inner',
+                         validate='one_to_one')
 
     return annotations, intervals
