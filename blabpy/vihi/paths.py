@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 from ..paths import get_pn_opus_path
 
@@ -222,7 +223,7 @@ def get_eaf_path(population, subject_id, recording_id):
     return eaf_path
 
 
-def find_all_lena_recording_folders():
+def find_all_lena_recording_folders(lena_annotations_path=None, skip_excluded=False):
     """
     Find all LENA recording folders.
     :return: list of Path objects
@@ -231,13 +232,20 @@ def find_all_lena_recording_folders():
         match = re.match(regex, string)
         return match.group(1) if match else None
 
-    lena_annotations_path = get_lena_annotations_path()
+    if lena_annotations_path is not None:
+        lena_annotations_path = Path(lena_annotations_path)
+    else:
+        lena_annotations_path = get_lena_annotations_path()
+
     recordings = []
     for population in POPULATIONS:
         population_dir = lena_annotations_path / population
         for subject_dir in population_dir.iterdir():
             if not subject_dir.is_dir():
                 continue
+            if skip_excluded and subject_dir.name.endswith('_excl'):
+                continue
+
             subject_id = _extract_group(rf'{population}_(\d{{3}})', subject_dir.name)
             if subject_id:
                 for recording_dir in subject_dir.iterdir():
@@ -250,17 +258,24 @@ def find_all_lena_recording_folders():
     return recordings
 
 
-def find_all_lena_recording_ids():
+def find_all_lena_recording_ids(lena_annotations_path=None, skip_excluded=False):
     """
     Find all LENA recording folders and return a list of full recording ids.
+    See find_all_lena_recording_folders for the arguments.
     :return: list of strings
     """
-    return [path.name for path in find_all_lena_recording_folders()]
+    lena_recording_folders = find_all_lena_recording_folders(lena_annotations_path=lena_annotations_path,
+                                                             skip_excluded=skip_excluded)
+    return [folder.name for folder in lena_recording_folders]
 
 
-def find_all_lena_eaf_paths():
+def find_all_lena_eaf_paths(lena_annotations_path=None, skip_excluded=False):
     """
     Find all LENA .eaf files.
+    See find_all_lena_recording_folders for the arguments.
     :return: list of Path objects
     """
-    return [folder / f'{folder.name}.eaf' for folder in find_all_lena_recording_folders()]
+    lena_recording_folders = find_all_lena_recording_folders(lena_annotations_path=lena_annotations_path,
+                                                             skip_excluded=skip_excluded)
+    return [folder / f'{folder.name}.eaf'
+            for folder in lena_recording_folders]

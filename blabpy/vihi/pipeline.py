@@ -14,11 +14,13 @@ from .intervals.intervals import add_metric, make_intervals, add_annotation_inte
     select_best_intervals, _extract_interval_info, INTERVALS_FOR_ANNOTATION_COUNT, INTERVALS_EXTRA_COUNT
 from .reliability import prepare_eaf_for_reliability, NoAnnotationsError
 from ..its import Its, ItsNoTimeZoneInfo
-from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path
-from ..utils import df_to_list_of_tuples
+from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path, get_lena_annotations_path, \
+    find_all_lena_eaf_paths
+from ..utils import df_to_list_of_tuples, concatenate_dataframes
 from ..vtc import read_rttm, split_rttm
 from ..eaf.eaf_utils import tree_to_eaf, eaf_to_tree
 from ..eaf import EafPlus
+from ..pipeline import extract_aclew_data as extract_aclew_data_general
 
 
 def gather_recordings(full_recording_id, forced_timezone=None):
@@ -201,3 +203,45 @@ def create_reliability_test_file(eaf_path, output_dir=None):
         f.write(f'Blabpy version: {version("blabpy")}\n')
 
     return output_eaf_path, log_path
+
+
+def extract_aclew_data(lena_annotations_path=None, show_tqdm_pbar=False):
+    """
+    Same as blabpy.pipeline.extract_aclew_data, except the intervals dataframe includes additional information extracted
+    from selected_regions.csv files.
+    """
+    # Extract annotations and intervals from all EAFs
+    if lena_annotations_path is None:
+        lena_annotations_path = get_lena_annotations_path()
+    annotations, intervals = extract_aclew_data_general(
+        path=lena_annotations_path, recursive=True, show_tqdm_pbar=show_tqdm_pbar)
+
+    # Find all not excluded recordings
+    eaf_paths = find_all_lena_eaf_paths(lena_annotations_path, skip_excluded=True)
+    eaf_filenames = [eaf_path.name for eaf_path in eaf_paths]
+
+    # Check that all of them have been exported
+    missing_eafs = set(eaf_filenames) - set(annotations.eaf_filename)
+    if missing_eafs:
+        raise ValueError('blabpy.vihi.pipeline.extract_aclew_data missed some eafs:\n- ' + '- '.join(missing_eafs))
+
+    # Remove excluded recordings
+    annotations = annotations[annotations.eaf_filename.isin(eaf_filenames)]
+    intervals = intervals[intervals.eaf_filename.isin(eaf_filenames)]
+
+    def read_selected_regions(csv_path):
+        df = pd.read_csv(csv_path, dtype={'code_num': 'string',
+                                          'rank': pd.Int64Dtype()})
+        return df[['code_num', 'rank']]
+
+    selected_regions_paths = [eaf_path.parent / 'selected_regions.csv' for eaf_path in eaf_paths]
+    selected_regions = concatenate_dataframes(
+        dataframes=list(map(read_selected_regions, selected_regions_paths)),
+        keys=list(map(lambda p: p.name, eaf_paths)),
+        key_column_name='eaf_filename')
+
+    intervals = pd.merge(intervals, selected_regions, on=['eaf_filename', 'code_num'],
+                         how='inner',
+                         validate='one_to_one')
+
+    return annotations, intervals
