@@ -104,17 +104,18 @@ def parse_full_recording_id(full_recording_id):
     return dict(population=population, subject_id=subject_id, recording_id=recording_id)
 
 
-def get_lena_population_path(population):
+def get_lena_population_path(population, lena_annotations_path=None):
     """
     Find the LENA population-level folder
     :param population: one of POPULATIONS
     :return: Path object
     """
     _check_population(population)
-    return get_lena_annotations_path() / population
+    lena_annotations_path = lena_annotations_path or get_lena_annotations_path()
+    return Path(lena_annotations_path) / population
 
 
-def get_lena_subject_path(population, subject_id):
+def get_lena_subject_path(population, subject_id, lena_annotations_path=None):
     """
     Find the LENA subject-level folder
     :param population: one of POPULATIONS
@@ -123,7 +124,8 @@ def get_lena_subject_path(population, subject_id):
     """
     _check_population(population)
     _check_id_string(subject_id)
-    return get_lena_population_path(population) / f'{population}_{subject_id}'
+    lena_population_path = get_lena_population_path(population, lena_annotations_path=lena_annotations_path)
+    return lena_population_path / f'{population}_{subject_id}'
 
 
 def get_lena_recording_path(population, subject_id, recording_id, assert_exists=False):
@@ -202,7 +204,7 @@ def get_rttm_path(population, subject_id, recording_id):
     return rttm_path
 
 
-def get_eaf_path(population, subject_id, recording_id):
+def get_eaf_path(population, subject_id, recording_id, lena_annotations_path=None):
     """
     Find the .eaf file with the ACLEW-style annotations for a single recording.
     :param population: one of POPULATIONS
@@ -214,7 +216,7 @@ def get_eaf_path(population, subject_id, recording_id):
     _check_id_string(subject_id)
     _check_id_string(recording_id)
 
-    subject_dir = get_lena_subject_path(population, subject_id)
+    subject_dir = get_lena_subject_path(population, subject_id, lena_annotations_path=lena_annotations_path)
     assert subject_dir.exists(), 'Can\'t find the subject folder. Check the arguments.'
 
     full_recording_id = compose_full_recording_id(population, subject_id, recording_id)

@@ -258,12 +258,41 @@ class Annotation(EafElement):
             not_empty = not self.value_not_set()
             cve_ref = self.inner_element.attrib.get(self.CVE_REF)
             has_cve_ref = cve_ref is not None
+
             if has_cve_ref != not_empty:
                 raise ValueError(f'For tiers with controlled vocabularies, {self.CVE_REF} attribute must be present iff '
                                  f'there is a non-empty value.')
+
+            if has_cve_ref and cve_ref not in self.tier.cv.entries:
+                raise ValueError(f'The annotation uses an invalid reference to a CV entry: {cve_ref}. This can happen\n'
+                                 'if you switched to an external CV file which uses different cve_id\'s. If this is\n'
+                                 'indeed the reason, you can run the following to update the references:\n'
+                                 '\n'
+                                 'eaf_tree = EafTree.from_eaf(eaf_path, validate_cv_entries=False)\n'
+                                 'eaf_tree.update_cve_refs()\n')
+
             if not_empty and (self.value != self.tier.cv.entries[cve_ref].value):
                 raise ValueError(f'Value {self.value} does not match the {cve_ref} item in the controlled vocabulary.')
 
+    def update_cve_ref(self):
+        """
+        Used when the controlled vocabulary definitions have been moved to an external .ecv file and the cve_id's of
+        the entries have been updated. Even if they haven't been updated, they will only match one file, so you might
+        have to do it anyway.
+        :return: None
+        """
+        if not self.value:
+            return
+
+        if not self.tier.uses_cv:
+            raise ValueError(f'Tier {self.tier.id} does not use a controlled vocabulary.')
+
+        try:
+            cve_ref_for_value = self.tier.cv.get_id_of_value(self.value)
+        except ValueError:
+            raise ValueError(f'Value {self.value} is not in the controlled vocabulary.')
+
+        self.cve_ref = cve_ref_for_value
 
 class Tier(EafElement):
     TAG = 'TIER'
@@ -618,9 +647,6 @@ class XMLTree(object):
     def to_file(self, path):
         Path(path).write_text(self.to_string())
 
-    def to_eaf(self, path):
-        self.to_file(path)
-
     @staticmethod
     def _make_find_xpath(tag, **attributes):
         if attributes:
@@ -694,8 +720,8 @@ class TimeSlot(EafElement):
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
     @classmethod
-    def from_eaf(cls, eaf_uri: str):
-        return cls.from_uri(eaf_uri)
+    def from_eaf(cls, eaf_uri: str, *args, **kwargs):
+        return cls.from_uri(eaf_uri, *args, **kwargs)
 
     def __init__(self, tree, validate_cv_entries=True):
         super().__init__(tree)
@@ -737,3 +763,17 @@ class EafTree(XMLTree):
         for annotation in self.annotations.values():
             if annotation.children_assigned is False:
                 annotation.mark_as_childless()
+
+    def update_cve_refs(self):
+        """
+        See Annotation.update_cve_ref().
+        """
+        for tier in self.tiers.values():
+            if not tier.uses_cv:
+                continue
+
+            for annotation in tier.annotations.values():
+                annotation.update_cve_ref()
+
+    def to_eaf(self, path):
+        self.to_file(path)
