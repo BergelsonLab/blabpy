@@ -6,6 +6,24 @@
 
 - Switch to the Harvard BLab share when looking up data files.
 - Use `get_blab_share_path` to get the path to BLab share.
+- `blabpy.eaf.eaf_tree.EafTree.update_cve_refs` that updates the `cve_ref` of all annotations in the EAF file to match the controlled vocabulary.
+  Used when the controlled vocabulary definitions have been moved to an external .ecv file and the cve_id's of the entries have been updated.
+  Even if they haven't been updated, they will only match one file, so if the CV was defined in multiple ones, you'll still need to do it.
+  Load the EAF skipping the CV entry validation, run the method, and save the EAF:
+
+      ```python
+      from blabpy.eaf.eaf_tree import EafTree
+      eaf_path = ...
+      eaf_tree = EafTree.from_eaf(eaf_path, validate_cv_entries=False)
+      eaf_tree.update_cve_refs()
+      eaf_tree.to_eaf(eaf_path)
+      ```
+- `blabpy.eaf.eaf_tree.EafTree` now returns a meaningful error message if an annotation on a CV-based tier has a `cve_ref` that is not in the controlled vocabulary.
+- `blabpy.vihi.paths.get_eaf_path` now accepts `lena_annotations_path` making it possible to work with local clones of VIHI_LENA.
+
+### Fixed
+
+- `to_eaf` is now in `blabpy.eaf.eaf_tree.EafTree` instead of `blabpy.eaf.eaf_tree.XMLTree` where it was a leftover from a refactoring.
 
 ### Removed
 
