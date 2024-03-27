@@ -105,7 +105,7 @@ class EafPlus(Eaf):
         Return annotations for a given participant tier as a table with one row per annotation and one column per
         each daughter tier (vcm, lex, ...)
         :param tier_id: participant's tier id
-        :return: pd.DataFrame with columns onset, offset, annotation, participant_annotation_id, and one column per
+        :return: pd.DataFrame with columns onset, offset, transcription, transcription_id, and one column per
         daughter tier. If the tier exists but contains no annotations, return a dataframe with no daughter tier columns
         and all Nones in the other columns.
         """
@@ -115,8 +115,10 @@ class EafPlus(Eaf):
         annotations_df['annotation'] = annotations_df['annotation'].str.strip()
 
         # I want to keep the annotation IDs to have a unique identifier. We'll be merging annotations_df with
-        # annotations from daughter tiers which will have their own 'annotation_id' column so we'll rename this one.
-        annotations_df = annotations_df.rename(columns={'annotation_id': 'participant_annotation_id'})
+        # annotations from daughter tiers which will have their own 'annotation_id' column, so we'll rename this one.
+        # We'll also rename the annotation column to 'transcription' to differentiate it from other annotations.
+        annotations_df = annotations_df.rename(columns={'annotation_id': 'transcription_id',
+                                                        'annotation': 'transcription'})
 
         # Save the number of annotations to check that we don't duplicate any when we later merge them with daughter
         # tier annotations.
@@ -151,7 +153,7 @@ class EafPlus(Eaf):
         #     \
         #      -> a -> b
         # then the three meaningful merges will add columns (x, a), (y, b), (z).
-        annotations_df['deepest_annotation_id'] = annotations_df['participant_annotation_id']
+        annotations_df['deepest_annotation_id'] = annotations_df['transcription_id']
         daughter_annotations = daughter_annotations.rename(columns={'annotation': 'daughter_annotation'})
         for level in range(len(daughter_tier_ids)):
             annotations_df = (
@@ -274,15 +276,12 @@ class EafPlus(Eaf):
             .reset_index('participant', drop=False))
 
         if drop_empty_tiers:
-            all_annotations_df = all_annotations_df[all_annotations_df['annotation'].notna()]
+            all_annotations_df = all_annotations_df[all_annotations_df['transcription'].notna()]
 
         all_annotations_df = (all_annotations_df
                               .sort_values(by=['onset', 'offset', 'participant'])
                               .reset_index(drop=True)
                               .convert_dtypes())
-
-        if drop_empty_tiers:
-            all_annotations_df = all_annotations_df[all_annotations_df['annotation'].notna()]
 
         return all_annotations_df.sort_values(by=['onset', 'offset', 'participant']).reset_index(drop=True)
 
@@ -313,6 +312,12 @@ class EafPlus(Eaf):
                         .sort_values(by='onset')
                         .reset_index(drop=True)
                         .convert_dtypes())
+
+        # Remove extra spaces from string columns
+        for column in intervals_df.columns:
+            if intervals_df[column].dtype == 'string':
+                intervals_df[column] = intervals_df[column].str.strip()
+
         return intervals_df
 
     @staticmethod

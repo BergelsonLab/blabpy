@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.0]
+
+### Added
+
+- When extracting annotations from VIHI EAF files:
+  - Call the columns with transcriptions and their annotation IDs - `transcription` and `transcription_id`, respectively.
+  - Strip whitespace from the interval-level tiers.
+
 ## [0.28.0]
 
 ### Added
