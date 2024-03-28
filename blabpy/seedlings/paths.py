@@ -3,7 +3,7 @@ from pathlib import Path
 
 from . import AUDIO, VIDEO, CHILDREN_INT, MONTHS_INT, ANNOTATION_FILE_COUNT, MISSING_AUDIO_RECORDINGS, \
     MISSING_VIDEO_RECORDINGS
-from ..paths import get_pn_opus_path, get_blab_data_path
+from ..paths import get_blab_share_path, get_blab_data_path
 
 
 def get_seedlings_path():
@@ -11,7 +11,7 @@ def get_seedlings_path():
     Finds the path to the Seedlings folder on PN-OPUS
     :return: Path object
     """
-    return get_pn_opus_path() / 'Seedlings'
+    return get_blab_share_path() / 'Seedlings'
 
 
 def _normalize_child_month(child, month):
