@@ -1,4 +1,7 @@
-from ..paths import get_pn_opus_path
+import re
+from pathlib import Path
+
+from ..paths import get_blab_share_path
 
 
 POPULATIONS = ['VI', 'HI', 'TD']
@@ -9,7 +12,7 @@ def get_vihi_path():
     Finds the path to the VIHI folder on PN-OPUS
     :return: Path object
     """
-    return get_pn_opus_path() / 'VIHI'
+    return get_blab_share_path() / 'VIHI'
 
 
 def get_subject_files_path():
