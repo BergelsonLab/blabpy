@@ -1,60 +1,70 @@
 import os
+import platform
 from pathlib import Path
 
 # Environment variables
-PN_OPUS_PATH_ENV = 'PN_OPUS_PATH'
-DEFAULT_PN_OPUS_PATHS = ['/Volumes/pn-opus/', 'Z:\\']
+BLAB_SHARE_PATH_ENV = 'BLAB_SHARE_PATH'
+BLAB_SHARE_NAME = 'Fas-Phyc-PEB-Lab'
+# On macOS
+DEFAULT_BLAB_SHARE_MOUNT_POINT = f'/Volumes/{BLAB_SHARE_NAME}/'
+# On Windows, we can access the share directly
+BLAB_SHARE_NETWORK_PATH = f'//sox4.university.harvard.edu/{BLAB_SHARE_NAME}/'
 
 
-def _get_pn_opus_path_error(checked_paths):
+def get_blab_share_path():
+    f"""
+    Tries to find the BLab share:
+    - Checks if {BLAB_SHARE_PATH_ENV} is set and if it is, tries that.
+    - On MacOS, tries {DEFAULT_BLAB_SHARE_MOUNT_POINT}.
+    - On Windows, tries {BLAB_SHARE_NETWORK_PATH}.
+    :return: Path object pointing to the BLab share if it was found
+    :raises: ValueError if it wasn't found
     """
-    Builds an error raised when `get_pn_opus_path` fails.
-    :param checked_paths: Checked paths as a list of strings.
-    :return: A ValueError with a hopefully useful message.
-    """
-    error_message = (
-        'Could not locate PN-OPUS at any of the following paths:\n'
-        f'\n- {", ".join(checked_paths)}\n'
-    )
+    export_env_var_hint = f'export {BLAB_SHARE_PATH_ENV}=/path/to/BLab/share'
+    unset_env_var_hint = f'unset {BLAB_SHARE_PATH_ENV}'
 
-    troubleshooting_steps = (
-        'Follow these steps:\n'
-        '- Check that you are connected to the Duke VPN.\n'
-        '- Check that PN-OPUS is mounted.\n'
-        '- Check that it is mounted to one of the default locations:\n'
-        f'\n  - {", ".join(checked_paths)}\n'
-        f'\n  If it is mounted elsewhere, either remount it or set an'
-        f'\n  environment variable {PN_OPUS_PATH_ENV} to the mount location.'
-        f'\n  For example, if PN-OPUS is mounted to /Volumes/pn-opus, run'
-        f'\n  `export {PN_OPUS_PATH_ENV}=/Volumes/pn-opus` in your terminal.\n'
-        '- Check that it has a special `.pn_opus` file in the root. If not,\n'
-        'create it (the contents don\'t matter)'
-    )
+    env_path = os.environ.get(BLAB_SHARE_PATH_ENV)
+    if env_path is not None:
+        blab_share_path = Path(env_path)
+        error_message = (
+            f'Could not locate the BLab share at the path specified'
+            f' in the environment variable {BLAB_SHARE_PATH_ENV}:\n\n'
+            f'{env_path}\n\n'
+            f'Please update this value or unset the variable to try the default path. To unset, run:\n\n',
+            f'{unset_env_var_hint}\n\n'
+            f'Alternatively, you can set the variable to the correct path like this:\n\n'
+            f'{export_env_var_hint}\n\n')
 
-    return ValueError(error_message + '\n' + troubleshooting_steps)
-
-
-def get_pn_opus_path():
-    """
-    Tries to find PN-OPUS:
-    - At the path set via the environment variable PN_OPUS_PATH if it is set.
-    - Tries DEFAULT_PN_OPUS_PATHS.
-    :return: Path object pointing to the PN-OPUS network drive if found
-    :raises: ValueError if drive not found
-    """
-    str_pn_opus_path = os.environ.get(PN_OPUS_PATH_ENV)
-    if str_pn_opus_path:
-        str_paths = [str_pn_opus_path]
     else:
-        str_paths = list()
-    str_paths = str_paths + DEFAULT_PN_OPUS_PATHS
+        system = platform.system()
+        if system == 'Windows':
+            blab_share_path = Path(BLAB_SHARE_NETWORK_PATH)
+        else:
+            blab_share_path = Path(DEFAULT_BLAB_SHARE_MOUNT_POINT)
 
-    for str_path in str_paths:
-        path = Path(str_path).expanduser()
-        if path.exists() and (path / '.pn_opus').exists():
-            return path.absolute()
-    else:
-        raise _get_pn_opus_path_error(checked_paths=str_paths)
+        error_message = (
+            f'Could not locate the BLab share at\n'
+            f'\n'
+            f'{blab_share_path}\n'
+            f'\n'
+            f'Do the following to troubleshoot:\n'
+            f'- Check that you are connected to vpn.harvard.edu/bergelsonlab.\n'
+            f'  (note the "bergelsonlab" part)\n'
+            f'- On MacOS:\n'
+            f'  - Check that {BLAB_SHARE_NAME} is mounted.\n'
+            f'  - Check that it is mounted to {DEFAULT_BLAB_SHARE_MOUNT_POINT}\n'
+            f'\n'
+            f'Alternatively, tell blabpy where the BLab share is on your system by setting the environment variable'
+            f' {BLAB_SHARE_PATH_ENV} to the correct path like this (works in MacOS terminal with bash or zsh and in'
+            f' git-bash:\n'
+            f'\n'
+            f'{export_env_var_hint}\n'
+            f'\n')
+
+    if blab_share_path.exists():
+        return blab_share_path
+
+    raise ValueError(error_message)
 
 
 def get_blab_data_path():

@@ -1,5 +1,16 @@
 # Changelog
 
+## [unreleased]
+
+### Added
+
+- Switch to the Harvard BLab share when looking up data files.
+- Use `get_blab_share_path` to get the path to BLab share.
+
+### Removed
+
+- Removed `get_pn_opus_path`. Use `get_blab_share_path` from now on.
+
 ## [0.28.0]
 
 ### Added
