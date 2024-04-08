@@ -24,6 +24,9 @@
 ### Fixed
 
 - `to_eaf` is now in `blabpy.eaf.eaf_tree.EafTree` instead of `blabpy.eaf.eaf_tree.XMLTree` where it was a leftover from a refactoring.
+- On Windows, make sure that paths within the BLab share that start with a drive letter have a slash between that letter and the rest of the path.
+  Otherwise, for example, annotations-in-progress folders will have a remote url which is not valid as far as git is concerned.
+  
 
 ### Removed
 
