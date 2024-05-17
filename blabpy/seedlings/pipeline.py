@@ -564,14 +564,14 @@ def _load_sub_recordings_for_special_cases(recording_id):
 def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
     """
     Get anonymized information about sub-recordings of the LENA recording for the given subject and month. There are
-    several special cases of recordings that are missing an its file or that have one but it doesn't contain the
+    several special cases of sub-recordings that are missing an its file or that have one but it doesn't contain the
     timezone information. See __init__.py for details.
 
-    If there are pauses in LENA recordings, LENA still outputs one big wav file. This leads to confusion and errors,
-    such as when an interval spans multiple recordings. It is important to know about these pauses.
+    If there are pauses in LENA sub-recordings, LENA still outputs one big wav file. This leads to confusion and errors,
+    such as when an interval spans multiple sub-recordings. It is important to know about these pauses.
 
     :param recording_id: full recording id, e.g. 'Video_01_16'
-    :param amend_if_special_case: whether to use manually amended recordings for the special case of Audio_45_10
+    :param amend_if_special_case: whether to use manually amended sub-recordings for the special case of Audio_45_10
     :return: a pandas dataframe with the LENA sub-recordings and the total duration of all sub-recordings
     """
     # TODO: figure out why the timezone info is missing
@@ -583,26 +583,26 @@ def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
     its = Its.from_path(get_its_path(subject, month), forced_timezone=forced_timezone)
 
     try:
-        recordings = its.gather_recordings(anonymize=True)
+        sub_recordings = its.gather_recordings(anonymize=True)
     except ItsNoTimeZoneInfo as e:
         raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}. Please force a timezone using'
                                 f'`forced_timezone`') from e
 
     # Change column names to match what `calculate_total_recorded_time_ms` expects
-    recordings = recordings.rename(
+    sub_recordings = sub_recordings.rename(
         columns={'recording_start': 'start',
                  'recording_end': 'end',
                  'recording_start_wav': 'start_position_ms'},
         errors='raise')
 
-    # Replace recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
+    # Replace sub-recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
     if amend_if_special_case and recording_id == 'Audio_45_10':
-        recordings_original, recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
-        assert recordings.equals(recordings_original)
-        recordings = recordings_amended
+        sub_recordings_original, sub_recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
+        assert sub_recordings.equals(sub_recordings_original)
+        sub_recordings = sub_recordings_amended
 
-    total_recorded_time_ms = calculate_total_recorded_time_ms(recordings=recordings)
-    return recordings, total_recorded_time_ms
+    duration_ms = calculate_recording_duration(sub_recordings=sub_recordings)
+    return sub_recordings, duration_ms
 
 
 def _sort_tokens(tokens_df):
