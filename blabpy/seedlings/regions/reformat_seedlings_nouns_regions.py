@@ -115,7 +115,7 @@ def _numeric_dtype_info(numpy_dtype):
     :param numpy_dtype: numpy dtype
     :return: an object with attributes `min`, `max`, and `dtype` with the corresponding values for the given dtype.
     """
-    if np.issubdtype(numpy_dtype, (np.integer, np.unsignedinteger)):
+    if np.issubdtype(numpy_dtype, np.integer):
         info_fun = np.iinfo
     elif np.issubdtype(numpy_dtype, np.floating):
         info_fun = np.finfo
