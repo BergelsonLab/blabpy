@@ -5,6 +5,7 @@ This module provides constants and functions for reading both specific files (e.
 """
 
 import warnings
+from _csv import QUOTE_NONNUMERIC
 
 import pandas as pd
 
@@ -32,19 +33,18 @@ ALL_BASICLEVEL_DTYPES = {
     'SubjectNumber':        pd.StringDtype(),
     'audio_video':          pd.CategoricalDtype(categories=AUDIO_VIDEO),
     'tier':                 pd.CategoricalDtype(categories=TIERS),
-    'pho':                  pd.StringDtype()
+    'pho':                  pd.StringDtype(),
+    'global_bl':            pd.StringDtype(),
 }
 
-GLOBAL_BASICLEVEL_DTYPES = ALL_BASICLEVEL_DTYPES.copy()
-GLOBAL_BASICLEVEL_DTYPES.update(global_bl=pd.StringDtype())
 
-# Columns that are already in GLOBAL_BASICLEVEL_DTYPES are set to None and then will be updated all at once. Columns
-# that changed their names reference GLOBAL_BASICLEVEL_DTYPES directly in the definition.
+# Columns that are already in ALL_BASICLEVEL_DTYPES are set to None and then will be updated all at once. Columns
+# that changed their names reference ALL_BASICLEVEL_DTYPES directly in the definition.
 SEEDLINGS_NOUNS_DTYPES = {
     'recording_id': pd.StringDtype(),
     'audio_video': None,
     'subject_month': pd.StringDtype(),
-    'child': GLOBAL_BASICLEVEL_DTYPES['subj'],
+    'child': ALL_BASICLEVEL_DTYPES['subj'],
     'month': None,
     'onset': None,
     'offset': None,
@@ -53,26 +53,40 @@ SEEDLINGS_NOUNS_DTYPES = {
     'speaker': None,
     'object': None,
     'basic_level': None,
-    'global_basic_level': GLOBAL_BASICLEVEL_DTYPES['global_bl'],
-    'transcription': GLOBAL_BASICLEVEL_DTYPES['pho'],
+    'global_basic_level': ALL_BASICLEVEL_DTYPES['global_bl'],
+    'transcription': ALL_BASICLEVEL_DTYPES['pho'],
     'utterance_type': None,
     'object_present': None,
+    'is_subregion': pd.BooleanDtype(),
     'is_top_3_hours': pd.BooleanDtype(),
     'is_top_4_hours': pd.BooleanDtype(),
-    'is_surplus': pd.BooleanDtype()}
+    'is_surplus': pd.BooleanDtype(),
+    'position': pd.Int64Dtype(),
+    'subregion_rank': pd.Int64Dtype(),
+}
 for column, dtype in SEEDLINGS_NOUNS_DTYPES.items():
     if dtype is None:
-        SEEDLINGS_NOUNS_DTYPES[column] = GLOBAL_BASICLEVEL_DTYPES[column]
+        SEEDLINGS_NOUNS_DTYPES[column] = ALL_BASICLEVEL_DTYPES[column]
 
 
 SEEDLINGS_NOUNS_REGION_TYPES = ['subregion', 'top_3', 'top_4', 'surplus']
-SEEDLINGS_NOUNS_REGIONS_DTYPES = {
+SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
     'region_type': pd.CategoricalDtype(categories=SEEDLINGS_NOUNS_REGION_TYPES),
     'start': pd.Int64Dtype(),
     'end': pd.Int64Dtype(),
-    'position': pd.Int64Dtype(),
-    'subregion_rank': pd.Int64Dtype()}
+    'position': SEEDLINGS_NOUNS_DTYPES['position'],
+    'subregion_rank': SEEDLINGS_NOUNS_DTYPES['subregion_rank']}
+SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES = {
+    'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
+    'start': pd.Int64Dtype(),
+    'end': pd.Int64Dtype(),
+    'is_subregion': SEEDLINGS_NOUNS_DTYPES['is_subregion'],
+    'is_top_3_hours': SEEDLINGS_NOUNS_DTYPES['is_top_3_hours'],
+    'is_top_4_hours': SEEDLINGS_NOUNS_DTYPES['is_top_4_hours'],
+    'is_surplus': SEEDLINGS_NOUNS_DTYPES['is_surplus'],
+    'position': SEEDLINGS_NOUNS_DTYPES['position'],
+    'subregion_rank': SEEDLINGS_NOUNS_DTYPES['subregion_rank']}
 
 SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
@@ -82,8 +96,8 @@ SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES = {
 
 SEEDLINGS_NOUNS_RECORDINGS_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
-    'total_recorded_time': pd.Int64Dtype(),
-    'total_listened_time': pd.Int64Dtype()}
+    'total_recorded_time_ms': pd.Int64Dtype(),
+    'total_listened_time_ms': pd.Int64Dtype()}
 
 
 SEEDLINGS_NOUNS_CODEBOOK_CORE_DTYPES = {
@@ -150,16 +164,12 @@ def read_all_basic_level(path):
     return blab_read_csv(path, dtype=ALL_BASICLEVEL_DTYPES)
 
 
-def read_global_basic_level(path):
-    return blab_read_csv(path, dtype=GLOBAL_BASICLEVEL_DTYPES)
-
-
 def read_seedlings_nouns(path):
     return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_DTYPES)
 
 
 def read_seedlings_nouns_regions(path):
-    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_REGIONS_DTYPES)
+    return blab_read_csv(path, dtype=SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES)
 
 
 def read_seedlings_nouns_sub_recordings(path):
@@ -222,3 +232,19 @@ def write_video_recordings_csv(df, path=None):
     if df.duration.dtype == 'timedelta64[ns]':
         df = df.copy().assign(duration=_timedelta_to_hhmmss(df.duration))
     blab_write_csv(df, path, index=False)
+
+
+def write_all_basic_level_to_csv(all_basic_level_df, csv_path):
+    """
+    Write the output of gather_all_basic_level_annotations to a csv file in a way consistent with the older R code.
+    The result is still not fully consistent but it is close enough.
+    (readr::write_csv writes number 10000 as 1e+5 which was too silly to emulate)
+    :param all_basic_level_df: a pandas DataFrame
+    :param csv_path: a path to the csv or None if you want to return the string that would have been written
+    :return:
+    """
+    # For consistency with readr::write_csv that quotes strings but does not quote NAs, we'll have to use the following
+    # trick from https://www.reddit.com/r/Python/comments/mu65ms/quoting_of_npnan_with_csvquote_nonnumeric_in/
+    # This way, NAs will be considered numeric and won't be quoted.
+    na = type("NaN", (float,), dict(__str__=lambda _: "NA"))()
+    return all_basic_level_df.to_csv(csv_path, index=False, quoting=QUOTE_NONNUMERIC, na_rep=na)

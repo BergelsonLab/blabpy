@@ -61,7 +61,7 @@ def create_merged(file_new, file_old, file_merged, mode):
     basic_level_col = 'basic_level'
     old_df.rename(columns={old_basic_level_col: basic_level_col}, inplace=True)
 
-    merged_df = pd.DataFrame(columns=old_df.columns.values)
+    merged_rows = list()
 
     # df = df.rename(columns={'oldName1': 'newName1'})
     for index, new_row in new_df.iterrows():
@@ -91,7 +91,7 @@ def create_merged(file_new, file_old, file_merged, mode):
                     print("ERROR: annotid not unique in old version : ", annot_id)  # raise exception
                     old_error = True
                 to_add[basic_level_col] = FIXME
-                merged_df = pd.concat([merged_df, pd.DataFrame([to_add])], ignore_index=True)
+                merged_rows.append(to_add)
                 break
 
             old_row = tmp.iloc[0]
@@ -101,12 +101,12 @@ def create_merged(file_new, file_old, file_merged, mode):
                 # print("old", word)
                 # check codes as well to know if something changed?
                 to_add[basic_level_col] = old_row[basic_level_col]
-                merged_df = pd.concat([merged_df, pd.DataFrame([to_add])], ignore_index=True)
+                merged_rows.append(to_add)
                 break
             else:
                 # print("old but different", word)
                 to_add[basic_level_col] = FIXME
-                merged_df = pd.concat([merged_df, pd.DataFrame([to_add])], ignore_index=True)
+                merged_rows.append(to_add)
                 edit_word = True
                 break
 
@@ -115,9 +115,10 @@ def create_merged(file_new, file_old, file_merged, mode):
             if word != '':
                 # print("new", word)
                 to_add[basic_level_col] = FIXME
-                merged_df = pd.concat([merged_df, pd.DataFrame([to_add])], ignore_index=True)
+                merged_rows.append(to_add)
                 new_word = True
     # print(merged_df)
+    merged_df = pd.DataFrame(columns=old_df.columns.values, data=merged_rows)
     merged_df = merged_df.loc[:, ~merged_df.columns.str.contains('^Unnamed')]
 
     # Remove comments from the video annotations where the comments live in separate rows (for audio, there is a

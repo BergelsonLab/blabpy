@@ -3,6 +3,7 @@ from pathlib import Path
 from shutil import copy2
 
 import pandas as pd
+from tqdm import tqdm
 
 from .paths import _parse_out_child_and_month, get_basic_level_path, _check_modality
 from . import AUDIO, VIDEO
@@ -83,6 +84,7 @@ def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path
     successfully copied would not be attempted to copy again leading to error because a backup file already exists.
     :return: None
     """
-    for basic_level_path in updated_basic_level_folder.glob('*.csv'):
+    for basic_level_path in tqdm(list(updated_basic_level_folder.glob('*.csv')),
+                                 desc=f'Copying {modality} basic level files to pn-opus'):
         copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality, backup=backup,
                                           skip_backup_if_exists=skip_backups_if_exist)

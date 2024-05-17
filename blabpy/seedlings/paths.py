@@ -3,7 +3,18 @@ from pathlib import Path
 
 from . import AUDIO, VIDEO, CHILDREN_INT, MONTHS_INT, ANNOTATION_FILE_COUNT, MISSING_AUDIO_RECORDINGS, \
     MISSING_VIDEO_RECORDINGS
-from ..paths import get_blab_share_path, get_blab_data_path
+from ..paths import get_blab_share_path, get_blab_data_root_path
+
+
+def ensure_folder_exists_and_empty(folder_path):
+    """
+    Check that folder is either empty or does not yet exist. In the latter case, creates it.
+    :param folder_path:
+    :return:
+    """
+    assert not (folder_path.exists() and any(folder_path.iterdir())), \
+        'The folder should be empty or not yet exist'
+    folder_path.mkdir(parents=True, exist_ok=True)
 
 
 def get_seedlings_path():
@@ -166,6 +177,7 @@ def split_recording_id(recording_id):
     'Audio_06_12' -> 'Audio', '06', '12'
     :param recording_id: full recording id (e.g. Audio_06_12)
     :return: (str, str, str) tuple
+    # TODO: make this a namedtuple
     """
     modality, subject, month = recording_id.split('_')
     subject, month = _normalize_child_month(child=subject, month=month)
@@ -196,7 +208,7 @@ def get_seedlings_nouns_private_path():
     Returns path to the seedlings-nouns_private repo in BLAB_DATA.
     :return: ^this path.
     """
-    path = get_blab_data_path() / 'seedlings-nouns_private/'
+    path = get_blab_data_root_path() / 'seedlings-nouns_private/'
     if not path.exists():
         msg = (f'Couldn\'t locate folder\n'
                f'{path.absolute()}\n'

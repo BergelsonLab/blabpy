@@ -384,8 +384,7 @@ def _extract_timestamps(clan_file_text: str):
     timestamps = pd.DataFrame(
         columns=['onset', 'offset', 'position_in_text'],
         data=[(int(match.group(1)), int(match.group(2)), match.start())
-              for match in TIMESTAMP_REGEX.finditer(clan_file_text)],
-        dtype=int)
+              for match in TIMESTAMP_REGEX.finditer(clan_file_text)])
 
     if not timestamps.onset.is_monotonic_increasing:
         # TODO: uncomment or delete once timestamp inconsistencies have been dealt with

@@ -74,7 +74,7 @@ def get_blab_share_path():
     raise ValueError(error_message)
 
 
-def get_blab_data_path():
+def get_blab_data_root_path():
     """Returns tht path to the BLAB_DATA folder on the local computer"""
     path = Path('~/BLAB_DATA/').expanduser()
     msg = (f'Could not locate BLAB_DATA at {path}.'

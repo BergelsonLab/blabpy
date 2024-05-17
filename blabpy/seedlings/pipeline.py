@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import warnings
 from itertools import product
@@ -6,16 +7,19 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pkg_resources
+from git import Repo
 from tqdm import tqdm
 
+from ..blab_data import get_file_path, switch_dataset_to_version
 from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
-from .gather import gather_all_basic_level_annotations, write_all_basic_level_to_csv, write_all_basic_level_to_feather, \
-    check_for_errors
-from .io import read_global_basic_level, blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
-    SEEDLINGS_NOUNS_REGIONS_DTYPES, SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
-    read_video_recordings_csv, read_seedlings_codebook
+from .gather import gather_all_basic_level_annotations, check_for_errors
+from .io import blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
+    SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
+    read_video_recordings_csv, read_seedlings_codebook, write_all_basic_level_to_csv, \
+    SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES, SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES, read_all_basic_level
 from .listened_time import listen_time_stats_for_report, _get_subregion_count, _preprocess_region_info, RegionType
 from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
@@ -23,8 +27,8 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
     _check_modality, get_seedlings_path, get_cha_path, get_opf_path, _normalize_child_month, get_lena_5min_csv_path, \
     get_its_path, split_recording_id, get_seedlings_nouns_private_path
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
-    SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
-    are_tokens_in_top3_top4_surplus
+    SPECIAL_CASES as REGIONS_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
+    assign_tokens_to_regions, reformat_seedlings_nouns_regions
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
@@ -44,12 +48,11 @@ def export_all_opfs_to_csv(output_folder: Path, suffix='_processed'):
 
     opf_paths = get_all_opf_paths()
     seedlings_path = get_seedlings_path()
-    for opf_path in opf_paths:
+    for opf_path in tqdm(opf_paths, desc='Exporting opf files'):
         # Add suffix before all extensions
         extensions = ''.join(opf_path.suffixes)
         output_name = opf_path.name.replace(extensions, suffix + '.csv')
 
-        print(f'Exporting opf file at <SEEDLINGS_ROOT>/{opf_path.relative_to(seedlings_path)}')
         export_opf_to_csv(opf_path=opf_path, csv_path=(output_folder / output_name))
 
 
@@ -68,8 +71,7 @@ def export_all_chas_to_csv(output_folder: Path, log_path=Path('cha_parsing_error
 
     cha_paths = get_all_cha_paths()
     seedlings_path = get_seedlings_path()
-    for cha_path in cha_paths:
-        print(f'Exporting cha file at <SEEDLINGS_ROOT>/{cha_path.relative_to(seedlings_path)}')
+    for cha_path in tqdm(cha_paths, desc='Exporting cha files'):
         problems = export_cha_to_csv(cha_path=cha_path, output_folder=output_folder)
         if not problems:
             continue
@@ -129,15 +131,10 @@ def merge_annotations_with_basic_level(exported_annotations_folder, output_folde
     # Merge and save
     seedlings_path = get_seedlings_path()
 
-    def _create_merged(file_new, file_old, file_merged, mode):
-        """Exists to add the printing part"""
-        print(f'Merging annotations in {file_new}\n'
-              f'with basic level info in <SEEDLINGS_ROOT>/{file_old.relative_to(seedlings_path)}')
-        return create_merged(file_new=file_new, file_old=file_old, file_merged=file_merged, mode=mode)
-
-    results = [_create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
+    results = [create_merged(file_new=annotation_file, file_old=basic_level_file, file_merged=output_file, mode=mode)
                for annotation_file, basic_level_file, output_file
-               in zip(annotation_files, basic_level_files, output_files)]
+               in tqdm(zip(annotation_files, basic_level_files, output_files),
+                       desc=f'Merging {mode} files')]
 
     # Output merging log to a csv file
     columns = ['duplicates_in_old_file', 'words_were_edited', 'words_were_added']
@@ -341,62 +338,37 @@ def scatter_updated_basic_level_files(working_folder=None, skip_backups_if_exist
 
 def make_updated_all_basic_level_here():
     """
-    Gathers all basic level files, checks for some errors, and - if there were no errors - writes four files:
-    - all_basiclevel.csv
-    - all_basiclevel.feather
-    - all_basiclevel_NA.csv
-    - all_basiclevel_NA.feather
-    The files differ in whether they contain rows that have NA as the basic level and their format (csv/feather).
-    The files are created in the current working directory. If the files already exist, they will be deleted first. This
-    is done so there is a difference between:
+    Gathers all basic level files, checks for errors, and writes the result to "all_basiclevel_NA.csv".
+
+    The file is deleted at the very beginning to distinguish two outcomes:
     - everything went well, but there are no changes (files are the same, git status sees no changes) and
     - something went wrong (files are missing, git status will show that much).
     :return: None
     """
-    # Delete current files
-    output_paths = [Path(f'all_basiclevel{suffix}{extension}')
-                    for suffix, extension in product(('', '_NA'), ('.csv', '.feather'))]
-    for output_path in output_paths:
-        try:
-            output_path.unlink()
-        except FileNotFoundError:
-            pass
+    # Delete current version. It is ok if you've already deleted it manually.
+    output_path = Path('all_basiclevel_NA.csv')
+    try:
+        output_path.unlink()
+    except FileNotFoundError:
+        pass
 
     # Gather all individual basic level files
-    df_with_na = gather_all_basic_level_annotations(keep_basic_level_na=True)
+    all_basic_level_with_na = gather_all_basic_level_annotations(keep_basic_level_na=True)
 
     # Check for errors
-    errors_df = check_for_errors(df_with_na)
+    errors_df = check_for_errors(all_basic_level_with_na)
     if errors_df:
         errors_file = 'errors.csv'
         logging.warning(f'The were errors found, the corresponding rows are in "{errors_file}".')
         errors_df.to_csv(errors_file)
         return
 
-    # Write the four files
-    def _write_to_csv_and_feather(all_basic_level_df, output_stem):
-        write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_df,
-                                     csv_path=output_stem.with_suffix('.csv'))
-        write_all_basic_level_to_feather(all_basic_level_df=all_basic_level_df,
-                                         feather_path=output_stem.with_suffix('.feather'))
-    # Without NAs
-    output_stem_without_na = Path('all_basiclevel')
-    df_without_na = df_with_na[~df_with_na.basic_level.isna()].reset_index(drop=True)
-    # The feather version contains categorical information, so we need to remove categories that no longer exist - as if
-    # the categories were set after removing NAs.
-    for column_name in df_without_na.columns:
-        if df_without_na[column_name].dtype.name == 'category':
-            df_without_na[column_name] = df_without_na[column_name].cat.remove_unused_categories()
-    _write_to_csv_and_feather(df_without_na, output_stem_without_na)
+    # Save to file
+    write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_with_na,
+                                 csv_path=output_path)
 
-    # With NAs
-    output_stem_with_na = output_stem_without_na.with_name(output_stem_without_na.name + '_NA')
-    _write_to_csv_and_feather(df_with_na, output_stem_with_na)
-
-    # Check that the output files have been created
-    for output_path in output_paths:
-        assert output_path.exists()
-    print(f'all_basiclevel has been created and checked for errors, files have been written to.')
+    assert output_path.exists()
+    print(f'all_basiclevel_NA.csv has been created and checked for errors.')
 
 
 def calculate_listen_time_stats_for_cha_file(cha_path):
@@ -518,7 +490,7 @@ def get_amended_audio_regions(subject, month):
     """
     subject, month = _normalize_child_month(subject, month)
     subj_month = f'{subject}_{month}'
-    assert subj_month in AUDIO_SPECIAL_CASES, f'Not a special case: {subj_month}'
+    assert subj_month in REGIONS_SPECIAL_CASES, f'Not a special case: {subj_month}'
 
     processed_regions_auto = get_processed_audio_regions(subject, month, amend_if_special_case=False)
     return _get_amended_regions(subj_month, processed_regions_auto)
@@ -540,7 +512,7 @@ def get_processed_audio_regions(subject, month, amend_if_special_case=False):
     subject, month = _normalize_child_month(subject, month)
     cha_path = get_cha_path(subject, month)
 
-    if amend_if_special_case is True and f'{subject}_{month}' in AUDIO_SPECIAL_CASES:
+    if amend_if_special_case is True and f'{subject}_{month}' in REGIONS_SPECIAL_CASES:
         return get_amended_audio_regions(subject, month)
 
     if month in ('06', '07'):
@@ -563,7 +535,32 @@ def get_top3_top4_surplus_regions(subject, month):
     return _get_top3_top4_surplus_regions(processed_regions, month)
 
 
-def get_lena_recordings(recording_id):
+def _load_sub_recordings_for_special_cases(recording_id):
+    """
+    Loads data for special case of Audio_45_10 which had extra 10 hours at the beginning of the .its.
+    """
+    assert recording_id == 'Audio_45_10'
+    special_cases_dir = f'sub-recordings_special-cases/{recording_id}'
+    recordings_processed_original_path = os.path.join(special_cases_dir, 'sub-recordings_original.csv')
+    recordings_processed_amended_path = os.path.join(special_cases_dir, 'sub-recordings_amended.csv')
+
+    def load_csv(relative_path):
+        dtypes = {'recording_id': pd.StringDtype(),
+                  'start_position_ms': pd.Int32Dtype()}
+        stream = pkg_resources.resource_stream(__name__, relative_path)
+
+        df = pd.read_csv(stream, dtype=dtypes, encoding='utf-8', parse_dates=['start', 'end'])
+
+        assert df.recording_id.eq(recording_id).all()
+        return df.drop(columns='recording_id')
+
+    recordings_processed_original = load_csv(recordings_processed_original_path)
+    recordings_processed_amended = load_csv(recordings_processed_amended_path)
+
+    return recordings_processed_original, recordings_processed_amended
+
+
+def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
     """
     Get anonymized information about sub-recordings of the LENA recording for the given subject and month. There are
     several special cases of recordings that are missing an its file or that have one but it doesn't contain the
@@ -573,6 +570,7 @@ def get_lena_recordings(recording_id):
     such as when an interval spans multiple recordings. It is important to know about these pauses.
 
     :param recording_id: full recording id, e.g. 'Video_01_16'
+    :param amend_if_special_case: whether to use manually amended recordings for the special case of Audio_45_10
     :return: a pandas dataframe with the LENA sub-recordings and the total duration of all sub-recordings
     """
     # TODO: figure out why the timezone info is missing
@@ -595,14 +593,20 @@ def get_lena_recordings(recording_id):
                  'recording_end': 'end',
                  'recording_start_wav': 'start_position_ms'},
         errors='raise')
-    total_recorded_time = calculate_total_recorded_time_ms(recordings=recordings)
 
-    return recordings, total_recorded_time
+    # Replace recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
+    if amend_if_special_case and recording_id == 'Audio_45_10':
+        recordings_original, recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
+        assert recordings.equals(recordings_original)
+        recordings = recordings_amended
+
+    total_recorded_time_ms = calculate_total_recorded_time_ms(recordings=recordings)
+    return recordings, total_recorded_time_ms
 
 
 def _sort_tokens(tokens_df):
     """
-    Sorts all_basiclevel/global_basiclevel/seedlings_nouns
+    Sorts all_basiclevel/seedlings_nouns
     :param tokens_df: a dataframe to sort
     :return: sorted dataframe
     """
@@ -614,41 +618,49 @@ def _sort_tokens(tokens_df):
 
 
 # TODO: return namedtuple, returning a heterogeneous tuple has and will lead to errors
-def gather_recording_nouns_audio(subject, month, global_basic_level_for_recording):
+def gather_recording_nouns_audio(subject, month, recording_basic_level):
     """
     Gathers all the data needed to update seedlings_nouns for one audio recording.
 
     :param subject: subject id, e.g. '01'
     :param month: month, e.g. '08'
-    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :param recording_basic_level: the rows of all_basic_level that correspond to the recording
     :return: (top3/top4/surplus regions,
-              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              recording_basic_level with is_top3/is_top4/is_surplus added,
               LENA recordings,
               total recorded time,
               total listened time)
     """
     # Regions
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
+    subregions = processed_regions.loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)]
     top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month)
-    regions_for_seedlings_nouns = pd.concat([processed_regions
-                                             .loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)],
-                                             top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
-                                            axis='rows', ignore_index=True)
+    seedlings_nouns_regions = pd.concat([subregions,
+                                         top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
+                                        axis='rows', ignore_index=True)
+
+    # Remove subregions ranked 5 from months 06 and 07. They were need for _get_top3_top4_surplus_regions but should
+    # not be used for assigning tokens to subregions. We are not doing it for the other months because they shouldn't
+    # contain any subregions ranked 5 anyway.
+    if month in ('06', '07'):
+        seedlings_nouns_regions = seedlings_nouns_regions.loc[
+            lambda df_: ~(df_.region_type.eq(RegionType.SUBREGION.value)
+                          & df_.subregion_rank.eq(5))]
 
     # Add is_top_3_hours, is_top_4_hours, is_surplus to global_basic_level_for_recording
-    tokens_assigned = are_tokens_in_top3_top4_surplus(tokens=global_basic_level_for_recording,
-                                                      top3_top4_surplus_regions=top3_top4_surplus_regions,
-                                                      month=month)
-    # tokens_assigned contains only annotid, is_top_3_hours, is_top_4_hours, is_surplus columns. Let's add them
-    # to global_basic_level_for_recording.
-    recording_seedlings_nouns = (global_basic_level_for_recording
+    tokens_assigned = assign_tokens_to_regions(tokens=recording_basic_level,
+                                               seedlings_nouns_regions=seedlings_nouns_regions,
+                                               month=month)
+    # Add assignment columns to recording_basic_level
+    recording_seedlings_nouns = (recording_basic_level
                                  .merge(tokens_assigned, on='annotid', how='inner')
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    lena_recordings, total_recorded_time = get_lena_recordings(recording_id=f'{AUDIO}_{subject}_{month}')
-    total_listened_time = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
-                                                           recordings=lena_recordings)
+    lena_recordings, total_recorded_time_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
+                                                                      amend_if_special_case=True)
+    total_listened_time_ms = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
+                                                              recordings=lena_recordings)
 
     # Enforce column order
     def _enforce_column_order(df, dtypes):
@@ -658,18 +670,25 @@ def gather_recording_nouns_audio(subject, month, global_basic_level_for_recordin
 
     recording_seedlings_nouns = _enforce_column_order(df=recording_seedlings_nouns,
                                                       dtypes=SEEDLINGS_NOUNS_DTYPES)
-    regions_for_seedlings_nouns = _enforce_column_order(df=regions_for_seedlings_nouns,
-                                                        dtypes=SEEDLINGS_NOUNS_REGIONS_DTYPES)
+    seedlings_nouns_regions = _enforce_column_order(df=seedlings_nouns_regions,
+                                                    dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES)
     lena_recordings = _enforce_column_order(df=lena_recordings,
                                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
+    # Check that there are no subregions ranked 5 left. I removed and then added them too many times. :facepalm:
+    def no_subregion_rank_5(series):
+        return (series.isna() | series.isin([1, 2, 3, 4])).all()
+
+    assert no_subregion_rank_5(seedlings_nouns_regions.subregion_rank)
+    assert no_subregion_rank_5(recording_seedlings_nouns.subregion_rank)
+
     return (recording_seedlings_nouns,
-            regions_for_seedlings_nouns,
+            seedlings_nouns_regions,
             lena_recordings,
             # TODO: return a dataframe with one row and two columns, so that we can then concatenate everything in
             #  exactly the same manner
-            total_listened_time,
-            total_recorded_time)
+            total_listened_time_ms,
+            total_recorded_time_ms)
 
 
 def load_video_recordings_csv(anonymize=True):
@@ -681,7 +700,8 @@ def load_video_recordings_csv(anonymize=True):
 
     # Change start dates to happen on the same date. Shift end dates by the same deltas.
     if anonymize:
-        deltas = video_info_df.start.dt.date - ANONYMIZATION_DATE
+        # .dt.normalize() sets the time to 00:00:00, effectively extracting the date
+        deltas = video_info_df.start.dt.normalize() - np.datetime64(ANONYMIZATION_DATE)
         video_info_df = video_info_df.assign(start=lambda df: df.start - deltas,
                                              end=lambda df: df.end - deltas)
 
@@ -706,14 +726,14 @@ def get_video_times(subject, month):
     return start_dt, end_dt, duration_ms
 
 
-def gather_recording_nouns_video(subject, month, global_basic_level_for_recording):
+def gather_recording_nouns_video(subject, month, recording_basic_level):
     """
     Gathers all the data needed to update seedlings_nouns for one video recording.
 
     :param subject: subject id, e.g. '01'
     :param month: month, e.g. '08'
-    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
-    :return: (global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+    :param recording_basic_level: the rows of all_basic_level that correspond to the recording
+    :return: (recording_basic_level as is - new columns are only added for audio recordings,
               top3/top4/surplus regions (None because video),
               sub-recordings (a single one because video),
               total recorded time,
@@ -724,39 +744,39 @@ def gather_recording_nouns_video(subject, month, global_basic_level_for_recordin
                                                end=[end_dt],
                                                start_position_ms=[0]))
 
-    return global_basic_level_for_recording, None, sub_recordings_df, duration_ms, duration_ms
+    return recording_basic_level, None, sub_recordings_df, duration_ms, duration_ms
 
 
-def gather_recording_seedlings_nouns(recording_id, global_basic_level_for_recording):
+def gather_recording_seedlings_nouns(recording_id, recording_basic_level):
     """
     Gathers all the data needed to update seedlings_nouns for one recording.
 
     :param recording_id: full recording id, e.g. 'Video_01_16'
-    :param global_basic_level_for_recording: the rows of global_basic_level that correspond to the recording
+    :param recording_basic_level: the rows of all_basic_level that correspond to the recording
     :return: (top3/top4/surplus regions,
-              global_basic_level_for_recording with is_top3/is_top4/is_surplus added,
+              recording_basic_level with is_top3/is_top4/is_surplus added,
               LENA recordings,
-              total recorded time,
-              total listened time)
+              total recorded time in ms,
+              total listened time in ms)
     """
     modality, subject, month = split_recording_id(recording_id)
 
     if modality == VIDEO:
-        return gather_recording_nouns_video(subject, month, global_basic_level_for_recording)
+        return gather_recording_nouns_video(subject, month, recording_basic_level)
     elif modality == AUDIO:
-        return gather_recording_nouns_audio(subject, month, global_basic_level_for_recording)
+        return gather_recording_nouns_audio(subject, month, recording_basic_level)
     else:
         raise ValueError(f'Unknown modality {modality} for recording {recording_id}')
 
 
-def _preprocess_global_basic_level(global_basic_level):
+def _preprocess_all_basic_level(all_basic_level_df):
     """
     Preprocess global basic level for seedlings_nouns
-    :param global_basic_level:
+    :param all_basic_level_df:
     :return:
     """
-    global_basic_level_preprocessed = (
-        global_basic_level
+    all_basic_level_preprocessed = (
+        all_basic_level_df
         .drop(columns=['id', 'tier'])
         .rename(columns={'SubjectNumber': 'subject_month',
                          'pho': 'transcription',
@@ -767,34 +787,34 @@ def _preprocess_global_basic_level(global_basic_level):
                                         + df.month.astype(str))
         .pipe(_sort_tokens))
 
-    return global_basic_level_preprocessed
+    return all_basic_level_preprocessed
 
 
-def _gather_corpus_seedlings_nouns(global_basiclevel_df):
+def _gather_corpus_seedlings_nouns(all_basic_level_df):
     """
-    Create all the csv for the seedlings_nouns dataset
-    :param global_basiclevel_df: a global basic level dataframe (all_basiclevel + global_bl)
+    Create all the csvs for the seedlings-nouns dataset
+    :param all_basic_level_df: all_basiclevel dataframe
     :return: None
     """
-    gbl = _preprocess_global_basic_level(global_basic_level=global_basiclevel_df)
+    all_bl = _preprocess_all_basic_level(all_basic_level_df=all_basic_level_df)
 
     # Gather data for each recording and put into lists
-    print('Processing video recordings is instantaneous, only audio recordings take time.')
+    print('Processing video recordings is very quick, audio recordings take time.')
     everything = [
         (recording_id,) +
         gather_recording_seedlings_nouns(
             recording_id,
             # So that all the dataframes are later concatenated in the same way: with new column "recording_id" added.
-            global_basic_level_for_recording=recording_tokens.drop(columns='recording_id'))
-        for modality, modality_tokens in gbl.groupby('audio_video', sort=False)
+            recording_basic_level=recording_tokens.drop(columns='recording_id'))
+        for modality, modality_tokens in all_bl.groupby('audio_video', sort=False, observed=True)
         for recording_id, recording_tokens in tqdm(modality_tokens.groupby('recording_id', sort=False),
                                                    desc=f'Processing {modality} tokens')]
     (recording_ids,
      all_seedlings_nouns,
      all_regions,
      all_sub_recordings,
-     all_total_listened_times,
-     all_total_recorded_times) = zip(*everything)
+     all_total_listened_times_ms,
+     all_total_recorded_times_ms) = zip(*everything)
 
     # Aggregate the lists into dataframes
 
@@ -818,7 +838,7 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_df):
                              sort_by=SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv']))
     regions = (_concatenate_dataframes(all_regions)
                .pipe(_standardize,
-                     dtypes=SEEDLINGS_NOUNS_REGIONS_DTYPES,
+                     dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES,
                      sort_by=SEEDLINGS_NOUNS_SORT_BY['regions.csv']))
     sub_recordings = (_concatenate_dataframes(all_sub_recordings)
                       .pipe(_standardize,
@@ -827,8 +847,8 @@ def _gather_corpus_seedlings_nouns(global_basiclevel_df):
     recordings = (
         pd.DataFrame(data=dict(
             recording_id=recording_ids,
-            total_recorded_time=all_total_recorded_times,
-            total_listened_time=all_total_listened_times))
+            total_recorded_time_ms=all_total_recorded_times_ms,
+            total_listened_time_ms=all_total_listened_times_ms))
         .convert_dtypes()
         .pipe(_standardize,
               dtypes=SEEDLINGS_NOUNS_RECORDINGS_DTYPES, sort_by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv']))
@@ -864,7 +884,7 @@ def _make_updated_codebook(df, old_codebook_path):
     return codebook_template, is_new_dataframe, has_new_columns
 
 
-def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir):
+def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_csv_dir):
     """
     For a given dataframe,
     - creates/updates a codebook for it,
@@ -875,13 +895,15 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir)
     filename hasn't changed since the last update. Rename the files in the seedlings-nouns_private repo first if you
     want new names.
     :param output_dir: where to save the csv files
-    :param old_seedlings_nouns_dir: where to look for the old codebook
-    :return:
+    :param old_seedlings_nouns_csv_dir: where to look for the old codebook
+    :return: (where the new codebook was saved - path to the new file,
+              is this a new dataframe (no old codebook),
+              are there new columns (some columns are new and missing descriptions))
     """
     # Paths
     new_df_path = output_dir / df_filename
     new_codebook_path = new_df_path.with_suffix('.codebook.csv')
-    old_codebook_path = old_seedlings_nouns_dir / new_codebook_path.name
+    old_codebook_path = old_seedlings_nouns_csv_dir / new_codebook_path.name
 
     # New codebook
     codebook, is_new_dataframe, has_new_columns = _make_updated_codebook(df, old_codebook_path)
@@ -894,48 +916,93 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_dir)
 
 
 def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
-                                               new_seedlings_nouns_dir, old_seedlings_nouns_dir):
-    # TODO: Remove from the message:
-    #  - /Users/ek221/blab/blabpy/repo/blabpy/seedlings/pipeline.py:777: UserWarning:
-    #  - warnings.warn(msg)
-    def _warn(msg):
-        msg = f'\n{msg}\n'
-        warnings.warn(msg)
-        sys.stderr.flush()
-
+                                               new_seedlings_nouns_csvs_dir, old_seedlings_nouns_csvs_dir):
     if new_dataframes:
-        _warn('These dataframes never had a codebook and need their "description" column filled:\n'
+        print('These dataframes never had a codebook and need their "description" column filled:\n'
               + '\n'.join(str(path) for path in new_dataframes))
 
     if new_variables:
-        _warn('These dataframes have some new variables without description:\n'
+        print('These dataframes have some new variables without description:\n'
               + '\n'.join(str(path) for path in new_variables))
 
     # Instructions
-    print('0. If there are warnings above about new dataframes or new variables, update descriptions in the'
-          f' corresponding codebooks in the following folder:\n{new_seedlings_nouns_dir}\n\n'
-          '1. Copy the csv files\n'
-          f'from: {new_seedlings_nouns_dir.absolute()}\n'
-          f'to:   {old_seedlings_nouns_dir.absolute()}\n\n'
+    step0 = ''
+    if new_dataframes or new_variables:
+        step0 = '0. Check whether the lists above correspond to what you expected.\n\n'
+
+    new_dir_path = new_seedlings_nouns_csvs_dir.absolute()
+    old_dir_path = old_seedlings_nouns_csvs_dir.absolute()
+    step1 = ('1. Copy the csv files\n'
+             f'from: {new_dir_path}\n'
+             f'to:   {old_dir_path}\n\n')
+    if new_dir_path == old_dir_path:
+        step1 = ''
+
+    print(step0 + step1 +
           '2. Go to\n'
-          f'{old_seedlings_nouns_dir.absolute()}\n'
+          f'{old_seedlings_nouns_csvs_dir.absolute()}\n'
           'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
 
-def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir=Path()):
+# TODO: This should be all done at the recording level - in gather_recording_seedlings_nouns
+def _post_process_regions(regions, recordings):
+    """
+    Does a couple of things that should have been done at the recording level, but I couldn't figure out how to do it
+    without breaking the code. Which means that the code is probably not very good and should be refactored. Here's
+    what it does:
+    - Reformats the table to make it more readable. See reformat_seedlings_nouns_regions.
+    - Fills in the end for the last surplus region in months 06-07 - it was left as NA to signify "until the end of the
+      recording".
+    - Renames some columns and enforce column order. It already happened to regions but now - after reforamtting - it
+      has to be done again.
+    :param regions: regions in long format that come out of _gather_corpus_seedlings_nouns
+    :param recordings: a dataframe with duration of all the recordings
+    :return: regions with
+    """
+    # Make regions more readable, enforce column order, remove subregions ranked 5 from months 06 and 07. For other
+    # months, subregions ranked 5 disappear in the beginning - when we process regions from the cha files). For months
+    # 06 and 07 we keep them to use for makeup.
+    regions = regions.copy()
+
+    # Check that no rank-5 subregions remain
+    assert not regions.loc[lambda df_:
+                           df_.region_type.eq(RegionType.SUBREGION.value)
+                           & df_.subregion_rank.eq(5)].shape[0] > 0
+
+    # Make regions wide and nice
+    regions = reformat_seedlings_nouns_regions(regions)
+
+    # Fill in the right boundary for the last surplus region in months 06-07 - it was left as NA because the code
+    # that created regions from the cha files didn't have access to the recording duration. It would be cleaner to
+    # get the duration before the regions-creating code but I couldn't figure out how to do it and not break anything
+    # else.
+    regions = (regions
+               .merge(recordings.loc[:, ['recording_id', 'total_recorded_time_ms']], on='recording_id')
+               .assign(end=lambda df: df.end.fillna(df.total_recorded_time_ms).convert_dtypes())
+               .drop(columns=['total_recorded_time_ms']))
+
+    # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
+    # been done downstream but it is easier to apply at the very end.
+    return (regions
+        .rename(columns={'is_top_3': 'is_top_3_hours',
+                         'is_top_4': 'is_top_4_hours'})
+        .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
+
+
+def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
     that contains existing codebooks.
-    :param global_basiclevel_path:
-    :param seedlings_nouns_dir:
-    :param output_dir:
+    :param all_basic_level_path: all_basiclevel_NA.csv path
+    :param seedlings_nouns_csvs_dir: path to the folder containing the existing codebooks
+    :param output_dir: where to write the new csvs and codebooks
     :return: path of the output folder
     """
-    ensure_folder_exists_and_empty(output_dir)
-
     # Gather and write data
-    global_basiclevel_path_df = read_global_basic_level(global_basiclevel_path)
-    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(global_basiclevel_path_df)
+    all_basic_level_df = read_all_basic_level(all_basic_level_path)
+    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
+
+    regions = _post_process_regions(regions, recordings)
 
     new_dataframes = []
     new_variables = []
@@ -944,7 +1011,7 @@ def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
                          (sub_recordings, 'sub-recordings.csv'),
                          (recordings, 'recordings.csv')]:
         new_codebook_path, is_new_dataframe, has_new_columns = _write_df_and_codebook(df, filename, output_dir,
-                                                                                      seedlings_nouns_dir)
+                                                                                      seedlings_nouns_csvs_dir)
         if has_new_columns:
             new_variables.append(new_codebook_path)
         if is_new_dataframe:
@@ -952,8 +1019,8 @@ def _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, o
 
     # Print instructions
     _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
-                                               new_seedlings_nouns_dir=output_dir,
-                                               old_seedlings_nouns_dir=seedlings_nouns_dir)
+                                               new_seedlings_nouns_csvs_dir=output_dir,
+                                               old_seedlings_nouns_csvs_dir=seedlings_nouns_csvs_dir)
 
 
 def make_updated_seedlings_nouns():
@@ -962,16 +1029,31 @@ def make_updated_seedlings_nouns():
     For this function to work, the following must be true:
 
     - You are connected to PN-OPUS.
-    - Current working directory contains `global-basic-level.csv` with updated global basic level version.
-      It can be created using `blabr:::make_new_global_basic_level()`.
-    - There is no subfolder `new_csvs` in the current folder or it is empty.
+    - `all_basiclevel` is cloned to `~/BLAB_DATA/all_basiclevel`.
+    - `seedlings-nouns_private` is cloned to `~/BLAB_DATA/seedlings-nouns_private`.
+    - You are either (a) in the csvs folder of `seedlings-nouns_private` or (b) any other folder.
+      - If it is (a), the working tree must be clean. The new csvs will overwrite the old ones in place, and you'll
+        be instructed to commit the changes.
+      - If it is (b), cwd must be empty. You'll be instructed to copy the new csvs to the repo before committing them.
     """
-    global_basiclevel_path = Path('global-basic-level.csv')
-    assert global_basiclevel_path.exists(), (f'File {global_basiclevel_path.name} does not exist in the current working'
-                                             f' directory.')
-    # get_*_path functions check that paths exist - we don't need to do it here
-    seedlings_nouns_dir = get_seedlings_nouns_private_path() / 'public'
-    output_dir = Path('new_csvs')
-    ensure_folder_exists_and_empty(output_dir)
+    # Get the newest version of all_basiclevel_NA.csv
+    all_basic_level_path = get_file_path('all_basiclevel', None, 'all_basiclevel_NA.csv')
 
-    _make_updated_seedlings_nouns(global_basiclevel_path, seedlings_nouns_dir, output_dir)
+    # Use the newest version of seedlings-nouns_private and make sure it's clean
+    seedling_nouns_repo, _ = switch_dataset_to_version('seedlings-nouns_private', version=None)
+    seedlings_nouns_csvs_dir = Path(seedling_nouns_repo.working_dir) / 'public'
+    if seedling_nouns_repo.is_dirty():
+        raise ValueError(f'There are unsaved changes in the seedlings-nouns_private repo. Please commit, stash, or '
+                         'discard them. Find the repo here:\n'
+                         f'{seedlings_nouns_csvs_dir.absolute()}')
+
+    # If we're not working from the repo, we don't want to overwrite existing csvs in case we're in the wrong folder,
+    # we want to keep the results of the previous run, etc. So, the current working directory should be empty.
+    output_dir = Path.cwd()
+    if output_dir.absolute() != seedlings_nouns_csvs_dir.absolute():
+        if any(output_dir.iterdir()):
+            raise ValueError(f'The current working directory is not empty. Please move to a different folder or '
+                             'delete the files in this folder. Find the current working directory here:\n'
+                             f'{output_dir.absolute()}')
+
+    _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir)
