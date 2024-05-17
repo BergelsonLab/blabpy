@@ -30,7 +30,7 @@ from .regions import get_processed_audio_regions as _get_processed_audio_regions
     SPECIAL_CASES as REGIONS_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     assign_tokens_to_regions, reformat_seedlings_nouns_regions
 # Placeholder value for words without the basic level information
-from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms, \
+from .regions.regions import calculate_listened_time, calculate_recording_duration, \
     calculate_total_surplus_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
 from .. import ANONYMIZATION_DATE
@@ -658,12 +658,12 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    lena_recordings, total_recorded_time_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
-                                                                      amend_if_special_case=True)
-    total_listened_time_ms = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
-                                                              recordings=lena_recordings)
+    lena_recordings, duration_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
+                                                           amend_if_special_case=True)
+    listened_ms = calculate_listened_time(processed_regions=processed_regions, month=month,
+                                          recordings=lena_recordings)
 
-    total_surplus_time_ms = calculate_total_surplus_time_ms(processed_regions=seedlings_nouns_regions)
+    surplus_ms = calculate_total_surplus_time_ms(processed_regions=seedlings_nouns_regions)
 
     # Enforce column order
     def _enforce_column_order(df, dtypes):
@@ -679,9 +679,9 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
     durations = pd.DataFrame.from_dict(dict(
-        total_listened_time_ms=[total_listened_time_ms],
-        total_surplus_time_ms=[total_surplus_time_ms],
-        total_recorded_time_ms=[total_recorded_time_ms])
+        listened_ms=[listened_ms],
+        surplus_ms=[surplus_ms],
+        duration_ms=[duration_ms])
     )
 
     # Check that there are no subregions ranked 5 left. I removed and then added them too many times. :facepalm:
@@ -751,9 +751,9 @@ def gather_recording_nouns_video(subject, month, recording_basic_level):
                                                start_position_ms=[0]))
 
     durations = pd.DataFrame.from_dict(dict(
-        total_listened_time_ms=[duration_ms],
-        total_surplus_time_ms=[0],
-        total_recorded_time_ms=[duration_ms])
+        listened_ms=[duration_ms],
+        surplus_ms=[0],
+        duration_ms=[duration_ms])
     )
 
     return recording_basic_level, None, sub_recordings_df, durations
@@ -975,9 +975,9 @@ def _post_process_regions(regions, recordings):
     # get the duration before the regions-creating code but I couldn't figure out how to do it and not break anything
     # else.
     regions = (regions
-               .merge(recordings.loc[:, ['recording_id', 'total_recorded_time_ms']], on='recording_id')
-               .assign(end=lambda df: df.end.fillna(df.total_recorded_time_ms).convert_dtypes())
-               .drop(columns=['total_recorded_time_ms']))
+               .merge(recordings.loc[:, ['recording_id', 'duration_ms']], on='recording_id')
+               .assign(end=lambda df: df.end.fillna(df.duration_ms).convert_dtypes())
+               .drop(columns=['duration_ms']))
 
     # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
     # been done downstream but it is easier to apply at the very end.

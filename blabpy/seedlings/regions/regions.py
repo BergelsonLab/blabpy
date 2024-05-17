@@ -199,7 +199,7 @@ def _get_amended_regions(subj_month, regions_processed_auto):
     return regions_processed_amended
 
 
-def calculate_total_recorded_time_ms(recordings):
+def calculate_recording_duration(sub_recordings):
     """
     Calculates total recorded time in milliseconds for a given recording by adding the durations of all the
     sub-recordings.
@@ -214,7 +214,7 @@ def calculate_total_recorded_time_ms(recordings):
     return (recordings.end - recordings.start).values.sum() / np.timedelta64(1, 'ms')
 
 
-def calculate_total_listened_time_ms(processed_regions, month, recordings):
+def calculate_listened_time(processed_regions, month, recordings):
     """
     Calculates total listened time in milliseconds for a given recording by adding the durations of all the regions
     that were listened to. By the time this function is called, the regions data has already been processed and only
@@ -225,25 +225,25 @@ def calculate_total_listened_time_ms(processed_regions, month, recordings):
     :return: int, total listened time in milliseconds
     """
     if int(month) in (6, 7):
-        total_recorded_time_ms = calculate_total_recorded_time_ms(recordings)
+        total_recorded_time_ms = calculate_recording_duration(recordings)
         total_silence_time_ms = (processed_regions
                                  .loc[lambda df: df.region_type.eq(RegionType.SILENCE.value)]
                                  .assign(duration=lambda df: df.end - df.start)
                                  .duration.sum())
-        total_listened_time_ms = total_recorded_time_ms - total_silence_time_ms
+        listened_time = total_recorded_time_ms - total_silence_time_ms
 
     elif int(month) in range(8, 17+1):
         listened_to_regions = (RegionType.SUBREGION.value,
                                RegionType.MAKEUP.value,
                                RegionType.EXTRA.value)
-        total_listened_time_ms = (processed_regions
-                                  .loc[lambda df: df.region_type.isin(listened_to_regions)]
-                                  .assign(duration=lambda df: df.end - df.start)
-                                  .duration.sum()
-                                  # convert from numpy.int64 to int
-                                  .item())
+        listened_time = (processed_regions
+                         .loc[lambda df: df.region_type.isin(listened_to_regions)]
+                         .assign(duration=lambda df: df.end - df.start)
+                         .duration.sum()
+                         # convert from numpy.int64 to int
+                         .item())
 
-    return total_listened_time_ms
+    return listened_time
 
 
 def calculate_total_surplus_time_ms(processed_regions):

@@ -96,9 +96,9 @@ SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES = {
 
 SEEDLINGS_NOUNS_RECORDINGS_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
-    'total_recorded_time_ms': pd.Int64Dtype(),
-    'total_listened_time_ms': pd.Int64Dtype(),
-    'total_surplus_time_ms': pd.Int64Dtype()}
+    'duration_ms': pd.Int64Dtype(),
+    'listened_ms': pd.Int64Dtype(),
+    'surplus_ms': pd.Int64Dtype()}
 
 
 SEEDLINGS_NOUNS_CODEBOOK_CORE_DTYPES = {
