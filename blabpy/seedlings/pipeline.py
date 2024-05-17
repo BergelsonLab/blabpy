@@ -1000,7 +1000,20 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir
     """
     # Gather and write data
     all_basic_level_df = read_all_basic_level(all_basic_level_path)
-    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(all_basic_level_df)
+    seedlings_nouns, regions, sub_recordings, recordings = _gather_corpus_seedlings_nouns(
+        all_basic_level_df
+        # .loc[lambda df: True
+        #      & df.month.isin(['06', '07'])
+        #      & df.subj.isin(['08', '25'])
+        #      & df.audio_video.isin(['Audio'])
+        #      ]
+    )
+    # pickle_file = 'seedlings_nouns_tables.pkl'
+    # import pickle
+    # with open(pickle_file, "wb") as f:
+    #     pickle.dump((seedlings_nouns, regions, sub_recordings, recordings), f)
+    # with open(pickle_file, "rb") as f:
+    #     seedlings_nouns, regions, sub_recordings, recordings = pickle.load(f)
 
     regions = _post_process_regions(regions, recordings)
 
