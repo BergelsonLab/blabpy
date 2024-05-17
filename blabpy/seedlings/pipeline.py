@@ -675,6 +675,11 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
     lena_recordings = _enforce_column_order(df=lena_recordings,
                                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
+    durations = pd.DataFrame.from_dict(dict(
+        total_listened_time_ms=[total_listened_time_ms],
+        total_recorded_time_ms=[total_recorded_time_ms])
+    )
+
     # Check that there are no subregions ranked 5 left. I removed and then added them too many times. :facepalm:
     def no_subregion_rank_5(series):
         return (series.isna() | series.isin([1, 2, 3, 4])).all()
@@ -685,10 +690,7 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
     return (recording_seedlings_nouns,
             seedlings_nouns_regions,
             lena_recordings,
-            # TODO: return a dataframe with one row and two columns, so that we can then concatenate everything in
-            #  exactly the same manner
-            total_listened_time_ms,
-            total_recorded_time_ms)
+            durations)
 
 
 def load_video_recordings_csv(anonymize=True):
@@ -744,7 +746,12 @@ def gather_recording_nouns_video(subject, month, recording_basic_level):
                                                end=[end_dt],
                                                start_position_ms=[0]))
 
-    return recording_basic_level, None, sub_recordings_df, duration_ms, duration_ms
+    durations = pd.DataFrame.from_dict(dict(
+        total_listened_time_ms=[duration_ms],
+        total_recorded_time_ms=[duration_ms])
+    )
+
+    return recording_basic_level, None, sub_recordings_df, durations
 
 
 def gather_recording_seedlings_nouns(recording_id, recording_basic_level):
@@ -813,45 +820,31 @@ def _gather_corpus_seedlings_nouns(all_basic_level_df):
      all_seedlings_nouns,
      all_regions,
      all_sub_recordings,
-     all_total_listened_times_ms,
-     all_total_recorded_times_ms) = zip(*everything)
+     all_durations) = zip(*everything)
 
     # Aggregate the lists into dataframes
-
-    # TODO: move to a separate function, e.g., in blabpy.utils.py
-    def _concatenate_dataframes(dataframes):
-        concatenated = (pd.concat(objs=dataframes,
+    def _merge(dfs, dtypes, sort_by):
+        concatenated = (pd.concat(objs=dfs,
                                   keys=recording_ids,
                                   names=['recording_id', 'sub_df_index'])
                         .reset_index('recording_id', drop=False)
                         .reset_index(drop=True))
         concatenated.recording_id = concatenated.recording_id.astype(pd.StringDtype())
-        return concatenated
 
-    def _standardize(df, dtypes, sort_by):
-        """Convert data types, sort rows, reorder columns"""
-        return df.astype(dtypes).sort_values(by=sort_by).reset_index(drop=True)[dtypes.keys()]
+        return concatenated.astype(dtypes).sort_values(by=sort_by).reset_index(drop=True)[dtypes.keys()]
 
-    seedlings_nouns = (_concatenate_dataframes(all_seedlings_nouns)
-                       .pipe(_standardize,
+    seedlings_nouns = _merge(all_seedlings_nouns,
                              dtypes=SEEDLINGS_NOUNS_DTYPES,
-                             sort_by=SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv']))
-    regions = (_concatenate_dataframes(all_regions)
-               .pipe(_standardize,
+                             sort_by=SEEDLINGS_NOUNS_SORT_BY['seedlings-nouns.csv'])
+    regions = _merge(all_regions,
                      dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES,
-                     sort_by=SEEDLINGS_NOUNS_SORT_BY['regions.csv']))
-    sub_recordings = (_concatenate_dataframes(all_sub_recordings)
-                      .pipe(_standardize,
+                     sort_by=SEEDLINGS_NOUNS_SORT_BY['regions.csv'])
+    sub_recordings = _merge(all_sub_recordings,
                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES,
-                            sort_by=SEEDLINGS_NOUNS_SORT_BY['sub-recordings.csv']))
-    recordings = (
-        pd.DataFrame(data=dict(
-            recording_id=recording_ids,
-            total_recorded_time_ms=all_total_recorded_times_ms,
-            total_listened_time_ms=all_total_listened_times_ms))
-        .convert_dtypes()
-        .pipe(_standardize,
-              dtypes=SEEDLINGS_NOUNS_RECORDINGS_DTYPES, sort_by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv']))
+                            sort_by=SEEDLINGS_NOUNS_SORT_BY['sub-recordings.csv'])
+    recordings = _merge(all_durations,
+                        dtypes=SEEDLINGS_NOUNS_RECORDINGS_DTYPES,
+                        sort_by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv'])
 
     return seedlings_nouns, regions, sub_recordings, recordings
 
