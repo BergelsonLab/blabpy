@@ -2,10 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="blabpy",
-    version="0.16.1",
+    version="0.29.1",
     packages=find_packages(),
     python_requires='>=3.7',
-    install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click'],
+    install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click', 'requests',
+                      'GitPython', 'pywin32; sys_platform == "win32"', 'pyprojroot'],
     include_package_data=True,
     package_data={'blabpy': ['vihi/intervals/etf_templates/*.etf',
                              'vihi/intervals/etf_templates/*.pfsx',

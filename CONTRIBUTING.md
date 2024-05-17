@@ -1,21 +1,30 @@
-# After version bump
+# Set up developmental environment
+
+- Recommended IDE: PyCharm. Reason: Zhenya likes it.
+- Recommended Python environment: conda. Reason: Zhenya likes it.
+- Install the package in editable mode with `pip install -e .` in the repo root.
+
+# After finishing changes
 
 ## Update repo after implementing a change
 
+- Merge branch into `main` (or do nothing if the change is a single commit done directly on `main`).
 - Edit version in `setup.py`.
+- Add new block in `CHANGELOG.md`.
 - Commit.
-- Merge branch into master (or do nothing if the change is a single commit done directly on master).
 - Push.
+- Tag and push:
+    
+    ```shell
+    git tag $(python setup.py --version) && git push --tags
+    ```
 
-## Update PyPI
+## Build the package and upload to blabpy:
 
 ```shell
 python -m build
-twine upload --skip-existing dist/*
 ```
 
-## Update the version tag
-
 ```shell
-git tag $(python setup.py --version) && git push --tags
+twine upload --skip-existing dist/*
 ```

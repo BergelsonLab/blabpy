@@ -25,6 +25,13 @@ def get_blab_share_path():
 
     env_path = os.environ.get(BLAB_SHARE_PATH_ENV)
     if env_path is not None:
+        # Windows drive letter thing: if the path is specified as a drive letter and a colon ("X:", "Y:", etc.) without
+        # a trailing slash - add one.
+        # On Windows, Path('X:') and Path('X:') / 'some_folder' will work fine but str(Path('X:') / 'some_folder') will
+        # be 'X:some_folder' which is not a valid path as far as, for example, git is concerned.
+        if env_path.endswith(':'):
+            env_path += '/'
+
         blab_share_path = Path(env_path)
         error_message = (
             f'Could not locate the BLab share at the path specified'
@@ -68,7 +75,7 @@ def get_blab_share_path():
 
 
 def get_blab_data_root_path():
-    """Returns tht path to the BLAB_DATA fodler on the local computer"""
+    """Returns tht path to the BLAB_DATA folder on the local computer"""
     path = Path('~/BLAB_DATA/').expanduser()
     msg = (f'Could not locate BLAB_DATA at {path}.'
            f' You may need to create this folder and clone the necessary repos.')

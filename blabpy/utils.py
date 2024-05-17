@@ -1,8 +1,13 @@
+from datetime import timedelta, datetime
+from functools import lru_cache, wraps
 import hashlib
 from zlib import adler32
 from pathlib import Path
 import contextlib
 import os
+
+from pyprojroot import find_root
+import pandas as pd
 
 
 def text_file_checksum(path: Path):
@@ -69,3 +74,78 @@ def df_to_list_of_tuples(df):
 
 def pandas_df_hash(df):
     return hashlib.sha256(df.to_csv().encode()).hexdigest()
+
+
+def timed_lru_cache(seconds: int, maxsize: int = None):
+    """
+    Cache the results of a function for a specified number of seconds. Upon expiration, clear the whole cache,
+    not one value at a time.
+
+    Copied verbatim from https://www.mybluelinux.com/pyhon-lru-cache-with-time-expiration/
+    :param seconds: number of seconds the cache will persist, resets after cache expires.
+    :param maxsize: as in lru_cache
+    :return:
+    """
+    def wrapper_cache(func):
+        print('I will use lru_cache')
+        func = lru_cache(maxsize=maxsize)(func)
+        print('I\'m setting func.lifetime')
+        func.lifetime = timedelta(seconds=seconds)
+        print('I\'m setting func.expiration')
+        func.expiration = datetime.utcnow() + func.lifetime
+
+        @wraps(func)
+        def wrapped_func(*args, **kwargs):
+            print('Check func expiration')
+            print(f'datetime.utcnow(): {datetime.utcnow()}, func.expiration: {func.expiration}')
+            if datetime.utcnow() >= func.expiration:
+                print('func.expiration lru_cache lifetime expired')
+                func.cache_clear()
+                func.expiration = datetime.utcnow() + func.lifetime
+
+            return func(*args, **kwargs)
+
+        return wrapped_func
+
+    return wrapper_cache
+
+
+def concatenate_dataframes(dataframes, keys, key_column_name):
+    """
+    Concatenates dataframes with the same columns. The resulting dataframe will have an additional column identifying
+    the dataframe from which each row originated.
+    :param dataframes: A list of dataframes to concatenate.
+    :param keys: A list of keys to identify the dataframes. Must be the same length as dataframes.
+    :param key_column_name: The name of the column with the dataframe identifiers.
+    :return: A dataframe with the concatenated dataframes. The dataframe has as many rows as the sum of the number of
+    rows in the dataframes and an additional column with the dataframe identifiers.
+    """
+    assert len(dataframes) == len(keys), 'Dataframes and keys must have the same length.'
+    concatenated = (pd.concat(objs=dataframes,
+                              keys=keys,
+                              names=[key_column_name, 'sub_df_index'])
+                    .reset_index(key_column_name, drop=False)
+                    .reset_index(drop=True))
+    concatenated[key_column_name] = concatenated[key_column_name].astype(pd.StringDtype())
+    return concatenated
+
+
+def chdir_relative_to_project_root(relative_path, criterion='.git'):
+    """
+    Given a path relative to the project root, changes the current working directory to that path.
+    :param relative_path: Path of the desired working directory relative to the project root.
+    :return: None
+    """
+    this_folder = find_root('.git') / relative_path
+    os.chdir(str(this_folder))
+
+
+def ensure_folder_exists_and_empty(folder_path):
+    """
+    Check that folder is either empty or does not yet exist. In the latter case, creates it.
+    :param folder_path:
+    :return:
+    """
+    assert not (folder_path.exists() and any(folder_path.iterdir())), \
+        'The folder should be empty or not yet exist'
+    folder_path.mkdir(parents=True, exist_ok=True)

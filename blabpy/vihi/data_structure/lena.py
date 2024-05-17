@@ -8,7 +8,8 @@ from pathlib import Path
 import pandas as pd
 from strenum import StrEnum
 
-from ..paths import get_lena_path, compose_full_recording_id, parse_full_recording_id, get_lena_recording_path, get_vihi_path
+from ..paths import get_lena_annotations_path, compose_full_recording_id, parse_full_recording_id, \
+    get_lena_recording_path, get_vihi_path
 
 # Strings to match literally, and re.Pattern objects to match in the sense of re.match. Add $ to match the full name.
 IGNORED = [re.compile(r'~.*\.docx$'), '.DS_Store', '.git']
@@ -97,22 +98,22 @@ def audit_all_recordings():
         recordings_list.recording.apply(parse_full_recording_id).to_list())
 
     # Check the folder presence at population, subject, and recording levels
-    lena_dir = get_lena_path()
+    annotations_dir = get_lena_annotations_path()
     expected_folders = {
         folder
         for population, subject_id, recording_id
         in recordings_list[['population', 'subject_id', 'recording_id']].drop_duplicates().to_records(index=False)
         for folder in (
-            lena_dir / population,
-            lena_dir / population / f'{population}_{subject_id}',
-            lena_dir / population / f'{population}_{subject_id}' / f'{population}_{subject_id}_{recording_id}'
+            annotations_dir / population,
+            annotations_dir / population / f'{population}_{subject_id}',
+            annotations_dir / population / f'{population}_{subject_id}' / f'{population}_{subject_id}_{recording_id}'
         )}
 
     actual_folders = {
         path
-        for glob_results in (lena_dir.glob('*'),
-                             lena_dir.glob('*/*'),
-                             lena_dir.glob('*/*/*'))
+        for glob_results in (annotations_dir.glob('*'),
+                             annotations_dir.glob('*/*'),
+                             annotations_dir.glob('*/*/*'))
         for path in glob_results
         if path.is_dir()
     }
@@ -125,8 +126,8 @@ def audit_all_recordings():
                                 (expected, AuditStatus.expected),
                                 (missing, AuditStatus.missing)]:
         for folder in folder_list:
-            folder_statuses.append(dict(parent=lena_dir,
-                                        relative_path=folder.relative_to(lena_dir), status=status))
+            folder_statuses.append(dict(parent=annotations_dir,
+                                        relative_path=folder.relative_to(annotations_dir), status=status))
 
     # Check the recording folders contents
     recordings_list['folder_path'] = recordings_list.apply(
