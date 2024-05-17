@@ -95,72 +95,13 @@ And then pivot as normal:
 Note: the initial version is a slight modification of the one-time script in "2023-02-03_pivot_regions_wider/"
 """
 
-import numpy as np
 import pandas as pd
 
 
 from blabpy.seedlings.listened_time import RegionType
-from blabpy.seedlings.regions.top3_top4_surplus import TOP_3_KIND, TOP_4_KIND
+from blabpy.seedlings.regions.top3_top4_surplus import TOP_3_KIND, TOP_4_KIND, _fillna_with_pseudo_inf, \
+    _pseudo_inf_to_na
 from blabpy.seedlings.paths import split_recording_id
-
-
-# =============================================================================
-# Little helper functions for dealing with na values used as the right bound of right-open intervals, essentially
-# infinity. We have them because at that point in code we didn't know the duration of month 06 and 07 recordings and
-# so the last surplus region was left open on the right.
-
-def _numeric_dtype_info(numpy_dtype):
-    """
-    Return the info object for a numpy dtype (see np.iinfo, np.finfo).
-    :param numpy_dtype: numpy dtype
-    :return: an object with attributes `min`, `max`, and `dtype` with the corresponding values for the given dtype.
-    """
-    if np.issubdtype(numpy_dtype, np.integer):
-        info_fun = np.iinfo
-    elif np.issubdtype(numpy_dtype, np.floating):
-        info_fun = np.finfo
-    else:
-        raise NotImplementedError(f"I only know how to get max value for integer and float dtypes, not {numpy_dtype}")
-
-    return info_fun(numpy_dtype)
-
-
-def _get_pseudo_infinity(series: pd.Series):
-    """ Returns pseudo-infinity - the maximum value for the dtype of a pandas series. """
-    try:
-        pseudo_infinity = _numeric_dtype_info(numpy_dtype=series.dtype.numpy_dtype).max
-    except NotImplementedError as e:
-        raise NotImplementedError(f"Can't get a pseudo-infinity for dtype {series.dtype}") from e
-
-    return pseudo_infinity
-
-
-def _fillna_with_pseudo_inf(series: pd.Series):
-    """
-    Replaces NA values in a pandas numeric series with the maximum value that can be represented by the series dtype.
-    :param series: a numeric pandas series
-    :return: a copy with NA values replaced
-    """
-    return series.copy().fillna(_get_pseudo_infinity(series))
-
-
-def _pseudo_inf_to_na(series: pd.Series):
-    """
-    If maximum possible values were used to represent infinity, replaces them with NA. Un
-    :param series: a numeric pandas series
-    :return: a copy with infinite values replaced with an appropriate NA value
-    """
-    try:
-        na = series.dtype.na_value
-    except (ValueError, AttributeError) as e:
-        raise ValueError(f'The dtype of the series {series.dtype} does not support NA values') from e
-
-    try:
-        inf = _get_pseudo_infinity(series)
-    except NotImplementedError as e:
-        raise NotImplementedError(f"Can't get a pseudo-infinity for dtype {series.dtype}") from e
-
-    return series.copy().replace(inf, na)
 
 
 # =============================================================================
