@@ -244,3 +244,18 @@ def calculate_total_listened_time_ms(processed_regions, month, recordings):
                                   .item())
 
     return total_listened_time_ms
+
+
+def calculate_total_surplus_time_ms(processed_regions):
+    """
+    Calculates total surplus time in milliseconds for a given recording by adding the durations of all the surplus
+    regions.
+    :param processed_regions: regions processed by get_processed_audio_regions
+    :return: int, total surplus time in milliseconds
+    """
+    return (processed_regions
+            .loc[lambda df: df.region_type.eq(RegionType.SURPLUS.value)]
+            .assign(duration=lambda df: df.end - df.start)
+            .duration.sum()
+            # convert from numpy.int64 to int
+            .item())

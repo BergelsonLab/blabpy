@@ -30,7 +30,8 @@ from .regions import get_processed_audio_regions as _get_processed_audio_regions
     SPECIAL_CASES as REGIONS_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     assign_tokens_to_regions, reformat_seedlings_nouns_regions
 # Placeholder value for words without the basic level information
-from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
+from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms, \
+    calculate_total_surplus_time_ms
 from .scatter import copy_all_basic_level_files_to_subject_files
 from .. import ANONYMIZATION_DATE
 from ..its import Its, ItsNoTimeZoneInfo
@@ -662,6 +663,8 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
     total_listened_time_ms = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                               recordings=lena_recordings)
 
+    total_surplus_time_ms = calculate_total_surplus_time_ms(processed_regions=seedlings_nouns_regions)
+
     # Enforce column order
     def _enforce_column_order(df, dtypes):
         # At the recording level there is no recording_id
@@ -677,6 +680,7 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
 
     durations = pd.DataFrame.from_dict(dict(
         total_listened_time_ms=[total_listened_time_ms],
+        total_surplus_time_ms=[total_surplus_time_ms],
         total_recorded_time_ms=[total_recorded_time_ms])
     )
 
@@ -748,6 +752,7 @@ def gather_recording_nouns_video(subject, month, recording_basic_level):
 
     durations = pd.DataFrame.from_dict(dict(
         total_listened_time_ms=[duration_ms],
+        total_surplus_time_ms=[0],
         total_recorded_time_ms=[duration_ms])
     )
 
