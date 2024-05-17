@@ -252,6 +252,9 @@ def _split_overlapping_regions(regions_df):
                     split_points_y=lambda df: df.apply(lambda row: _get_split_points(
                         (row.start_y, row.end_y), (row.start_x, row.end_x)), axis='columns')))
 
+    if overlaps.empty:
+        return regions_df
+
     # Split pairs into separate rows and combine split points that belong to the same region
     split_points_df = (
         pd.concat([
