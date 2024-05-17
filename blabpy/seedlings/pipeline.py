@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import warnings
 from itertools import product
@@ -6,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pkg_resources
 from git import Repo
 from tqdm import tqdm
 
@@ -25,7 +27,7 @@ from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _
     ensure_folder_exists_and_empty, _check_modality, get_seedlings_path, get_cha_path, get_opf_path, \
     _normalize_child_month, get_lena_5min_csv_path, get_its_path, split_recording_id, get_seedlings_nouns_private_path
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
-    SPECIAL_CASES as AUDIO_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
+    SPECIAL_CASES as REGIONS_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     assign_tokens_to_regions, reformat_seedlings_nouns_regions
 # Placeholder value for words without the basic level information
 from .regions.regions import calculate_total_listened_time_ms, calculate_total_recorded_time_ms
@@ -487,7 +489,7 @@ def get_amended_audio_regions(subject, month):
     """
     subject, month = _normalize_child_month(subject, month)
     subj_month = f'{subject}_{month}'
-    assert subj_month in AUDIO_SPECIAL_CASES, f'Not a special case: {subj_month}'
+    assert subj_month in REGIONS_SPECIAL_CASES, f'Not a special case: {subj_month}'
 
     processed_regions_auto = get_processed_audio_regions(subject, month, amend_if_special_case=False)
     return _get_amended_regions(subj_month, processed_regions_auto)
@@ -509,7 +511,7 @@ def get_processed_audio_regions(subject, month, amend_if_special_case=False):
     subject, month = _normalize_child_month(subject, month)
     cha_path = get_cha_path(subject, month)
 
-    if amend_if_special_case is True and f'{subject}_{month}' in AUDIO_SPECIAL_CASES:
+    if amend_if_special_case is True and f'{subject}_{month}' in REGIONS_SPECIAL_CASES:
         return get_amended_audio_regions(subject, month)
 
     if month in ('06', '07'):
@@ -532,7 +534,32 @@ def get_top3_top4_surplus_regions(subject, month):
     return _get_top3_top4_surplus_regions(processed_regions, month)
 
 
-def get_lena_recordings(recording_id):
+def _load_sub_recordings_for_special_cases(recording_id):
+    """
+    Loads data for special case of Audio_45_10 which had extra 10 hours at the beginning of the .its.
+    """
+    assert recording_id == 'Audio_45_10'
+    special_cases_dir = f'sub-recordings_special-cases/{recording_id}'
+    recordings_processed_original_path = os.path.join(special_cases_dir, 'sub-recordings_original.csv')
+    recordings_processed_amended_path = os.path.join(special_cases_dir, 'sub-recordings_amended.csv')
+
+    def load_csv(relative_path):
+        dtypes = {'recording_id': pd.StringDtype(),
+                  'start_position_ms': pd.Int32Dtype()}
+        stream = pkg_resources.resource_stream(__name__, relative_path)
+
+        df = pd.read_csv(stream, dtype=dtypes, encoding='utf-8', parse_dates=['start', 'end'])
+
+        assert df.recording_id.eq(recording_id).all()
+        return df.drop(columns='recording_id')
+
+    recordings_processed_original = load_csv(recordings_processed_original_path)
+    recordings_processed_amended = load_csv(recordings_processed_amended_path)
+
+    return recordings_processed_original, recordings_processed_amended
+
+
+def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
     """
     Get anonymized information about sub-recordings of the LENA recording for the given subject and month. There are
     several special cases of recordings that are missing an its file or that have one but it doesn't contain the
@@ -542,6 +569,7 @@ def get_lena_recordings(recording_id):
     such as when an interval spans multiple recordings. It is important to know about these pauses.
 
     :param recording_id: full recording id, e.g. 'Video_01_16'
+    :param amend_if_special_case: whether to use manually amended recordings for the special case of Audio_45_10
     :return: a pandas dataframe with the LENA sub-recordings and the total duration of all sub-recordings
     """
     # TODO: figure out why the timezone info is missing
@@ -564,8 +592,14 @@ def get_lena_recordings(recording_id):
                  'recording_end': 'end',
                  'recording_start_wav': 'start_position_ms'},
         errors='raise')
-    total_recorded_time_ms = calculate_total_recorded_time_ms(recordings=recordings)
 
+    # Replace recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
+    if amend_if_special_case and recording_id == 'Audio_45_10':
+        recordings_original, recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
+        assert recordings.equals(recordings_original)
+        recordings = recordings_amended
+
+    total_recorded_time_ms = calculate_total_recorded_time_ms(recordings=recordings)
     return recordings, total_recorded_time_ms
 
 
@@ -622,7 +656,8 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    lena_recordings, total_recorded_time_ms = get_lena_recordings(recording_id=f'{AUDIO}_{subject}_{month}')
+    lena_recordings, total_recorded_time_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
+                                                                      amend_if_special_case=True)
     total_listened_time_ms = calculate_total_listened_time_ms(processed_regions=processed_regions, month=month,
                                                               recordings=lena_recordings)
 

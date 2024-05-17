@@ -146,7 +146,7 @@ def get_processed_audio_regions(cha_path, lena5min_df=None):
     return regions_processed
 
 
-def _load_data_for_special_cases(subj_month):
+def _load_regions_for_special_cases(subj_month):
     """
     Loads data for special cases: the three audio recordings for which cha/lena5min weren't enough to extract the
     regions data.
@@ -187,7 +187,7 @@ def _get_amended_regions(subj_month, regions_processed_auto):
     :param regions_processed_auto: regions_processed dataframe for the corresponding month
     :return: regions_processed dataframe with the special cases substituted
     """
-    regions_processed_original, regions_processed_amended = _load_data_for_special_cases(subj_month)
+    regions_processed_original, regions_processed_amended = _load_regions_for_special_cases(subj_month)
 
     # Check that the regions_processed_auto dataframe is the same as it was when the amendments were introduced
     msg = (f'The {subj_month} audio recording is a special case and regions from it have to be substituted for by the '

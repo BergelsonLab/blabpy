@@ -6,7 +6,7 @@ from blabpy.blab_data import get_file_path
 from blabpy.seedlings.io import read_seedlings_nouns_regions
 from blabpy.seedlings.regions import get_top_n_regions, get_surplus_regions, get_top3_top4_surplus_regions
 from blabpy.seedlings.regions.reformat_seedlings_nouns_regions import reformat_seedlings_nouns_regions
-from blabpy.seedlings.regions.regions import _load_data_for_special_cases, _get_amended_regions
+from blabpy.seedlings.regions.regions import _load_regions_for_special_cases, _get_amended_regions
 from blabpy.seedlings.regions.top3_top4_surplus import assign_tokens_to_regions, TOP_3_KIND, SURPLUS_KIND
 from blabpy.utils import text_file_checksum, pandas_df_hash
 
@@ -16,14 +16,14 @@ SPECIAL_CASES_SUBJ_MONTHS = ('20_12', '06_07', '22_07')
 @pytest.mark.parametrize("subj_month", SPECIAL_CASES_SUBJ_MONTHS)
 def test__load_data_for_special_cases(subj_month):
     try:
-        _load_data_for_special_cases(subj_month)
+        _load_regions_for_special_cases(subj_month)
     except Exception as e:
         pytest.fail(f"Failed to load data for special case {subj_month}: {e}")
 
 
 @pytest.mark.parametrize("subj_month", SPECIAL_CASES_SUBJ_MONTHS)
 def test_get_amended_regions(subj_month):
-    regions_processed_original, regions_processed_amended = _load_data_for_special_cases(subj_month)
+    regions_processed_original, regions_processed_amended = _load_regions_for_special_cases(subj_month)
     try:
         _get_amended_regions(subj_month, regions_processed_auto=regions_processed_original)
     except Exception as e:
