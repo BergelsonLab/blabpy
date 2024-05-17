@@ -699,7 +699,8 @@ def load_video_recordings_csv(anonymize=True):
 
     # Change start dates to happen on the same date. Shift end dates by the same deltas.
     if anonymize:
-        deltas = video_info_df.start.dt.date - ANONYMIZATION_DATE
+        # .dt.normalize() sets the time to 00:00:00, effectively extracting the date
+        deltas = video_info_df.start.dt.normalize() - np.datetime64(ANONYMIZATION_DATE)
         video_info_df = video_info_df.assign(start=lambda df: df.start - deltas,
                                              end=lambda df: df.end - deltas)
 
@@ -804,7 +805,7 @@ def _gather_corpus_seedlings_nouns(all_basic_level_df):
             recording_id,
             # So that all the dataframes are later concatenated in the same way: with new column "recording_id" added.
             recording_basic_level=recording_tokens.drop(columns='recording_id'))
-        for modality, modality_tokens in all_bl.groupby('audio_video', sort=False)
+        for modality, modality_tokens in all_bl.groupby('audio_video', sort=False, observed=True)
         for recording_id, recording_tokens in tqdm(modality_tokens.groupby('recording_id', sort=False),
                                                    desc=f'Processing {modality} tokens')]
     (recording_ids,

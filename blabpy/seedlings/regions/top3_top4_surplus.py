@@ -69,7 +69,7 @@ def _filter_listened_to_regions(processed_regions):
 
 def _get_boundary_durations(n_hours):
     """
-    We want want to get exactly n_hours, but getting within n_hours - 15 minutes and n_hours + 15 minutes is also OK.
+    We want to get exactly n_hours, but getting within n_hours - 15 minutes and n_hours + 15 minutes is also OK.
     This function calculates these three boundary durations in milliseconds.
     :param n_hours: 3/4
     :return: target_ms, at_least_ms, at_most_ms
@@ -234,7 +234,10 @@ def get_surplus_regions(processed_regions, month):
     elif 8 <= int(month) <= 17:
         surplus_regions = processed_regions.loc[lambda df: df.region_type == RegionType.SURPLUS.value]
 
-    return surplus_regions.pipe(_standardize_regions, kind=SURPLUS_KIND)
+    if surplus_regions.empty:
+        return None
+    else:
+        return surplus_regions.pipe(_standardize_regions, kind=SURPLUS_KIND)
 
 
 def get_top3_top4_surplus_regions(processed_regions, month):
