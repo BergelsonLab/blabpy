@@ -973,12 +973,19 @@ def _post_process_regions(regions, recordings):
                .assign(end=lambda df: df.end.fillna(df.duration_ms).convert_dtypes())
                .drop(columns=['duration_ms']))
 
+    # Drop zero-length regions
+    # They are the result of the way we create surplus regions for months 06 and 07. If there was a silence at the very
+    # end of the recording (which we wouldn't know because we don't have the duration information at this point), we
+    # will create a surplus regions that starts at the same time the recording ends and whose end is NA at that point.
+    # Now that we've just filled that NA above, the start and end are the same and the region has zero length.
+    regions = regions.loc[lambda df: df.start != df.end]
+
     # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
-    # been done downstream but it is easier to apply at the very end.
+    # been done upstream but it is easier to apply at the very end.
     return (regions
-        .rename(columns={'is_top_3': 'is_top_3_hours',
-                         'is_top_4': 'is_top_4_hours'})
-        .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
+            .rename(columns={'is_top_3': 'is_top_3_hours',
+                             'is_top_4': 'is_top_4_hours'})
+            .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
 
 
 def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir=Path()):
