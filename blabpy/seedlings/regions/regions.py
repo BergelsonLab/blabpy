@@ -206,12 +206,7 @@ def calculate_recording_duration(sub_recordings):
     :param sub_recordings: pandas DataFrame with the sub-recordings data
     :return: total recorded time in milliseconds
     """
-    # TODO: it probably doesn't matter much but maybe we should use recording_start_wav and recording_end_wav (which
-    #  does not exist currently) instead of recording_start and recording_end.The reason being that the former have
-    #  millisecond precission and the latter - second precision. This tiny differences never matter until they do in
-    #  a hard-to-debug way. See the related comment in Its.gather_recordings
-    # `.values.sum()` is used instead of `.sum()` because the latter will return 0 if there NaT elements instead of NaT
-    return (sub_recordings.end - sub_recordings.start).values.sum() / np.timedelta64(1, 'ms')
+    return (sub_recordings.end_ms - sub_recordings.start_ms).values.sum()
 
 
 def calculate_listened_time(processed_regions, month, recordings):

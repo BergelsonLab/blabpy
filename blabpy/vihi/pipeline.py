@@ -30,7 +30,7 @@ def gather_recordings(full_recording_id, forced_timezone=None):
     its_path = get_its_path(**parse_full_recording_id(full_recording_id))
     its = Its.from_path(its_path, forced_timezone=forced_timezone)
     try:
-        return its.gather_recordings()
+        return its.gather_sub_recordings()
     except ItsNoTimeZoneInfo as e:
         raise ItsNoTimeZoneInfo(f'No timezone info in \n{its_path}') from e
 

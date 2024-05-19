@@ -583,17 +583,10 @@ def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
     its = Its.from_path(get_its_path(subject, month), forced_timezone=forced_timezone)
 
     try:
-        sub_recordings = its.gather_recordings(anonymize=True)
+        sub_recordings = its.gather_sub_recordings(anonymize=True)
     except ItsNoTimeZoneInfo as e:
         raise ItsNoTimeZoneInfo(f'No timezone info for {subject}_{month}. Please force a timezone using'
                                 f'`forced_timezone`') from e
-
-    # Change column names to match what `calculate_total_recorded_time_ms` expects
-    sub_recordings = sub_recordings.rename(
-        columns={'recording_start': 'start',
-                 'recording_end': 'end',
-                 'recording_start_wav': 'start_position_ms'},
-        errors='raise')
 
     # Replace sub-recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
     if amend_if_special_case and recording_id == 'Audio_45_10':
@@ -658,10 +651,10 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                  .pipe(_sort_tokens))
 
     # Sub-recordings and time totals
-    lena_recordings, duration_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
-                                                           amend_if_special_case=True)
+    lena_sub_recordings, duration_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
+                                                               amend_if_special_case=True)
     listened_ms = calculate_listened_time(processed_regions=processed_regions, month=month,
-                                          recordings=lena_recordings)
+                                          recordings=lena_sub_recordings)
 
     surplus_ms = calculate_total_surplus_time_ms(processed_regions=seedlings_nouns_regions)
 
@@ -675,8 +668,8 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                                       dtypes=SEEDLINGS_NOUNS_DTYPES)
     seedlings_nouns_regions = _enforce_column_order(df=seedlings_nouns_regions,
                                                     dtypes=SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES)
-    lena_recordings = _enforce_column_order(df=lena_recordings,
-                                            dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
+    lena_sub_recordings = _enforce_column_order(df=lena_sub_recordings,
+                                                dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES)
 
     durations = pd.DataFrame.from_dict(dict(
         listened_ms=[listened_ms],
@@ -693,7 +686,7 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
 
     return (recording_seedlings_nouns,
             seedlings_nouns_regions,
-            lena_recordings,
+            lena_sub_recordings,
             durations)
 
 
@@ -746,9 +739,10 @@ def gather_recording_nouns_video(subject, month, recording_basic_level):
               total listened time)
     """
     start_dt, end_dt, duration_ms = get_video_times(subject, month)
-    sub_recordings_df = pd.DataFrame.from_dict(dict(start=[start_dt],
-                                               end=[end_dt],
-                                               start_position_ms=[0]))
+    sub_recordings_df = pd.DataFrame.from_dict(dict(start_dt=[start_dt],
+                                                    end_dt=[end_dt],
+                                                    start_ms=[0],
+                                                    end_ms=[duration_ms]))
 
     durations = pd.DataFrame.from_dict(dict(
         listened_ms=[duration_ms],
