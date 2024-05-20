@@ -218,12 +218,14 @@ def _make_complementary_intervals(intervals_df):
     return complementary_df.reset_index(drop=True)
 
 
-def get_surplus_regions(processed_regions, month):
+def get_surplus_regions(processed_regions, month, duration_ms=None):
     """
     Given a dataframe with regions, return a dataframe with regions that belong to surplus hours. For months 8-17, these
     regions are explicitly marked as surplus. For months 6-7, we'll take the complement of their top 4 hours.
     """
     if month in ('06', '07'):
+        assert duration_ms is not None
+
         # First approximation: surplus is everything but top 4 hours. This doesn't account for silence yet.
         surplus_regions_raw = (
             processed_regions
@@ -231,10 +233,10 @@ def get_surplus_regions(processed_regions, month):
             .pipe(_make_complementary_intervals)
             # We know the start of the first surplus region is 0, but we don't know the end of the last one
             .assign(start=lambda df: df.start.fillna(0),
-                    end=lambda df: _fillna_with_pseudo_inf(df.end),
+                    end=lambda df: df.end.fillna(duration_ms),
                     region_type=RegionType.SURPLUS.value)
             # Remove zero-length intervals
-            .loc[lambda df: df.end.fillna(df.start.max() + 1) > df.start])
+            .loc[lambda df: df.end > df.start])
 
         # Add silence, remove overlaps, remove silences
         silence_regions = processed_regions.loc[lambda df: df.region_type == RegionType.SILENCE.value,
@@ -255,17 +257,19 @@ def get_surplus_regions(processed_regions, month):
         return surplus_regions.pipe(_standardize_regions, kind=SURPLUS_KIND)
 
 
-def get_top3_top4_surplus_regions(processed_regions, month):
+def get_top3_top4_surplus_regions(processed_regions, month, duration_ms):
     """
     Combine top 3, top 4, and surplus regions into a single dataframe.
     :param processed_regions:
     :param month: 6-17
+    :param duration_ms: total duration of the recording - needed to fill in the end of the last surplus region for
+    months 6-7
     :return: dataframe with columns kind, start, end
     """
     return pd.concat([
         get_top_n_regions(processed_regions, month, n_hours=3),
         get_top_n_regions(processed_regions, month, n_hours=4),
-        get_surplus_regions(processed_regions, month)], ignore_index=True)
+        get_surplus_regions(processed_regions, month, duration_ms)], ignore_index=True)
 
 
 def _assign_tokens_to_regions(tokens, seedlings_nouns_regions, month):

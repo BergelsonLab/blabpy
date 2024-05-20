@@ -626,10 +626,15 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
               total recorded time,
               total listened time)
     """
+    # Sub-recordings and time totals
+    lena_sub_recordings, duration_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
+                                                               amend_if_special_case=True)
+
     # Regions
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
     subregions = processed_regions.loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)]
-    top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month)
+    top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month,
+                                                               duration_ms=duration_ms)
     seedlings_nouns_regions = pd.concat([subregions,
                                          top3_top4_surplus_regions.rename(columns={'kind': 'region_type'})],
                                         axis='rows', ignore_index=True)
@@ -651,9 +656,6 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                  .merge(tokens_assigned, on='annotid', how='inner')
                                  .pipe(_sort_tokens))
 
-    # Sub-recordings and time totals
-    lena_sub_recordings, duration_ms = get_lena_sub_recordings(recording_id=f'{AUDIO}_{subject}_{month}',
-                                                               amend_if_special_case=True)
     listened_ms = calculate_listened_time(processed_regions=processed_regions, month=month,
                                           recordings=lena_sub_recordings)
 
@@ -938,19 +940,16 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
 
 
 # TODO: This should be all done at the recording level - in gather_recording_seedlings_nouns
-def _post_process_regions(regions, recordings):
+def _post_process_regions(regions):
     """
     Does a couple of things that should have been done at the recording level, but I couldn't figure out how to do it
     without breaking the code. Which means that the code is probably not very good and should be refactored. Here's
     what it does:
     - Reformats the table to make it more readable. See reformat_seedlings_nouns_regions.
-    - Fills in the end for the last surplus region in months 06-07 - it was left as NA to signify "until the end of the
-      recording".
     - Renames some columns and enforce column order. It already happened to regions but now - after reforamtting - it
       has to be done again.
     :param regions: regions in long format that come out of _gather_corpus_seedlings_nouns
-    :param recordings: a dataframe with duration of all the recordings
-    :return: regions with
+    :return: non-overlapping regions as a wide table
     """
     # Make regions more readable, enforce column order, remove subregions ranked 5 from months 06 and 07. For other
     # months, subregions ranked 5 disappear in the beginning - when we process regions from the cha files). For months
@@ -964,22 +963,6 @@ def _post_process_regions(regions, recordings):
 
     # Make regions wide and nice
     regions = reformat_seedlings_nouns_regions(regions)
-
-    # Fill in the right boundary for the last surplus region in months 06-07 - it was left as NA because the code
-    # that created regions from the cha files didn't have access to the recording duration. It would be cleaner to
-    # get the duration before the regions-creating code but I couldn't figure out how to do it and not break anything
-    # else.
-    regions = (regions
-               .merge(recordings.loc[:, ['recording_id', 'duration_ms']], on='recording_id')
-               .assign(end=lambda df: df.end.fillna(df.duration_ms).convert_dtypes())
-               .drop(columns=['duration_ms']))
-
-    # Drop zero-length regions
-    # They are the result of the way we create surplus regions for months 06 and 07. If there was a silence at the very
-    # end of the recording (which we wouldn't know because we don't have the duration information at this point), we
-    # will create a surplus regions that starts at the same time the recording ends and whose end is NA at that point.
-    # Now that we've just filled that NA above, the start and end are the same and the region has zero length.
-    regions = regions.loc[lambda df: df.start != df.end]
 
     # Enforce column order and update names - for consistency with seedlings-nouns.csv. Another thing that should have
     # been done upstream but it is easier to apply at the very end.
