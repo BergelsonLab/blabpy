@@ -547,10 +547,11 @@ def _load_sub_recordings_for_special_cases(recording_id):
 
     def load_csv(relative_path):
         dtypes = {'recording_id': pd.StringDtype(),
-                  'start_position_ms': pd.Int32Dtype()}
+                  'start_ms': pd.Int32Dtype(),
+                  'end_ms': pd.Int32Dtype()}
         stream = pkg_resources.resource_stream(__name__, relative_path)
 
-        df = pd.read_csv(stream, dtype=dtypes, encoding='utf-8', parse_dates=['start', 'end'])
+        df = pd.read_csv(stream, dtype=dtypes, encoding='utf-8', parse_dates=['start_dt', 'end_dt'])
 
         assert df.recording_id.eq(recording_id).all()
         return df.drop(columns='recording_id')
