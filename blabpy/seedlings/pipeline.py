@@ -11,6 +11,7 @@ import pkg_resources
 from git import Repo
 from tqdm import tqdm
 
+from .regions.top3_top4_surplus import TOP_4_KIND, TOP_3_KIND
 from ..blab_data import get_file_path, switch_dataset_to_version
 from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
 from .cha import export_cha_to_csv
@@ -612,6 +613,29 @@ def _sort_tokens(tokens_df):
     return tokens_df.sort_values(sort_by).reset_index(drop=True)
 
 
+def _calculate_listened_time(top3_top4_surplus_regions, month):
+    """
+    This uses a different definition of listened time than calculate_listened_time. The definition here is the sum of
+    durations of top 3 (months 14-17) or top 4 (months 06-13) subregions.
+    :param top3_top4_surplus_regions: the output of _get_top3_top4_surplus_regions
+    :param month: month, str or int - both will do
+    :return: int, listened time in ms
+    """
+    if 6 <= int(month) <= 13:
+        top_x_kind = TOP_4_KIND
+    elif 14 <= int(month) <= 17:
+        top_x_kind = TOP_3_KIND
+    else:
+        raise ValueError(f'Invalid month: {month}')
+
+    listened_time = (top3_top4_surplus_regions
+                     .loc[lambda df: df.kind.eq(top_x_kind)]
+                     .assign(duration=lambda df: df.end - df.start)
+                     .duration.sum())
+
+    return listened_time
+
+
 # TODO: return namedtuple, returning a heterogeneous tuple has and will lead to errors
 def gather_recording_nouns_audio(subject, month, recording_basic_level):
     """
@@ -631,6 +655,8 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                                                amend_if_special_case=True)
 
     # Regions
+
+    # Remove subregions that weren't annotated in full, cuts silences and skips out of the regions, etc.
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
     subregions = processed_regions.loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)]
     top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month,
@@ -656,10 +682,27 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
                                  .merge(tokens_assigned, on='annotid', how='inner')
                                  .pipe(_sort_tokens))
 
-    listened_ms = calculate_listened_time(processed_regions=processed_regions, month=month,
-                                          recordings=lena_sub_recordings)
+    # calculate_listened_time defines listened time as
+    # - recording duration minus silence time for months 06 and 07 since they were otherwise annotated in full,
+    # - sum of durations of planned-to-annotate subregions (ranked 1-4 for 08-13, ranked 1-3 for 14-17), makeup and
+    #   extra regions for months 08-17.
+    #
+    # The listened time definition above worked when we were checking if we have enough time annotated in all recordings
+    # but creates an inconsistency here: surplus is included in listened time for month 06-07 but excluded for 08-17.
+    # So, for the seedlings-nouns dataset, we are going to redefine listened time as sum of top 4 (months 06-13) or top
+    # 3 (months 14-17) subregions. This way, for all months, we have 3/4 hours of listened time and everything else
+    # is surplus
+    listened_ms = _calculate_listened_time(top3_top4_surplus_regions=top3_top4_surplus_regions, month=month)
 
     surplus_ms = calculate_total_surplus_time_ms(processed_regions=seedlings_nouns_regions)
+
+    # Let's double-check that the two ways to calculate listened time are consistent
+    listened_ms_old = calculate_listened_time(processed_regions=processed_regions, month=month,
+                                              recordings=lena_sub_recordings)
+    if month in ('06', '07'):
+        assert listened_ms == listened_ms_old - surplus_ms
+    else:
+        assert listened_ms == listened_ms_old
 
     # Enforce column order
     def _enforce_column_order(df, dtypes):

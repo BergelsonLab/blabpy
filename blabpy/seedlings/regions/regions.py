@@ -211,9 +211,20 @@ def calculate_recording_duration(sub_recordings):
 
 def calculate_listened_time(processed_regions, month, recordings):
     """
-    Calculates total listened time in milliseconds for a given recording by adding the durations of all the regions
-    that were listened to. By the time this function is called, the regions data has already been processed and only
-    filtering and adding up time is left to be done.
+    Warning! This function uses a different definition of "listened time" for month 06-07 than what's used in
+    seedlings-nouns. In seedlings-nouns, listened time is the sum of the durations of the top 4 regions and the rest
+    (except for silences) was designated as surplus. Here, the listened time is the full duration of the recording minus
+    the duration of the silences. The reason for the difference is that this here function was used to determine whether
+    we had any issues with having not enough or too much listened time compared to the other 06-07 recordings and for
+    seedlings-nouns, we needed it to be consistent with the other months instead.
+
+    Calculates total listened time in milliseconds for a given recording by
+    - adding the durations of all the regions that were listened to in months 08-17,
+    - subtracting the durations of the silence regions from the recording duration in months 06-07.
+
+    By the time this function is called, the regions data should have already been processed by
+    get_processed_audio_regions.
+
     :param processed_regions: regions processed by get_processed_audio_regions
     :param month: int/str, month of the recording
     :param recordings: sub-recordings info
