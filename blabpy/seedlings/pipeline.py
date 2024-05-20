@@ -658,6 +658,12 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
 
     # Remove subregions that weren't annotated in full, cuts silences and skips out of the regions, etc.
     processed_regions = get_processed_audio_regions(subject, month, amend_if_special_case=True)
+
+    # Trim regions that end after duration_ms. One reason is that the subregion selection was done under assumption that
+    # intervals in the 5min.csv files are 5 minutes long which isn't correct because they are actually 5 minutes of
+    # clock time.
+    processed_regions.loc[lambda df: df.end > duration_ms, 'end'] = duration_ms
+
     subregions = processed_regions.loc[lambda df: df.region_type.eq(RegionType.SUBREGION.value)]
     top3_top4_surplus_regions = _get_top3_top4_surplus_regions(processed_regions=processed_regions, month=month,
                                                                duration_ms=duration_ms)
