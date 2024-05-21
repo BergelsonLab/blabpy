@@ -893,8 +893,12 @@ def _gather_corpus_seedlings_nouns(all_basic_level_df):
     sub_recordings = _merge(all_sub_recordings,
                             dtypes=SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES,
                             sort_by=SEEDLINGS_NOUNS_SORT_BY['sub-recordings.csv'])
+
+    # The *_time columns will be added later - in _post_process_recordings
+    recordings_dtypes = {column: dtype for column, dtype in SEEDLINGS_NOUNS_RECORDINGS_DTYPES.items()
+                         if not column.endswith('_time')}
     recordings = _merge(all_durations,
-                        dtypes=SEEDLINGS_NOUNS_RECORDINGS_DTYPES,
+                        dtypes=recordings_dtypes,
                         sort_by=SEEDLINGS_NOUNS_SORT_BY['recordings.csv'])
 
     return seedlings_nouns, regions, sub_recordings, recordings
@@ -1021,6 +1025,31 @@ def _post_process_regions(regions):
             .loc[:, list(SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES.keys())])
 
 
+def _post_process_recordings(recordings):
+    """
+    Add human-readable hh::mm::ss columns to recordings.
+    :param recordings: Recordings dataframe output by _gather_corpus_seedlings_nouns.
+    :return: Input dataframe with the new columns added
+    """
+    def ms_to_hms(series):
+        # Check that no recording is longer than 24 hours because the conversion can only output time below that
+        assert (series < 24 * 60 * 60 * 1000).all()
+        return (series
+                .pipe(pd.to_datetime, unit='ms')
+                .dt.round('1s')
+                .dt.strftime('%H:%M:%S'))
+
+    # For each column whose name ends with "_ms", add a human-readable column that ends with _time
+    for column in recordings.columns:
+        if column.endswith('_ms'):
+            recordings[column.replace('_ms', '_time')] = ms_to_hms(recordings[column]).astype('string')
+
+    # Enforce column order
+    recordings = recordings[SEEDLINGS_NOUNS_RECORDINGS_DTYPES.keys()]
+
+    return recordings
+
+
 def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir=Path()):
     """
     Write all the csvs and their codebooks to a given folder based on a csv with global basic level data and a folder
@@ -1047,7 +1076,8 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir
     # with open(pickle_file, "rb") as f:
     #     seedlings_nouns, regions, sub_recordings, recordings = pickle.load(f)
 
-    regions = _post_process_regions(regions, recordings)
+    regions = _post_process_regions(regions)
+    recordings = _post_process_recordings(recordings)
 
     new_dataframes = []
     new_variables = []
