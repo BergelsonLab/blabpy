@@ -28,3 +28,7 @@ python -m build
 ```shell
 twine upload --skip-existing dist/*
 ```
+
+notes:
+- You might need to `pip install` `twine` and `build` first.
+- Use `__token__` as the login and an API token as the password. pypi.org login passwords and 2FA verification codes are in 1Password - in the blab-staff vault.
