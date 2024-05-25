@@ -46,10 +46,12 @@ def switch_dataset_to_version(dataset_name, version):
 
     version = version if version else get_newest_version(repo)
 
-    try:
-        repo.git.checkout(version)
-    except GitCommandError as e:
-        raise ValueError(f"Version {version} does not exist for dataset {dataset_name}.") from e
+    # Check whether the version tag points at the current head commit - no need to checkout anything otherwise
+    if repo.head.commit.hexsha != repo.tags[version].commit.hexsha:
+        try:
+            repo.git.checkout(version)
+        except GitCommandError as e:
+            raise ValueError(f"Version {version} does not exist for dataset {dataset_name}.") from e
 
     return repo, version
 

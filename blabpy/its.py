@@ -122,7 +122,7 @@ class Its(object):
                 .multiply(1000)  # convert from s to ms
                 .astype(int))  # finally, convert to integers
 
-    def gather_recordings(self, anonymize=False):
+    def gather_sub_recordings(self, anonymize=False):
         """
         Finds all sub-recordings in the its file.
 
@@ -133,33 +133,30 @@ class Its(object):
         - recording_start_wav - integer column of when recording started in ms within the wav file.
         """
         # Get raw recordings info
-        recordings_xml_path = './ProcessingUnit/Recording'
-        recordings_elements = self.xml.findall(path=recordings_xml_path)
+        sub_recordings_xml_path = './ProcessingUnit/Recording'
+        sub_recordings_elements = self.xml.findall(path=sub_recordings_xml_path)
         # Each element's items are (key, value) tuples which we'll convert to a dict
-        recordings_list = [dict(element.items()) for element in recordings_elements]
-        recordings = pd.DataFrame.from_records(recordings_list)
-        assert set(recordings.columns) == {'num', 'startClockTime', 'endClockTime', 'startTime', 'endTime'}
+        sub_recordings_list = [dict(element.items()) for element in sub_recordings_elements]
+        sub_recordings = pd.DataFrame.from_records(sub_recordings_list)
+        assert set(sub_recordings.columns) == {'num', 'startClockTime', 'endClockTime', 'startTime', 'endTime'}
         # num - order number
         # *ClockTime - UTC time when recordings started/ended
         # *Time - ISO-formatted duration of time from the start of the wav to the start/end of the recording
 
-        # TODO: consider keeping df.endTime so that we can calculate the duration of the recording from these times and
-        #  not from datetime columns whihc lack the millisecond part.
-        #  Also: it'd be a good idea to drop "recording_" prefix from the column names.
-        # Let's convert *ClockTime to local time and startTime to milliseconds
-        recordings = (
-            recordings
+        # Convert *ClockTime to local time and startTime and endTime to milliseconds
+        sub_recordings = (
+            sub_recordings
             .assign(
-                recording_start=lambda df: self._convert_utc_to_local(df.startClockTime),
-                recording_end=lambda df: self._convert_utc_to_local(df.endClockTime),
-                recording_start_wav=lambda df: self._convert_iso_duration_to_ms(df.startTime),)
-                # recording_end_wav=lambda df: self.convert_iso_duration_to_ms(df.endTime))
-            [['recording_start', 'recording_end', 'recording_start_wav']]  # , 'recording_end_wav']]
+                start_dt=lambda df: self._convert_utc_to_local(df.startClockTime),
+                end_dt=lambda df: self._convert_utc_to_local(df.endClockTime),
+                start_ms=lambda df: self._convert_iso_duration_to_ms(df.startTime),
+                end_ms=lambda df: self._convert_iso_duration_to_ms(df.endTime))
+            [['start_dt', 'end_dt', 'start_ms', 'end_ms']]
             .convert_dtypes())
 
         if anonymize is True:
             # Aid anonymization by shifting the dates to 1920-01-01
-            shift = recordings.recording_start.iloc[0].date() - ANONYMIZATION_DATE
-            recordings[['recording_start', 'recording_end']] = recordings[['recording_start', 'recording_end']] - shift
+            shift = sub_recordings.start_dt.iloc[0].date() - ANONYMIZATION_DATE
+            sub_recordings[['start_dt', 'end_dt']] = sub_recordings[['start_dt', 'end_dt']] - shift
 
-        return recordings
+        return sub_recordings

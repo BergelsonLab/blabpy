@@ -57,9 +57,10 @@ TODO:
  - Should the answer to the previous question depend on whether I got 2:45+ using only subregions 1-3 or not?
  - If the last makeup region gets total duration to more than N hours, should I take up to N hours plus 15 minutes?
 """
+import numpy as np
 import pandas as pd
 
-from blabpy.seedlings.listened_time import RegionType
+from blabpy.seedlings.listened_time import RegionType, _remove_overlaps_from_other_regions
 
 
 def _filter_listened_to_regions(processed_regions):
@@ -217,20 +218,36 @@ def _make_complementary_intervals(intervals_df):
     return complementary_df.reset_index(drop=True)
 
 
-def get_surplus_regions(processed_regions, month):
+def get_surplus_regions(processed_regions, month, duration_ms=None):
     """
     Given a dataframe with regions, return a dataframe with regions that belong to surplus hours. For months 8-17, these
     regions are explicitly marked as surplus. For months 6-7, we'll take the complement of their top 4 hours.
     """
     if month in ('06', '07'):
-        surplus_regions = (
+        assert duration_ms is not None
+
+        # First approximation: surplus is everything but top 4 hours. This doesn't account for silence yet.
+        surplus_regions_raw = (
             processed_regions
             .pipe(get_top_n_regions, month=month, n_hours=4)
             .pipe(_make_complementary_intervals)
             # We know the start of the first surplus region is 0, but we don't know the end of the last one
-            .assign(start=lambda df: df.start.fillna(0))
+            .assign(start=lambda df: df.start.fillna(0),
+                    end=lambda df: df.end.fillna(duration_ms),
+                    region_type=RegionType.SURPLUS.value)
             # Remove zero-length intervals
-            .loc[lambda df: df.end.fillna(df.start.max() + 1) > df.start])
+            .loc[lambda df: df.end > df.start])
+
+        # Add silence, remove overlaps, remove silences
+        silence_regions = processed_regions.loc[lambda df: df.region_type == RegionType.SILENCE.value,
+                                                surplus_regions_raw.columns]
+        surplus_regions = (
+            pd.concat([surplus_regions_raw, silence_regions], ignore_index=True)
+            .pipe(_remove_overlaps_from_other_regions, dominant_region_type=RegionType.SILENCE.value)
+            .loc[lambda df: df.region_type != RegionType.SILENCE.value]
+            # # Replace pseudo-inf back with NA
+            .assign(end=lambda df: _pseudo_inf_to_na(df.end))
+        )
     elif 8 <= int(month) <= 17:
         surplus_regions = processed_regions.loc[lambda df: df.region_type == RegionType.SURPLUS.value]
 
@@ -240,17 +257,19 @@ def get_surplus_regions(processed_regions, month):
         return surplus_regions.pipe(_standardize_regions, kind=SURPLUS_KIND)
 
 
-def get_top3_top4_surplus_regions(processed_regions, month):
+def get_top3_top4_surplus_regions(processed_regions, month, duration_ms):
     """
     Combine top 3, top 4, and surplus regions into a single dataframe.
     :param processed_regions:
     :param month: 6-17
+    :param duration_ms: total duration of the recording - needed to fill in the end of the last surplus region for
+    months 6-7
     :return: dataframe with columns kind, start, end
     """
     return pd.concat([
         get_top_n_regions(processed_regions, month, n_hours=3),
         get_top_n_regions(processed_regions, month, n_hours=4),
-        get_surplus_regions(processed_regions, month)], ignore_index=True)
+        get_surplus_regions(processed_regions, month, duration_ms)], ignore_index=True)
 
 
 def _assign_tokens_to_regions(tokens, seedlings_nouns_regions, month):
@@ -367,3 +386,63 @@ def assign_tokens_to_regions(tokens, seedlings_nouns_regions, month):
     tokens_assigned = _assign_tokens_to_regions(tokens, seedlings_nouns_regions, month)
     _check_tokens_assigned(tokens_assigned, tokens, month)
     return tokens_assigned
+
+
+# =============================================================================
+# Little helper functions for dealing with na values used as the right bound of right-open intervals, essentially
+# infinity. We have them because at that point in code we didn't know the duration of month 06 and 07 recordings and
+# so the last surplus region was left open on the right.
+
+
+def _fillna_with_pseudo_inf(series: pd.Series):
+    """
+    Replaces NA values in a pandas numeric series with the maximum value that can be represented by the series dtype.
+    :param series: a numeric pandas series
+    :return: a copy with NA values replaced
+    """
+    return series.copy().fillna(_get_pseudo_infinity(series))
+
+
+def _pseudo_inf_to_na(series: pd.Series):
+    """
+    If maximum possible values were used to represent infinity, replaces them with NA. Un
+    :param series: a numeric pandas series
+    :return: a copy with infinite values replaced with an appropriate NA value
+    """
+    try:
+        na = series.dtype.na_value
+    except (ValueError, AttributeError) as e:
+        raise ValueError(f'The dtype of the series {series.dtype} does not support NA values') from e
+
+    try:
+        inf = _get_pseudo_infinity(series)
+    except NotImplementedError as e:
+        raise NotImplementedError(f"Can't get a pseudo-infinity for dtype {series.dtype}") from e
+
+    return series.copy().replace(inf, na)
+
+
+def _get_pseudo_infinity(series: pd.Series):
+    """ Returns pseudo-infinity - the maximum value for the dtype of a pandas series. """
+    try:
+        pseudo_infinity = _numeric_dtype_info(numpy_dtype=series.dtype.numpy_dtype).max
+    except NotImplementedError as e:
+        raise NotImplementedError(f"Can't get a pseudo-infinity for dtype {series.dtype}") from e
+
+    return pseudo_infinity
+
+
+def _numeric_dtype_info(numpy_dtype):
+    """
+    Return the info object for a numpy dtype (see np.iinfo, np.finfo).
+    :param numpy_dtype: numpy dtype
+    :return: an object with attributes `min`, `max`, and `dtype` with the corresponding values for the given dtype.
+    """
+    if np.issubdtype(numpy_dtype, np.integer):
+        info_fun = np.iinfo
+    elif np.issubdtype(numpy_dtype, np.floating):
+        info_fun = np.finfo
+    else:
+        raise NotImplementedError(f"I only know how to get max value for integer and float dtypes, not {numpy_dtype}")
+
+    return info_fun(numpy_dtype)

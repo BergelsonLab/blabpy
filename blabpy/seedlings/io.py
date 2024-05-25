@@ -90,14 +90,19 @@ SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES = {
 
 SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
-    'start': DATETIME_DTYPE_PLACEHOLDER,
-    'end': DATETIME_DTYPE_PLACEHOLDER,
-    'start_position_ms': pd.Int64Dtype()}
+    'start_dt': DATETIME_DTYPE_PLACEHOLDER,
+    'end_dt': DATETIME_DTYPE_PLACEHOLDER,
+    'start_ms': pd.Int64Dtype(),
+    'end_ms': pd.Int64Dtype()}
 
 SEEDLINGS_NOUNS_RECORDINGS_DTYPES = {
     'recording_id': SEEDLINGS_NOUNS_DTYPES['recording_id'],
-    'total_recorded_time_ms': pd.Int64Dtype(),
-    'total_listened_time_ms': pd.Int64Dtype()}
+    'duration_time': pd.StringDtype(),
+    'listened_time': pd.StringDtype(),
+    'surplus_time': pd.StringDtype(),
+    'duration_ms': pd.Int64Dtype(),
+    'listened_ms': pd.Int64Dtype(),
+    'surplus_ms': pd.Int64Dtype()}
 
 
 SEEDLINGS_NOUNS_CODEBOOK_CORE_DTYPES = {
@@ -110,7 +115,7 @@ SEEDLINGS_NOUNS_CODEBOOK_CORE_DTYPES = {
 SEEDLINGS_NOUNS_SORT_BY = {
     'seedlings-nouns.csv': ['audio_video', 'child', 'month', 'onset'],
     'regions.csv': ['recording_id', 'region_type', 'start', 'end'],
-    'sub-recordings.csv': ['recording_id', 'start', 'end'],
+    'sub-recordings.csv': ['recording_id', 'start_ms', 'end_ms'],
     'recordings.csv': ['recording_id']}
 
 

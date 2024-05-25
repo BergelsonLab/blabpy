@@ -199,48 +199,69 @@ def _get_amended_regions(subj_month, regions_processed_auto):
     return regions_processed_amended
 
 
-def calculate_total_recorded_time_ms(recordings):
+def calculate_recording_duration(sub_recordings):
     """
     Calculates total recorded time in milliseconds for a given recording by adding the durations of all the
     sub-recordings.
-    :param recordings: pandas DataFrame with the recordings data
+    :param sub_recordings: pandas DataFrame with the sub-recordings data
     :return: total recorded time in milliseconds
     """
-    # TODO: it probably doesn't matter much but maybe we should use recording_start_wav and recording_end_wav (which
-    #  does not exist currently) instead of recording_start and recording_end.The reason being that the former have
-    #  millisecond precission and the latter - second precision. This tiny differences never matter until they do in
-    #  a hard-to-debug way. See the related comment in Its.gather_recordings
-    # `.values.sum()` is used instead of `.sum()` because the latter will return 0 if there NaT elements instead of NaT
-    return (recordings.end - recordings.start).values.sum() / np.timedelta64(1, 'ms')
+    return (sub_recordings.end_ms - sub_recordings.start_ms).values.sum()
 
 
-def calculate_total_listened_time_ms(processed_regions, month, recordings):
+def calculate_listened_time(processed_regions, month, recordings):
     """
-    Calculates total listened time in milliseconds for a given recording by adding the durations of all the regions
-    that were listened to. By the time this function is called, the regions data has already been processed and only
-    filtering and adding up time is left to be done.
+    Warning! This function uses a different definition of "listened time" for month 06-07 than what's used in
+    seedlings-nouns. In seedlings-nouns, listened time is the sum of the durations of the top 4 regions and the rest
+    (except for silences) was designated as surplus. Here, the listened time is the full duration of the recording minus
+    the duration of the silences. The reason for the difference is that this here function was used to determine whether
+    we had any issues with having not enough or too much listened time compared to the other 06-07 recordings and for
+    seedlings-nouns, we needed it to be consistent with the other months instead.
+
+    Calculates total listened time in milliseconds for a given recording by
+    - adding the durations of all the regions that were listened to in months 08-17,
+    - subtracting the durations of the silence regions from the recording duration in months 06-07.
+
+    By the time this function is called, the regions data should have already been processed by
+    get_processed_audio_regions.
+
     :param processed_regions: regions processed by get_processed_audio_regions
     :param month: int/str, month of the recording
     :param recordings: sub-recordings info
     :return: int, total listened time in milliseconds
     """
     if int(month) in (6, 7):
-        total_recorded_time_ms = calculate_total_recorded_time_ms(recordings)
+        total_recorded_time_ms = calculate_recording_duration(recordings)
         total_silence_time_ms = (processed_regions
                                  .loc[lambda df: df.region_type.eq(RegionType.SILENCE.value)]
                                  .assign(duration=lambda df: df.end - df.start)
                                  .duration.sum())
-        total_listened_time_ms = total_recorded_time_ms - total_silence_time_ms
+        listened_time = total_recorded_time_ms - total_silence_time_ms
 
     elif int(month) in range(8, 17+1):
         listened_to_regions = (RegionType.SUBREGION.value,
                                RegionType.MAKEUP.value,
                                RegionType.EXTRA.value)
-        total_listened_time_ms = (processed_regions
-                                  .loc[lambda df: df.region_type.isin(listened_to_regions)]
-                                  .assign(duration=lambda df: df.end - df.start)
-                                  .duration.sum()
-                                  # convert from numpy.int64 to int
-                                  .item())
+        listened_time = (processed_regions
+                         .loc[lambda df: df.region_type.isin(listened_to_regions)]
+                         .assign(duration=lambda df: df.end - df.start)
+                         .duration.sum()
+                         # convert from numpy.int64 to int
+                         .item())
 
-    return total_listened_time_ms
+    return listened_time
+
+
+def calculate_total_surplus_time_ms(processed_regions):
+    """
+    Calculates total surplus time in milliseconds for a given recording by adding the durations of all the surplus
+    regions.
+    :param processed_regions: regions processed by get_processed_audio_regions
+    :return: int, total surplus time in milliseconds
+    """
+    return (processed_regions
+            .loc[lambda df: df.region_type.eq(RegionType.SURPLUS.value)]
+            .assign(duration=lambda df: df.end - df.start)
+            .duration.sum()
+            # convert from numpy.int64 to int
+            .item())
