@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.30.0] - 2024-05-25
+
+### seedlings-nouns v2.0.0-dev.2
+
+#### Changed
+
+- recordings.csv
+  - Add surplus_ms to recordings.csv.
+  - Exclude silences when calculating surplus for months 6 and 7, current definition: surplus = all \ (top 4 ⋃ silences).
+  - Durations columns in recordings.csv are now called: duration_ms, listened_ms, surplus_ms.
+  - Add human-readable durations: duration_time, listened_time, surplurs_time.
+  - Millisecond-precision recording durations (used to be based on datetimes).
+  - Listened time is now defined as top 4 (06-13) or top 3 (14-17) for all months, incl. 06 and 07. Used to be all minus the silences for months 6 and 7. To get that, add up listened and suprlus durations.
+
+#### Fixed 
+
+- Trimmed subregions that ended past the recording end. These existed because we calculated subregions' onset and offsets based on the 5min.csv files from LENA assuming that each 5 minute interval in them corresponded to 5 minutes of the recording while in reality they corresponded to 5 minutes of the clock time which corresponded to shorter parts of the recording at the boundaries of sub-recordings. E.g., if the recording went continuously from 06:04:00 am to 10:04:00 pm, the 5 min intervals would go from 06:00:00 am to 10:05:00 pm and the subregion spanning the last 12 intervals would end 5 minutes after the recording did.
+- Durations (duration_ms and duration_time) in recordings.csv had to be updated (shortened) correspondingly. This trimming resulted in only one recording - 44_08 - to no longer having enough listen time. We will code a 5-min-long makeup region for that recording to get it over 3 h 45 min.
+  
+### Other
+
+- BLAB_DATA:
+  - Avoid putting repos into a headless state unnecessarily. If the commit pointed to by the version tag is already checked out, there is no need to checkout the tag and get the repo off the branch. This is helpful when you are updating the latest version as you don't need to checkout main before committing.
+
+
 ## [0.29.1] - 2024-04-08
 
 ### Added
