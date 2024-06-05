@@ -316,7 +316,6 @@ class ReferenceAnnotation(Annotation):
         return element
 
 
-
 class Tier(EafElement):
     TAG = 'TIER'
     ID = 'TIER_ID'
@@ -430,6 +429,25 @@ class Tier(EafElement):
         self.element.append(added_annotation.element)
         self.annotations[added_annotation.id] = added_annotation
         return added_annotation
+
+    def drop_annotation(self, annotation_id):
+        if annotation_id not in self.annotations:
+            raise ValueError(f'Annotation {annotation_id} not found in tier {self.id}.')
+
+        annotation = self.annotations[annotation_id]
+
+        if len(annotation.children) > 0:
+            raise ValueError(f'Annotation {annotation_id} has child annotations and cannot be dropped.')
+
+        if annotation.annotation_type == Annotation.REF_ANNOTATION:
+            annotation.parent.children.remove(annotation)
+        del self.annotations[annotation_id]
+        del self.eaf_tree.annotations[annotation_id]
+        self.element.remove(annotation.element)
+
+    def drop_all_annotations(self):
+        for annotation_id in list(self.annotations.keys()):
+            self.drop_annotation(annotation_id)
 
 
 class LinguisticType(EafElement):
@@ -911,3 +929,20 @@ class EafTree(XMLTree):
                 raise ValueError('Tier id must not contain the participant after "@" when adding an independent tier.')
 
             self._add_independent_tier(participant=participant)
+
+    def drop_tier(self, tier_id):
+        if tier_id not in self.tiers:
+            raise ValueError(f'Tier {tier_id} does not exist.')
+
+        tier = self.tiers[tier_id]
+
+        if len(tier.annotations) > 0:
+            raise ValueError(f'Tier {tier_id} has annotations and cannot be dropped.')
+
+        if len(tier.children) > 0:
+            raise ValueError(f'Tier {tier_id} has child tiers and cannot be dropped.')
+
+        if tier.parent_ref is not None:
+            tier.parent.children.remove(tier)
+        del self.tiers[tier_id]
+        self.tree.getroot().remove(tier.element)
