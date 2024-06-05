@@ -65,6 +65,7 @@ class Annotation(EafElement):
     CVE_REF = 'CVE_REF'
 
     def __init__(self, annotation_element, eaf_tree, tier):
+        # TODO: drop eaf_tree, return self.tier.eaf_tree in the eaf_tree property
         self._element = annotation_element
         self._eaf_tree = eaf_tree
         self.tier = tier
@@ -294,6 +295,27 @@ class Annotation(EafElement):
 
         self.cve_ref = cve_ref_for_value
 
+
+class ReferenceAnnotation(Annotation):
+    @classmethod
+    def make_xml_element(cls, annotation_id, annotation_ref):
+        # <ANNOTATION>
+        #     <REF_ANNOTATION ANNOTATION_ID="a127" ANNOTATION_REF="a62" CVE_REF="cveid0">
+        #         <ANNOTATION_VALUE>C</ANNOTATION_VALUE>
+        #     </REF_ANNOTATION>
+        # </ANNOTATION>
+        element = element_tree.Element(cls.TAG)
+
+        attributes = {cls.ID: annotation_id, cls.ANNOTATION_REF: annotation_ref}
+        inner_element = element_tree.Element(cls.REF_ANNOTATION, attrib=attributes)
+        element.append(inner_element)
+
+        annotation_value = element_tree.Element(cls.ANNOTATION_VALUE)
+        inner_element.append(annotation_value)
+
+        return element
+
+
 class Tier(EafElement):
     TAG = 'TIER'
     ID = 'TIER_ID'
@@ -308,6 +330,12 @@ class Tier(EafElement):
                        for annotation_element in tier_element]
         self.annotations = {annotation.id: annotation for annotation in annotations}
         self._children = None
+
+    @classmethod
+    def make_xml_element(cls, tier_id, linguistic_type_ref, participant, parent_ref):
+        attributes = {cls.ID: tier_id, cls.LINGUISTIC_TYPE_REF: linguistic_type_ref,
+                      cls.PARTICIPANT: participant, cls.PARENT_REF: parent_ref}
+        return element_tree.Element(cls.TAG, attrib=attributes)
 
     @property
     def eaf_tree(self):
@@ -388,6 +416,38 @@ class Tier(EafElement):
             raise ValueError(f'Tier element must not have any other attributes than {necessary_attributes} and '
                              f'{possible_extra_attributes}.')
         self._validate_no_text()
+
+    def add_reference_annotation(self, annotation_id, parent_annotation_id):
+        # <ANNOTATION>
+        #             <REF_ANNOTATION ANNOTATION_ID="a127" ANNOTATION_REF="a62" CVE_REF="cveid0">
+        #                 <ANNOTATION_VALUE>C</ANNOTATION_VALUE>
+        #             </REF_ANNOTATION>
+        #         </ANNOTATION>
+        annotation_element = ReferenceAnnotation.make_xml_element(
+            annotation_id=annotation_id, annotation_ref=parent_annotation_id)
+        added_annotation = Annotation(annotation_element, eaf_tree=self.eaf_tree, tier=self)
+        self.element.append(added_annotation.element)
+        self.annotations[added_annotation.id] = added_annotation
+        return added_annotation
+
+    def drop_annotation(self, annotation_id):
+        if annotation_id not in self.annotations:
+            raise ValueError(f'Annotation {annotation_id} not found in tier {self.id}.')
+
+        annotation = self.annotations[annotation_id]
+
+        if len(annotation.children) > 0:
+            raise ValueError(f'Annotation {annotation_id} has child annotations and cannot be dropped.')
+
+        if annotation.annotation_type == Annotation.REF_ANNOTATION:
+            annotation.parent.children.remove(annotation)
+        del self.annotations[annotation_id]
+        del self.eaf_tree.annotations[annotation_id]
+        self.element.remove(annotation.element)
+
+    def drop_all_annotations(self):
+        for annotation_id in list(self.annotations.keys()):
+            self.drop_annotation(annotation_id)
 
 
 class LinguisticType(EafElement):
@@ -543,7 +603,10 @@ class ControlledVocabulary(EafElement):
             return self._entries
 
     def get_id_of_value(self, value):
-        (cve_id,) = {cve_id for cve_id, cv_entry in self.entries.items() if cv_entry.value == value}
+        try:
+            (cve_id,) = {cve_id for cve_id, cv_entry in self.entries.items() if cv_entry.value == value}
+        except ValueError:
+            raise ValueError(f'Value {value} is not in the controlled vocabulary.')
         return cve_id
 
     def validate(self):
@@ -674,6 +737,13 @@ class XMLTree(object):
         else:
             raise ValueError(f'Found more than one element with tag "{tag}" and attributes {attributes}.')
 
+    def find_parent(self, element):
+        for parent in self.tree.getroot().iter():
+            for child in parent:
+                if child is element:
+                    return parent
+        raise ValueError(f'Element {element} is not in the tree.')
+
 
 class ControlledVocabularyResource(XMLTree):
     """
@@ -742,10 +812,21 @@ class EafTree(XMLTree):
         elements = [element_class(element, *args, **kwargs) for element in self.find_elements(element_class.TAG)]
         return {element.id: element for element in elements}
 
+    @property
+    def last_used_annotation_id(self) -> int:
+        return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+
+    @last_used_annotation_id.setter
+    def last_used_annotation_id(self, value):
+        # check that value is an integer
+        if not isinstance(value, int):
+            raise ValueError('Last used annotation id must be an integer.')
+        self.find_element('PROPERTY', **dict(NAME='lastUsedAnnotationId')).text = str(value)
+
     def assign_children(self):
         """
-        Assigns children to tiers and annotations. For elements that haven't been assigned a single child at the end,
-        changes `.
+        Assigns children to tiers and annotations. Elements without children are marked as childless to differentiate
+        them from elements that have not been assigned children for some reason.
         :return:
         """
         for tier in self.tiers.values():
@@ -777,3 +858,91 @@ class EafTree(XMLTree):
 
     def to_eaf(self, path):
         self.to_file(path)
+
+    def insert_after(self, inserted_element, after_element):
+        parent_element = self.find_parent(after_element.element)
+        parent_element.insert(list(parent_element).index(after_element.element) + 1, inserted_element.element)
+
+    def _add_dependent_tier(self, tier_id, linguistic_type_ref, parent_tier):
+        # Create a new XML element and add it to the tree
+        tier_element = Tier.make_xml_element(tier_id=tier_id, linguistic_type_ref=linguistic_type_ref,
+                                             participant=parent_tier.participant, parent_ref=parent_tier.id)
+        added_tier = Tier(tier_element, eaf_tree=self)
+        self.insert_after(inserted_element=added_tier, after_element=parent_tier)
+
+        # Add the new tier to the list of tiers and assign it as a child to the parent tier
+        self.tiers[tier_id] = added_tier
+        parent_tier.append_child(added_tier)
+
+        # Copy all annotations from the parent tier to the new tier - without values
+        last_used_annotation_id = self.last_used_annotation_id
+        for parent_annotation in parent_tier.annotations.values():
+            last_used_annotation_id += 1
+            annotation_id = f'a{last_used_annotation_id}'
+            added_annotation = added_tier.add_reference_annotation(
+                annotation_id=annotation_id,
+                parent_annotation_id=parent_annotation.id)
+            parent_annotation.append_child(added_annotation)
+            self.annotations[annotation_id] = added_annotation
+        self.last_used_annotation_id = last_used_annotation_id
+
+        return added_tier
+
+    def _add_independent_tier(self, participant):
+        raise NotImplementedError('Adding independent tiers is not implemented yet.')
+
+    def add_tier(self, tier_id, linguistic_type, participant=None, parent_tier=None):
+        """
+        Add a tier to the EAF tree.
+        """
+        if participant is None and parent_tier is None:
+            raise ValueError('Either participant or parent_tier must be provided.')
+        if participant is not None and parent_tier is not None:
+            raise ValueError('Only one of participant and parent_tier can be provided.')
+
+        if tier_id in self.tiers:
+            raise ValueError(f'Tier with id {tier_id} already exists.')
+
+        if parent_tier is not None:
+            if parent_tier.participant == 'CHI':
+                # The only reason this can be needed is that the wrong template was used to create the EAF file. For
+                # these cases, we should add some age-based checks before adding anything.
+                raise NotImplementedError('Adding CHI\'s dependent tiers is not supported.')
+
+            if '@' not in tier_id:
+                raise ValueError('Tier id must contain the participant after "@" when adding a dependent tier.')
+
+            tier_kind, participant = tier_id.split('@')
+            if participant != parent_tier.participant:
+                raise ValueError('The participant in the tier id must match the participant of the parent tier.')
+
+            if linguistic_type.lower() != tier_kind.lower():
+                raise ValueError('The linguistic type in the tier id must match the linguistic type of the parent tier.')
+
+            if linguistic_type not in self.linguistic_types:
+                raise ValueError(f'The linguistic type {linguistic_type} must be defined in the EAF file.')
+
+            return self._add_dependent_tier(tier_id, linguistic_type, parent_tier)
+
+        if participant is not None:
+            if '@' in tier_id:
+                raise ValueError('Tier id must not contain the participant after "@" when adding an independent tier.')
+
+            self._add_independent_tier(participant=participant)
+
+    def drop_tier(self, tier_id):
+        if tier_id not in self.tiers:
+            raise ValueError(f'Tier {tier_id} does not exist.')
+
+        tier = self.tiers[tier_id]
+
+        if len(tier.annotations) > 0:
+            raise ValueError(f'Tier {tier_id} has annotations and cannot be dropped.')
+
+        if len(tier.children) > 0:
+            raise ValueError(f'Tier {tier_id} has child tiers and cannot be dropped.')
+
+        if tier.parent_ref is not None:
+            tier.parent.children.remove(tier)
+        del self.tiers[tier_id]
+        self.tree.getroot().remove(tier.element)
