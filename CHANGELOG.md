@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0] - 2024-06-05
+
+### Added
+
+- Add methods `add_tier` and `drop_tier` to `EafTree`.
+  `add_tier` currently only supports adding dependent tiers.
+
 ## [0.30.0] - 2024-05-25
 
 ### seedlings-nouns v2.0.0-dev.2
