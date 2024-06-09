@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.31.1] - 2024-06-09
+
+### Fixed
+
+- Build: fixed the path to `sub-recordings_special-cases` in setup.py - they weren't being included in the PyPI version (and they wouldn't be included in any non-editable install for that matter).
+
 ## [0.31.0] - 2024-06-05
 
 ### Added
