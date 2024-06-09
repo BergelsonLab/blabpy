@@ -1,6 +1,8 @@
 # Changelog
 
-## [0.31.1] - 2024-06-09
+## [0.31.2] - 2024-06-09
+
+Note: 0.31.1 was an unsuccssful attempt to fix the bug described below and I yanked it from PyPI.
 
 ### Fixed
 
