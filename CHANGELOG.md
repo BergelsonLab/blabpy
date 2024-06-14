@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.31.3] - 2024-06-14
+
+### Fixed
+
+- Fixed a bug where parallel annotation script would fail on Windows due to the path to the `.../LENA/annotations/` repo having a single slash instead of a double slash before "//sox4.unive...". 
+
 ## [0.31.2] - 2024-06-09
 
 Note: 0.31.1 was an unsuccssful attempt to fix the bug described below and I yanked it from PyPI.

@@ -33,7 +33,7 @@ def checkout_recording_for_annotation(full_recording_id, annotator_name, annotat
     temp_dir_root.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir=temp_dir_root) as temp_dir:
         repo = sparse_clone(
-            remote_uri=lena_annotations_path,
+            remote_uri=lena_annotations_path.as_posix(),
             folder_to_clone_into=temp_dir,
             checked_out_folder=recording_folder_in_repo,
             new_branch_name=new_branch_name,
