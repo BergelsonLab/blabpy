@@ -41,7 +41,7 @@ class EafPlus(Eaf):
         """
         Get values from a tier.
         :param tier_id:
-        :return: list of values
+        :return: None if there is no tier with tier_id. List of values if it does. Can be an empty list.
         """
         if tier_id not in self.tiers:
             return None
@@ -53,6 +53,8 @@ class EafPlus(Eaf):
             values = [value for _, _, value, _ in aligned_annotations.values()]
         elif reference_annotations:
             values = [value for _, value, _, _ in reference_annotations.values()]
+        else:
+            return list()
 
         return values
 

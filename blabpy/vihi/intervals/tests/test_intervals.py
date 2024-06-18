@@ -80,12 +80,12 @@ def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
     batch_create_files_with_random_regions(info_spreadsheet_path_1, seed=7)
     
     # Compare the output files
-    expected_file_checksums = [('VI_666_924/VI_666_924.eaf', 580209740),
+    expected_file_checksums = [('VI_666_924/VI_666_924.eaf', 809913420),
                                ('VI_666_924/VI_666_924.pfsx', 1301328091),
-                               ('VI_666_924/VI_666_924_selected-regions.csv', 1260461951),
-                               ('VI_777_234/VI_777_234.eaf', 1824613251),
+                               ('VI_666_924/selected_regions.csv', 1260461951),
+                               ('VI_777_234/VI_777_234.eaf', 2054316931),
                                ('VI_777_234/VI_777_234.pfsx', 3383994712),
-                               ('VI_777_234/VI_777_234_selected-regions.csv', 1815748137)]
+                               ('VI_777_234/selected_regions.csv', 1815748137)]
 
     def check_first_run_outputs():
         for relative_path, checksum in expected_file_checksums:

@@ -5,11 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from blabpy.eaf import EafPlus
-from blabpy.utils import OutputExistsError
-from blabpy.vihi.intervals import templates
-from blabpy.vihi.paths import get_lena_recording_path, parse_full_recording_id
-from blabpy.utils import df_to_list_of_tuples
+from ...eaf import EafPlus
+from ...utils import OutputExistsError, df_to_list_of_tuples
+from . import templates
+from ..paths import get_lena_recording_path, parse_full_recording_id
+
 
 _ms_in_a_minute = 60 * 10**3
 CONTEXT_BEFORE = 2 * _ms_in_a_minute
@@ -153,7 +153,7 @@ def create_eaf_from_template(etf_template_path, intervals):
     return eaf, intervals
 
 
-def _region_output_files(full_recording_id):
+def _random_regions_output_files(full_recording_id):
     """
     Find the recording folder and list the output files as a dict.
     Factored out so we can check which files are already present during batch processing without creating random regions
@@ -171,6 +171,26 @@ def _region_output_files(full_recording_id):
             for extension, filename in output_filenames.items()}
 
 
+def _create_objects_with_random_regions(age, length_of_recording):
+    # select random intervals
+    timestamps = select_intervals_randomly(int(length_of_recording), n=INTERVALS_FOR_ANNOTATION_COUNT)
+    timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
+    timestamps.sort(key=lambda tup: tup[0])
+    context_onsets, context_offsets = zip(*timestamps)
+    intervals = pd.DataFrame.from_dict(dict(context_onset_wav=context_onsets, context_offset_wav=context_offsets))
+    intervals.insert(0, 'code_onset_wav', intervals.context_onset_wav + CONTEXT_BEFORE)
+    intervals.insert(1, 'code_offset_wav', intervals.context_offset_wav - CONTEXT_AFTER)
+    intervals.insert(0, 'sampling_type', 'random')
+
+    # retrieve correct templates for the age
+    etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age)
+
+    # create an eaf object with the selected regions
+    eaf, intervals = create_eaf_from_template(etf_template_path, intervals)
+
+    return eaf, intervals, pfsx_template_path
+
+
 def create_files_with_random_regions(full_recording_id, age, length_of_recording):
     """
     Randomly samples INTERVALS_FOR_ANNOTATION_COUNT five-min long regions to be annotated and creates three files:
@@ -184,29 +204,16 @@ def create_files_with_random_regions(full_recording_id, age, length_of_recording
     :return: None, writes files to the recording folder in VIHI
     """
     # check that none of the output files already exist
-    output_file_paths = _region_output_files(full_recording_id=full_recording_id)
+    output_file_paths = _random_regions_output_files(full_recording_id=full_recording_id)
     paths_exist = [path for path in output_file_paths.values() if path.exists()]
     if any(paths_exist):
         raise OutputExistsError(paths=paths_exist)
 
-    # select random intervals
-    timestamps = select_intervals_randomly(int(length_of_recording), n=INTERVALS_FOR_ANNOTATION_COUNT)
-    timestamps = [(x * 60000, y * 60000) for x, y in timestamps]
-    timestamps.sort(key=lambda tup: tup[0])
-    context_onsets, context_offsets = zip(*timestamps)
-    intervals = pd.DataFrame.from_dict(dict(context_onset_wav=context_onsets, context_offset_wav=context_offsets))
-    intervals.insert(0, 'code_onset_wav', intervals.context_onset_wav + CONTEXT_BEFORE)
-    intervals.insert(1, 'code_offset_wav', intervals.context_offset_wav - CONTEXT_AFTER)
+    eaf, intervals, pfsx_template_path = _create_objects_with_random_regions(age, length_of_recording)
     intervals.insert(0, 'full_recording_id', full_recording_id)
-    intervals.insert(1, 'sampling_type', 'random')
-
-    # retrieve correct templates for the age
-    etf_template_path, pfsx_template_path = templates.choose_template(age_in_months=age)
-
-    # create an eaf object with the selected regions
-    eaf, intervals = create_eaf_from_template(etf_template_path, intervals)
 
     # create the output files
+
     # eaf with intervals added
     eaf.to_file(output_file_paths['eaf'])
     # copy the pfsx template
@@ -236,7 +243,7 @@ def batch_create_files_with_random_regions(info_spreadsheet_path, seed=None):
 
     # Check that the output files don't yet exist
     def some_outputs_exist(full_recording_id_):
-        return any(path.exists() for path in _region_output_files(full_recording_id=full_recording_id_).values())
+        return any(path.exists() for path in _random_regions_output_files(full_recording_id=full_recording_id_).values())
     recordings_previously_processed = recordings_df.id[recordings_df.id.apply(some_outputs_exist)]
     if recordings_previously_processed.any():
         msg = ('The following recordings already have random region files:\n'

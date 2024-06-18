@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from blabpy.vihi.intervals.intervals import batch_create_files_with_random_regions
+from ...vihi.intervals.intervals import batch_create_files_with_random_regions
 
 
 def cli_batch_create_files_with_random_regions(args=None):

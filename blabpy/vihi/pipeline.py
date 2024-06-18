@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import pandas as pd
 
-from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _region_output_files, \
+from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _random_regions_output_files, \
     select_best_intervals, _extract_interval_info, INTERVALS_FOR_ANNOTATION_COUNT, INTERVALS_EXTRA_COUNT
 from .reliability import prepare_eaf_for_reliability, NoAnnotationsError
 from ..its import Its, ItsNoTimeZoneInfo
@@ -115,7 +115,7 @@ def add_intervals_for_annotation(full_recording_id, forced_timezone=None):
     eaf, best_intervals = add_annotation_intervals_to_eaf(eaf, best_intervals)
 
     # Save eaf
-    output_file_paths = _region_output_files(full_recording_id=full_recording_id)
+    output_file_paths = _random_regions_output_files(full_recording_id=full_recording_id)
     eaf.to_file(output_file_paths['eaf'])
 
     # Save log

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1] - 2024-06-18
+
+### Changed
+
+- Refactored code in `blabpy.vihi.intervals.intervals` so that it can be at least partially reused for creating EAFs outside the VIHI corpus.
+  See "2024-06-18_cds-tiers-for-Jasenia" in "one_time_scripts" for an example.
+
 ## [0.32.0] - 2024-06-18
 
 ### Fixed
