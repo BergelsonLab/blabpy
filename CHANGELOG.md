@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.32.0] - 2024-06-18
+
+### Fixed
+
+- Make `blabpy.eaf.eaf_tree` work with Python versions before 3.10.
+  Before 3.10, class code couldn't refer to the class's static methods which I was doing in `Annotation`: I was using the static method `conditional_property` as a decorator.
+  I moved that function outside of the class.
+  Ultimately, we should find a better solution instead of using the decorator pattern or simply have two separate classes for alignable and reference annotations.
+
+### Added
+
+- `Annotation`, `Tier`, and `ExternalReferenc` got `__repr__` methods.
+
 ## [0.31.3] - 2024-06-14
 
 ### Fixed

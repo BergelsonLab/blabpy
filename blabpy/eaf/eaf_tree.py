@@ -51,6 +51,18 @@ class EafElement(object):
             raise ValueError(f'{self.TAG} element must not have attributes, had "{attributes}" instead.')
 
 
+
+def conditional_annotation_property(annotation_type):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self):
+            if self.annotation_type != annotation_type:
+                raise ValueError(f'Only {annotation_type}s have {func.__name__}.')
+            return func(self)
+        return property(wrapper)
+    return decorator
+
+
 class Annotation(EafElement):
     TAG = 'ANNOTATION'
     ID = 'ANNOTATION_ID'
@@ -72,6 +84,9 @@ class Annotation(EafElement):
         self.validate()
         self._children = None
 
+    def __repr__(self):
+        return f'<{self.annotation_type} {self.id} from tier {self.tier.id}:  {self.value}>'
+
     @property
     def eaf_tree(self):
         return self._eaf_tree
@@ -87,10 +102,6 @@ class Annotation(EafElement):
     @property
     def value(self):
         return self.value_element.text
-
-    @value.setter
-    def value(self, value):
-        self.value_element.text = value
 
     def clear_value(self):
         self.value_element.text = ''
@@ -114,30 +125,19 @@ class Annotation(EafElement):
     def annotation_type(self):
         return self.inner_element.tag
 
-    @staticmethod
-    def conditional_property(annotation_type):
-        def decorator(func):
-            @functools.wraps(func)
-            def wrapper(self):
-                if self.annotation_type != annotation_type:
-                    raise ValueError(f'Only {annotation_type}s have {func.__name__}.')
-                return func(self)
-            return property(wrapper)
-        return decorator
-
-    @conditional_property(ALIGNABLE_ANNOTATION)
+    @conditional_annotation_property(ALIGNABLE_ANNOTATION)
     def time_slot_ref1(self):
         return self.inner_element.attrib[self.TIME_SLOT_REF1]
 
-    @conditional_property(ALIGNABLE_ANNOTATION)
+    @conditional_annotation_property(ALIGNABLE_ANNOTATION)
     def time_slot_ref2(self):
         return self.inner_element.attrib[self.TIME_SLOT_REF2]
 
-    @conditional_property(REF_ANNOTATION)
+    @conditional_annotation_property(REF_ANNOTATION)
     def annotation_ref(self):
         return self.inner_element.attrib[self.ANNOTATION_REF]
 
-    @conditional_property(REF_ANNOTATION)
+    @conditional_annotation_property(REF_ANNOTATION)
     def parent(self):
         return self.eaf_tree.annotations[self.annotation_ref]
 
@@ -188,7 +188,7 @@ class Annotation(EafElement):
             descendants.extend([child] + child.gather_descendants())
         return descendants
 
-    @conditional_property(REF_ANNOTATION)
+    @conditional_annotation_property(REF_ANNOTATION)
     def cve_ref(self):
         return self.inner_element.attrib[self.CVE_REF]
 
@@ -330,6 +330,9 @@ class Tier(EafElement):
                        for annotation_element in tier_element]
         self.annotations = {annotation.id: annotation for annotation in annotations}
         self._children = None
+
+    def __repr__(self):
+        return f'<Tier {self.id} {self.linguistic_type_ref} {self.participant}>'
 
     @classmethod
     def make_xml_element(cls, tier_id, linguistic_type_ref, participant, parent_ref):
@@ -646,6 +649,9 @@ class ExternalReference(EafElement):
         self._element = ext_ref_element
         self.validate()
         self.cv_resource = self.parse()
+
+    def __repr__(self):
+        return f'<ExternalReference {self.ext_ref_id} {self.type} {self.value}>'
 
     @property
     def ext_ref_id(self):
