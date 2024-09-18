@@ -359,11 +359,10 @@ def make_updated_all_basic_level_here():
 
     # Check for errors
     errors_df = check_for_errors(all_basic_level_with_na)
-    if errors_df:
+    if errors_df is not None:
         errors_file = 'errors.csv'
-        logging.warning(f'The were errors found, the corresponding rows are in "{errors_file}".')
-        errors_df.to_csv(errors_file)
-        return
+        errors_df.to_csv(errors_file, index=False)
+        raise Exception(f'The were errors found, the corresponding rows are in "{errors_file}".')
 
     # Save to file
     write_all_basic_level_to_csv(all_basic_level_df=all_basic_level_with_na,
