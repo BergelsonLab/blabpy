@@ -105,6 +105,8 @@ class Annotation(EafElement):
 
     def clear_value(self):
         self.value_element.text = ''
+        if self.tier.uses_cv:
+            self.inner_element.attrib.pop(self.CVE_REF, None)
 
     def value_not_set(self):
         return no_text_in_element(self.value_element)
