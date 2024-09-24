@@ -9,7 +9,7 @@ import pandas as pd
 
 from ..eaf.etree_utils import find_single_element
 from ..eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
-from ..eaf import EafPlus
+from ..eaf import EafPlus, EafTree
 
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
 
@@ -112,3 +112,66 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     sampled_code_nums = sampled_intervals_df.code_num.to_list()
     sampled_sampling_types = sampled_intervals_df.sampling_type.to_list()
     return eaf_tree, (sampled_code_nums, sampled_sampling_types)
+
+
+def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
+                   transcription_ids_keep,
+                   tier_types_clear=None, tier_types_keep=None):
+    """
+    :param eaf_tree: Parsed eaf file as an EafTree object.
+    :param eaf: Parsed EafPlus object.
+    :param transcription_ids_keep: List of the parent annotations (transcriptions) ids.
+    :param tier_types_clear: Which child tiers (xds, utt, etc.) need their values cleared.
+    :param tier_types_keep: Which child tiers need their values kept. Set to an emtpy list to clear all the child tiers
+     (requires tier_types_clear to be left as None)
+    :param inplace: If True (default), the tree will be modified in-place.
+    :return: A copy (unless inplace is True) of eaf_tree with annotations pruned.
+
+    Only one of tier_types_clear and tier_types_keep should be specified.
+    """
+    if (tier_types_clear is None) == (tier_types_keep is None):
+        raise ValueError('Exactly one of tier_types_clear and tier_types_keep should be specified.')
+
+    # Check that the transcription_ids_keep are valid
+    annotations_df = eaf.get_annotations(drop_empty_tiers=False)
+    if not set(transcription_ids_keep).issubset(annotations_df.transcription_id):
+        raise ValueError('Some of the transcription_ids_keep are not present in the EAF.')
+
+    # Copy the EAF tree
+
+    # Remove annotations we aren't keeping
+    transcription_ids_remove = [t_id for t_id in annotations_df.transcription_id
+                                if t_id not in transcription_ids_keep]
+
+    def remove_annotations_and_all_descendants(annotation_ids_to_remove, annotations_with_parents_):
+        """
+        Finds and deletes all descendants of the annotations with the given ids.
+        :param annotation_ids_to_remove:
+        :param annotations_with_parents_: Dict of (annotation_id: (annotation, parent_tier)) pairs.
+        """
+        children_ids_to_remove = find_child_annotation_ids(eaf_tree.tree, annotation_ids_to_remove)
+        for a_id, (annotation, parent_tier) in annotations_with_parents_.items():
+            if a_id in annotation_ids_to_remove + children_ids_to_remove:
+                # TODO: Can't we just use annotation.tier_id to get the parent_tier? Consider adding
+                #  EafTree.remove_annotation()?
+                parent_tier.remove(annotation)
+                del eaf_tree.annotations[a_id]
+
+    annotations_with_parents = get_annotations_with_parents(eaf_tree.tree)
+    remove_annotations_and_all_descendants(transcription_ids_remove, annotations_with_parents)
+
+    # Find the tiers that need to be cleared
+    tiers_clear = list()
+    for tier_id, tier in eaf_tree.tiers.items():
+        tier_type = tier.linguistic_type_ref
+        if tier_types_clear is not None and tier_type in tier_types_clear:
+            tiers_clear.append(tier)
+        elif tier_types_keep is not None and tier_type not in tier_types_keep:
+            tiers_clear.append(tier)
+
+    # Clear values in those tiers
+    for tier in tiers_clear:
+        for annotation in tier.annotations.values():
+            annotation.clear_value()
+
+    return eaf_tree
