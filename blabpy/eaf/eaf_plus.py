@@ -195,7 +195,7 @@ class EafPlus(Eaf):
         for level in reversed(range(last_level + 1)):
             # We need to keep track
             if level == 0:
-                parent_annotation_id_column = 'participant_annotation_id'
+                parent_annotation_id_column = 'transcription_id'
             else:
                 parent_annotation_id_column = f'daughter_annotation_id_{level - 1}'
             annotations_df = (
