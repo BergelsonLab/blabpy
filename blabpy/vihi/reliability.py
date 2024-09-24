@@ -7,9 +7,9 @@ from xml.etree.ElementTree import ElementTree
 import numpy as np
 import pandas as pd
 
-from blabpy.eaf.etree_utils import find_single_element
-from blabpy.eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
-from blabpy.eaf import EafPlus
+from ..eaf.etree_utils import find_single_element
+from ..eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
+from ..eaf import EafPlus
 
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
 
