@@ -129,27 +129,16 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
         raise ValueError('Some of the transcription_ids_keep are not present in the EAF.')
 
     # Copy the EAF tree
+    eaf_tree = deepcopy(eaf_tree)
 
     # Remove annotations we aren't keeping
     transcription_ids_remove = [t_id for t_id in annotations_df.transcription_id
                                 if t_id not in transcription_ids_keep]
-
-    def remove_annotations_and_all_descendants(annotation_ids_to_remove, annotations_with_parents_):
-        """
-        Finds and deletes all descendants of the annotations with the given ids.
-        :param annotation_ids_to_remove:
-        :param annotations_with_parents_: Dict of (annotation_id: (annotation, parent_tier)) pairs.
-        """
-        children_ids_to_remove = find_child_annotation_ids(eaf_tree.tree, annotation_ids_to_remove)
-        for a_id, (annotation, parent_tier) in annotations_with_parents_.items():
-            if a_id in annotation_ids_to_remove + children_ids_to_remove:
-                # TODO: Can't we just use annotation.tier_id to get the parent_tier? Consider adding
-                #  EafTree.remove_annotation()?
-                parent_tier.remove(annotation)
-                del eaf_tree.annotations[a_id]
-
-    annotations_with_parents = get_annotations_with_parents(eaf_tree.tree)
-    remove_annotations_and_all_descendants(transcription_ids_remove, annotations_with_parents)
+    children_ids_to_remove = find_child_annotation_ids(eaf_tree.tree, transcription_ids_remove)
+    for a_id in transcription_ids_remove + children_ids_to_remove:
+        annotation = eaf_tree.annotations[a_id]
+        annotation.tier.element.remove(annotation.element)
+        del eaf_tree.annotations[a_id]
 
     # Find the tiers that need to be cleared
     tiers_clear = list()
