@@ -51,6 +51,7 @@ def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
                                  & df.code_num.isin(non_empty_intervals)]
                             .groupby('sampling_type')
                             .sample(1, random_state=random_state))
+    n_sampled_intervals = sampled_intervals_df.shape[0]
 
     # Remove annotations from other intervals and values of child tiers in the sampled intervals
     is_sampled = annotations_df.code_num.isin(sampled_intervals_df.code_num)
@@ -65,12 +66,12 @@ def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
     # keeping/discarding.
 
     # Find indices of the intervals we are keeping
-    code_intervals = [[int(annotation.onset), int(annotation.offset)]
+    all_intervals = [[int(annotation.onset), int(annotation.offset)]
                       for annotation in eaf_tree.tiers['code'].annotations.values()]
     sampled_intervals = sampled_intervals_df[['onset', 'offset']].values.tolist()
-    sampled_intervals_indices = [code_intervals.index(sample_interval)
+    sampled_intervals_indices = [all_intervals.index(sample_interval)
                                  for sample_interval in sampled_intervals]
-    assert len(sampled_intervals_indices) == sampled_intervals_df.shape[0]
+    assert len(sampled_intervals_indices) == n_sampled_intervals
 
     # Drop all other intervals
     for tier_id in ('code', 'context', 'sampling_type', 'code_num', 'on_off'):
@@ -80,8 +81,9 @@ def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
                                if i not in sampled_intervals_indices]
         for a_id in annotations_to_drop:
             eaf_tree.drop_annotation(a_id, recursive=True)
-        assert len(tier.annotations) == sampled_intervals_df.shape[0]
+        assert len(tier.annotations) == n_sampled_intervals
 
+    # Return
     sampled_code_nums = sampled_intervals_df.code_num.to_list()
     sampled_sampling_types = sampled_intervals_df.sampling_type.to_list()
     return eaf_tree, (sampled_code_nums, sampled_sampling_types)
