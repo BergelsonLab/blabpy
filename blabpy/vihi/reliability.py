@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 from ..eaf.etree_utils import find_single_element
-from ..eaf.eaf_utils import find_child_annotation_ids, get_annotations_with_parents
 from ..eaf import EafPlus, EafTree
 
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
@@ -78,27 +77,17 @@ def prepare_eaf_for_reliability(eaf_element_tree: ElementTree, eaf: EafPlus, ran
                                  for sample_interval in sampled_intervals]
     assert len(sampled_intervals_indices) == sampled_intervals_df.shape[0]
 
-    # Remove all intervals that we are not keeping and their daughter annotations
-    annotations_with_parents = get_annotations_with_parents(eaf_element_tree)
-
-    def remove_annotations_and_all_descendants(annotation_ids_to_remove):
-        """
-        Finds and deletes all descendants of the annotations with the given ids.
-        :param annotation_ids_to_remove:
-        :return:
-        """
-        children_ids_to_remove = find_child_annotation_ids(eaf_element_tree, annotation_ids_to_remove)
-        for a_id, (annotation, parent) in annotations_with_parents.items():
-            if a_id in annotation_ids_to_remove + children_ids_to_remove:
-                parent.remove(annotation)
-
+    # Drop all other intervals
+    eaf_tree = EafTree(eaf_element_tree, validate_cv_entries=False)
     for tier_id in ('code', 'context', 'sampling_type', 'code_num', 'on_off'):
-        tier = find_single_element(eaf_element_tree, 'TIER', TIER_ID=tier_id)
-        annotations_ids_to_remove = [annotation[0].attrib['ANNOTATION_ID']
-                                     for i, annotation in list(enumerate(tier))
-                                     if i not in sampled_intervals_indices]
-        remove_annotations_and_all_descendants(annotations_ids_to_remove)
-        assert len(tier) == sampled_intervals_df.shape[0]
+        tier = eaf_tree.tiers[tier_id]
+        # Note that we are using ordinal index i, not annotation id.
+        annotations_to_drop = [annotation.id for i, annotation in enumerate(tier.annotations.values())
+                               if i not in sampled_intervals_indices]
+        for a_id in annotations_to_drop:
+            eaf_tree.drop_annotation(a_id, recursive=True)
+        assert len(tier.annotations) == sampled_intervals_df.shape[0]
+    eaf_element_tree = eaf_tree.tree
 
     sampled_code_nums = sampled_intervals_df.code_num.to_list()
     sampled_sampling_types = sampled_intervals_df.sampling_type.to_list()

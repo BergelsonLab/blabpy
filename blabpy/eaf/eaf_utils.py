@@ -164,47 +164,5 @@ def get_annotation_values(tree, tier_id):
     return annotation_values
 
 
-def find_child_annotation_ids(eaf_tree, parent_annotation_ids):
-    """
-    Find all the children of the given annotations (recursively).
-    :param eaf_tree: etree.ElementTree
-    :param parent_annotation_ids: iterable of strings with parent annotation ids
-    :return: list of etree.Element
-    """
-    ref_annotations = find_elements(eaf_tree, 'REF_ANNOTATION')
-    ref_annotation_parent_ids = [ref_annotation.attrib['ANNOTATION_REF']
-                                 for ref_annotation in ref_annotations]
-    ref_annotation_ids = [ref_annotation.attrib['ANNOTATION_ID']
-                          for ref_annotation in ref_annotations]
-
-    # We'll make a list of both the parent and child ids first
-    ids_to_add = parent_annotation_ids  # IDs of the annotations whose children we haven't added yet
-    parents_and_children_ids = list()
-    while len(ids_to_add) > 0:
-        parents_and_children_ids.extend(ids_to_add)
-        ids_just_added = ids_to_add.copy()  # this is unnecessary but makes the code easier to read
-        ids_to_add = [annotation_id
-                      for annotation_id, parent_id
-                      in zip(ref_annotation_ids, ref_annotation_parent_ids)
-                      if parent_id in ids_just_added]
-
-    children_ids = [annotation_id
-                    for annotation_id in parents_and_children_ids
-                    if annotation_id not in parent_annotation_ids]
-
-    return children_ids
-
-
-def get_annotations_with_parents(tree):
-    """
-    Finds all (aligned and reference) annotations in the tree and returns them in a dictionary with annotation IDs as
-    keys and (annotation, parent_tier) tuples as values.
-    Useful when you need to delete annotations.
-    """
-    return {get_only_child(annotation).attrib['ANNOTATION_ID']: (annotation, parent_tier)
-            for parent_tier in find_elements(tree, 'TIER')
-            for annotation in parent_tier}
-
-
 def eaf_to_tree(eaf_uri: str):
     return uri_to_tree(eaf_uri)
