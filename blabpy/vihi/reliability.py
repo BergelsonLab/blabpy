@@ -18,7 +18,7 @@ class NoAnnotationsError(Exception):
     pass
 
 
-def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed):
+def prepare_eaf_for_reliability(eaf_element_tree: ElementTree, eaf: EafPlus, random_seed):
     """
     Prepare the .eaf files for reliability tests. Select one interval of each type, remove annotation values from all
     child tiers in these intervals, and remove all annotations (aligned and reference) from all the other intervals.
@@ -28,7 +28,7 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     Return (eaf_tree, (sampled_code_nums, sampling_types_to_sample)) tuple where eaf_tree is a copy of the input EAF
     tree.
     """
-    eaf_tree = deepcopy(eaf_tree)
+    eaf_element_tree = deepcopy(eaf_element_tree)
 
     if random_seed is not None:
         random_state = np.random.RandomState(random_seed)
@@ -55,37 +55,15 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
                             .groupby('sampling_type')
                             .sample(1, random_state=random_state))
 
-    # Delete all annotations that are not in the sampled intervals
+    # Remove annotations from other intervals and values of child tiers in the sampled intervals
     is_sampled = annotations_df.code_num.isin(sampled_intervals_df.code_num)
-    annotations_to_remove_df = annotations_df.loc[~is_sampled]
-    parent_ids_to_remove = annotations_to_remove_df.transcription_id.to_list()
-    # We need to find all child-parent pairs because elements need to be deleted from their parents - ElementTree
-    # implementation detail.
-    annotations_with_parents = get_annotations_with_parents(eaf_tree)
-
-    def remove_annotations_and_all_descendants(annotation_ids_to_remove):
-        """
-        Finds and deletes all descendants of the annotations with the given ids.
-        :param annotation_ids_to_remove:
-        :return:
-        """
-        children_ids_to_remove = find_child_annotation_ids(eaf_tree, annotation_ids_to_remove)
-        for a_id, (annotation, parent) in annotations_with_parents.items():
-            if a_id in annotation_ids_to_remove + children_ids_to_remove:
-                parent.remove(annotation)
-
-    remove_annotations_and_all_descendants(parent_ids_to_remove)
-
-    # Remove values of the child annotations of the annotations we are keeping
-    annotations_to_keep_df = annotations_df.loc[is_sampled]
-    parent_ids_to_keep = annotations_to_keep_df.transcription_id.to_list()
-    children_ids_to_remove_values = find_child_annotation_ids(eaf_tree, parent_ids_to_keep)
-
-    for a_id, (annotation, parent) in annotations_with_parents.items():
-        if a_id in children_ids_to_remove_values:
-            annotation.attrib.pop('CVE_REF', None)
-            annotation_value = find_single_element(annotation, 'ANNOTATION_VALUE')
-            annotation_value.text = ''
+    # This function works with raw elementtree object whereas prune_eaf_tree works with EafTree objects. We'll have to
+    # create an EafTree object from eaf_element_tree and then convert it back.
+    eaf_tree = EafTree(eaf_element_tree, validate_cv_entries=False)
+    transcription_ids_keep = annotations_df.loc[is_sampled].transcription_id.to_list()
+    eaf_tree = prune_eaf_tree(eaf_tree, eaf, transcription_ids_keep=transcription_ids_keep,
+                              tier_types_keep=['transcription'])
+    eaf_element_tree = eaf_tree.tree
 
     # Remove intervals that we are not keeping. Annotations in the corresponding tiers aren't bound to each other (
     # they probably should be, but they currently aren't), so we will use order to identify the intervals we are
@@ -94,15 +72,28 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     # Find indices of the intervals we are keeping
     code_intervals = [[eaf.timeslots[annotation[0].attrib[time_slot_refx]]
                        for time_slot_refx in ['TIME_SLOT_REF1', 'TIME_SLOT_REF2']]
-                      for annotation in find_single_element(eaf_tree, 'TIER', TIER_ID='code')]
+                      for annotation in find_single_element(eaf_element_tree, 'TIER', TIER_ID='code')]
     sampled_intervals = sampled_intervals_df[['onset', 'offset']].values.tolist()
     sampled_intervals_indices = [code_intervals.index(sample_interval)
                                  for sample_interval in sampled_intervals]
     assert len(sampled_intervals_indices) == sampled_intervals_df.shape[0]
 
     # Remove all intervals that we are not keeping and their daughter annotations
+    annotations_with_parents = get_annotations_with_parents(eaf_element_tree)
+
+    def remove_annotations_and_all_descendants(annotation_ids_to_remove):
+        """
+        Finds and deletes all descendants of the annotations with the given ids.
+        :param annotation_ids_to_remove:
+        :return:
+        """
+        children_ids_to_remove = find_child_annotation_ids(eaf_element_tree, annotation_ids_to_remove)
+        for a_id, (annotation, parent) in annotations_with_parents.items():
+            if a_id in annotation_ids_to_remove + children_ids_to_remove:
+                parent.remove(annotation)
+
     for tier_id in ('code', 'context', 'sampling_type', 'code_num', 'on_off'):
-        tier = find_single_element(eaf_tree, 'TIER', TIER_ID=tier_id)
+        tier = find_single_element(eaf_element_tree, 'TIER', TIER_ID=tier_id)
         annotations_ids_to_remove = [annotation[0].attrib['ANNOTATION_ID']
                                      for i, annotation in list(enumerate(tier))
                                      if i not in sampled_intervals_indices]
@@ -111,7 +102,7 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
 
     sampled_code_nums = sampled_intervals_df.code_num.to_list()
     sampled_sampling_types = sampled_intervals_df.sampling_type.to_list()
-    return eaf_tree, (sampled_code_nums, sampled_sampling_types)
+    return eaf_element_tree, (sampled_code_nums, sampled_sampling_types)
 
 
 def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
@@ -122,8 +113,8 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
     :param eaf: Parsed EafPlus object.
     :param transcription_ids_keep: List of the parent annotations (transcriptions) ids.
     :param tier_types_clear: Which child tiers (xds, utt, etc.) need their values cleared.
-    :param tier_types_keep: Which child tiers need their values kept. Set to an emtpy list to clear all the child tiers
-     (requires tier_types_clear to be left as None)
+    :param tier_types_keep: Which child tiers need their values kept. Set to an emtpy list to clear all the tiers, set
+     to ['transcription'] to keep the transcriptions and clear all the child tiers.
     :param inplace: If True (default), the tree will be modified in-place.
     :return: A copy (unless inplace is True) of eaf_tree with annotations pruned.
 
@@ -163,7 +154,11 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
     # Find the tiers that need to be cleared
     tiers_clear = list()
     for tier_id, tier in eaf_tree.tiers.items():
+        if not tier.participant:
+            continue
+
         tier_type = tier.linguistic_type_ref
+
         if tier_types_clear is not None and tier_type in tier_types_clear:
             tiers_clear.append(tier)
         elif tier_types_keep is not None and tier_type not in tier_types_keep:
@@ -172,6 +167,8 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
     # Clear values in those tiers
     for tier in tiers_clear:
         for annotation in tier.annotations.values():
-            annotation.clear_value()
+            # Temporarily clear the value without dropping CVE_REFs for consistency with prepare_eaf_for_reliability
+            # annotation.clear_value()
+            annotation.value_element.text = ''
 
     return eaf_tree
