@@ -2,12 +2,10 @@
 Module for preparing files for reliability tests and for calculating reliability.
 """
 from copy import deepcopy
-from xml.etree.ElementTree import ElementTree
 
 import numpy as np
 import pandas as pd
 
-from ..eaf.etree_utils import find_single_element
 from ..eaf import EafPlus, EafTree
 
 SAMPLING_TYPES_TO_SAMPLE = ['random', 'high-volubility']
@@ -17,7 +15,7 @@ class NoAnnotationsError(Exception):
     pass
 
 
-def prepare_eaf_for_reliability(eaf_element_tree: ElementTree, eaf: EafPlus, random_seed):
+def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
     """
     Prepare the .eaf files for reliability tests. Select one interval of each type, remove annotation values from all
     child tiers in these intervals, and remove all annotations (aligned and reference) from all the other intervals.
@@ -27,7 +25,7 @@ def prepare_eaf_for_reliability(eaf_element_tree: ElementTree, eaf: EafPlus, ran
     Return (eaf_tree, (sampled_code_nums, sampling_types_to_sample)) tuple where eaf_tree is a copy of the input EAF
     tree.
     """
-    eaf_element_tree = deepcopy(eaf_element_tree)
+    eaf_tree = deepcopy(eaf_tree)
 
     if random_seed is not None:
         random_state = np.random.RandomState(random_seed)
@@ -58,27 +56,23 @@ def prepare_eaf_for_reliability(eaf_element_tree: ElementTree, eaf: EafPlus, ran
     is_sampled = annotations_df.code_num.isin(sampled_intervals_df.code_num)
     # This function works with raw elementtree object whereas prune_eaf_tree works with EafTree objects. We'll have to
     # create an EafTree object from eaf_element_tree and then convert it back.
-    eaf_tree = EafTree(eaf_element_tree, validate_cv_entries=False)
     transcription_ids_keep = annotations_df.loc[is_sampled].transcription_id.to_list()
     eaf_tree = prune_eaf_tree(eaf_tree, eaf, transcription_ids_keep=transcription_ids_keep,
                               tier_types_keep=['transcription'])
-    eaf_element_tree = eaf_tree.tree
 
     # Remove intervals that we are not keeping. Annotations in the corresponding tiers aren't bound to each other (
     # they probably should be, but they currently aren't), so we will use order to identify the intervals we are
     # keeping/discarding.
 
     # Find indices of the intervals we are keeping
-    code_intervals = [[eaf.timeslots[annotation[0].attrib[time_slot_refx]]
-                       for time_slot_refx in ['TIME_SLOT_REF1', 'TIME_SLOT_REF2']]
-                      for annotation in find_single_element(eaf_element_tree, 'TIER', TIER_ID='code')]
+    code_intervals = [[int(annotation.onset), int(annotation.offset)]
+                      for annotation in eaf_tree.tiers['code'].annotations.values()]
     sampled_intervals = sampled_intervals_df[['onset', 'offset']].values.tolist()
     sampled_intervals_indices = [code_intervals.index(sample_interval)
                                  for sample_interval in sampled_intervals]
     assert len(sampled_intervals_indices) == sampled_intervals_df.shape[0]
 
     # Drop all other intervals
-    eaf_tree = EafTree(eaf_element_tree, validate_cv_entries=False)
     for tier_id in ('code', 'context', 'sampling_type', 'code_num', 'on_off'):
         tier = eaf_tree.tiers[tier_id]
         # Note that we are using ordinal index i, not annotation id.
@@ -87,11 +81,10 @@ def prepare_eaf_for_reliability(eaf_element_tree: ElementTree, eaf: EafPlus, ran
         for a_id in annotations_to_drop:
             eaf_tree.drop_annotation(a_id, recursive=True)
         assert len(tier.annotations) == sampled_intervals_df.shape[0]
-    eaf_element_tree = eaf_tree.tree
 
     sampled_code_nums = sampled_intervals_df.code_num.to_list()
     sampled_sampling_types = sampled_intervals_df.sampling_type.to_list()
-    return eaf_element_tree, (sampled_code_nums, sampled_sampling_types)
+    return eaf_tree, (sampled_code_nums, sampled_sampling_types)
 
 
 def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
