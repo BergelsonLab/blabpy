@@ -167,8 +167,6 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
     # Clear values in those tiers
     for tier in tiers_clear:
         for annotation in tier.annotations.values():
-            # Temporarily clear the value without dropping CVE_REFs for consistency with prepare_eaf_for_reliability
-            # annotation.clear_value()
-            annotation.value_element.text = ''
+            annotation.clear_value()
 
     return eaf_tree
