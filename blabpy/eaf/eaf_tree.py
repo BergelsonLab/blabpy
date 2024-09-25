@@ -954,3 +954,20 @@ class EafTree(XMLTree):
             tier.parent.children.remove(tier)
         del self.tiers[tier_id]
         self.tree.getroot().remove(tier.element)
+
+    def drop_annotation(self, annotation_id, recursive=False):
+        if annotation_id not in self.annotations:
+            raise ValueError(f'Annotation {annotation_id} not found.')
+        annotation = self.annotations[annotation_id]
+
+        if annotation.children:
+            if not recursive:
+                raise ValueError(f'Annotation {annotation_id} has children and cannot be dropped. Remove them first or '
+                                 f'set recursive=True to remove them (and their children, and so on) as well.')
+            else:
+                for child in annotation.children:
+                    self.drop_annotation(child.id, recursive=True)
+
+        annotation.tier.element.remove(annotation.element)
+        del annotation.tier.annotations[annotation_id]
+        del self.annotations[annotation_id]

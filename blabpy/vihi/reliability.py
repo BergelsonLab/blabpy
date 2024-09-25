@@ -134,11 +134,8 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
     # Remove annotations we aren't keeping
     transcription_ids_remove = [t_id for t_id in annotations_df.transcription_id
                                 if t_id not in transcription_ids_keep]
-    children_ids_to_remove = find_child_annotation_ids(eaf_tree.tree, transcription_ids_remove)
-    for a_id in transcription_ids_remove + children_ids_to_remove:
-        annotation = eaf_tree.annotations[a_id]
-        annotation.tier.element.remove(annotation.element)
-        del eaf_tree.annotations[a_id]
+    for a_id in transcription_ids_remove:
+        eaf_tree.drop_annotation(a_id, recursive=True)
 
     # Find the tiers that need to be cleared
     tiers_clear = list()
