@@ -18,6 +18,7 @@ from io import StringIO
 from pathlib import Path
 from xml.etree import ElementTree as element_tree
 
+import pandas as pd
 import requests
 
 from blabpy.eaf.etree_utils import element_to_string, _make_find_xpath, no_text_in_element
@@ -971,3 +972,44 @@ class EafTree(XMLTree):
         annotation.tier.element.remove(annotation.element)
         del annotation.tier.annotations[annotation_id]
         del self.annotations[annotation_id]
+
+    def export_annotations(self, trim_transcriptions=True):
+        """
+        Exports annotations as a table with one row per transcription and one column per child tier type (vcm, xds,
+            etc.)
+        :param trim_transcriptions: Ignore whitespace at the beginning and end of transcriptions?
+        :return: A pandas dataframe with columns participant, onset, offset, transcription, transcription_id, and one
+            column per child tier type.
+        """
+        transcriptions = [annotation for annotation in self.annotations.values()
+                          if annotation.tier.linguistic_type_ref == 'transcription'
+                            and annotation.tier.participant is not None]
+
+        def gather_children(annotation):
+            children_ = annotation.children.copy()
+            for child in annotation.children:
+                children_.extend(gather_children(child))
+            return children_
+
+        children = [gather_children(transcription) for transcription in transcriptions]
+
+        def make_one_row_dict(transcription, children_):
+            transcription_dict = {'participant': transcription.tier.participant,
+                                  'onset': int(transcription.onset),
+                                  'offset': int(transcription.offset),
+                                  'transcription': transcription.value,
+                                  'transcription_id': transcription.id}
+            annotations_dict = {child.tier.linguistic_type_ref.lower(): child.value or '' for child in children_}
+            return {**transcription_dict, **annotations_dict}
+
+
+        annotations_df = (
+            pd.DataFrame(map(lambda x: make_one_row_dict(*x), zip(transcriptions, children)))
+            .sort_values(by=['onset', 'participant'])
+            .reset_index(drop=True)
+            .convert_dtypes())
+
+        if trim_transcriptions:
+            annotations_df.transcription = annotations_df.transcription.str.strip()
+
+        return annotations_df

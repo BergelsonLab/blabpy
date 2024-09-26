@@ -58,7 +58,7 @@ def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
     # This function works with raw elementtree object whereas prune_eaf_tree works with EafTree objects. We'll have to
     # create an EafTree object from eaf_element_tree and then convert it back.
     transcription_ids_keep = annotations_df.loc[is_sampled].transcription_id.to_list()
-    eaf_tree = prune_eaf_tree(eaf_tree, eaf, transcription_ids_keep=transcription_ids_keep,
+    eaf_tree = prune_eaf_tree(eaf_tree, transcription_ids_keep=transcription_ids_keep,
                               tier_types_keep=['transcription'])
 
     # Remove intervals that we are not keeping. Annotations in the corresponding tiers aren't bound to each other (
@@ -89,12 +89,11 @@ def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
     return eaf_tree, (sampled_code_nums, sampled_sampling_types)
 
 
-def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
+def prune_eaf_tree(eaf_tree: EafTree,
                    transcription_ids_keep,
                    tier_types_clear=None, tier_types_keep=None):
     """
     :param eaf_tree: Parsed eaf file as an EafTree object.
-    :param eaf: Parsed EafPlus object.
     :param transcription_ids_keep: List of the parent annotations (transcriptions) ids.
     :param tier_types_clear: Which child tiers (xds, utt, etc.) need their values cleared.
     :param tier_types_keep: Which child tiers need their values kept. Set to an emtpy list to clear all the tiers, set
@@ -108,7 +107,7 @@ def prune_eaf_tree(eaf_tree: EafTree, eaf: EafPlus,
         raise ValueError('Exactly one of tier_types_clear and tier_types_keep should be specified.')
 
     # Check that the transcription_ids_keep are valid
-    annotations_df = eaf.get_annotations(drop_empty_tiers=False)
+    annotations_df = eaf_tree.export_annotations()
     if not set(transcription_ids_keep).issubset(annotations_df.transcription_id):
         raise ValueError('Some of the transcription_ids_keep are not present in the EAF.')
 
