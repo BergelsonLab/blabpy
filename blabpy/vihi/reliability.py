@@ -111,6 +111,12 @@ def prune_eaf_tree(eaf_tree: EafTree,
     if not set(transcription_ids_keep).issubset(annotations_df.transcription_id):
         raise ValueError('Some of the transcription_ids_keep are not present in the EAF.')
 
+    # Check that the tier_types_clear/tier_types_keep exist in the eaf
+    tier_types_to_check = tier_types_keep or tier_types_clear
+    missing_tier_types = set(tier_types_to_check) - {tier.linguistic_type_ref for tier in eaf_tree.tiers.values()}
+    if missing_tier_types:
+        raise ValueError(f'The following tier types are not present in the EAF: {missing_tier_types}')
+
     # Copy the EAF tree
     eaf_tree = deepcopy(eaf_tree)
 
