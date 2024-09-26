@@ -15,7 +15,7 @@ class NoAnnotationsError(Exception):
     pass
 
 
-def prepare_eaf_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
+def sample_intervals_for_reliability(eaf_tree: EafTree, eaf: EafPlus, random_seed):
     """
     Prepare the .eaf files for reliability tests. Select one interval of each type, remove annotation values from all
     child tiers in these intervals, and remove all annotations (aligned and reference) from all the other intervals.

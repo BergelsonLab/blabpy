@@ -12,7 +12,7 @@ import pandas as pd
 
 from .intervals.intervals import add_metric, make_intervals, add_annotation_intervals_to_eaf, _random_regions_output_files, \
     select_best_intervals, _extract_interval_info, INTERVALS_FOR_ANNOTATION_COUNT, INTERVALS_EXTRA_COUNT
-from .reliability import prepare_eaf_for_reliability, NoAnnotationsError
+from .reliability import sample_intervals_for_reliability, NoAnnotationsError
 from ..its import Its, ItsNoTimeZoneInfo
 from .paths import get_its_path, parse_full_recording_id, get_eaf_path, get_rttm_path, get_lena_annotations_path, \
     find_all_lena_eaf_paths
@@ -167,7 +167,7 @@ def distribute_all_rttm():
             print('\n')
 
 
-def create_reliability_test_file(eaf_path, output_dir=None):
+def create_eaf_with_sampled_intervals_for_reliability(eaf_path, output_dir=None):
     output_dir = output_dir or Path()
     output_eaf_path = output_dir / f'{eaf_path.stem}_for-reliability.eaf'
     log_path = output_dir / f'{output_eaf_path.stem}.log'
@@ -179,7 +179,7 @@ def create_reliability_test_file(eaf_path, output_dir=None):
     # Prepare the file for reliability tests
     random_seed = list(map(ord, eaf_path.stem))
     try:
-        eaf_tree_new, (sampled_code_nums, sampled_sampling_types) = prepare_eaf_for_reliability(
+        eaf_tree_new, (sampled_code_nums, sampled_sampling_types) = sample_intervals_for_reliability(
             eaf_tree, eaf, random_seed=random_seed)
     except NoAnnotationsError:
         # Write error message to the log

@@ -5,7 +5,7 @@ import pytest
 
 from blabpy.eaf import EafTree, EafPlus
 from blabpy.eaf.eaf_utils import eaf_to_tree, tree_to_eaf
-from blabpy.vihi.reliability import prepare_eaf_for_reliability
+from blabpy.vihi.reliability import sample_intervals_for_reliability
 
 
 @pytest.fixture(scope='module')
@@ -24,7 +24,7 @@ def eaf(eaf_path):
 def test_prepare_eaf_for_reliability(eaf_tree, eaf, tmp_path):
     random_seed = [84, 68, 95, 52, 54, 52, 95, 49, 56, 56]
     eaf_tree, (sampled_code_nums, sampled_sampling_types) = (
-        prepare_eaf_for_reliability(eaf_tree, eaf, random_seed=random_seed))
+        sample_intervals_for_reliability(eaf_tree, eaf, random_seed=random_seed))
     temp_file_path = tmp_path / 'temp_output.eaf'
     eaf_tree.to_eaf(temp_file_path)
 
