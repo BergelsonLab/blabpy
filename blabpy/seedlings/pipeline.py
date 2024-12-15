@@ -1,14 +1,11 @@
-import logging
 import os
-import sys
+import subprocess
 import warnings
-from itertools import product
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pkg_resources
-from git import Repo
 from tqdm import tqdm
 
 from .regions.top3_top4_surplus import TOP_4_KIND, TOP_3_KIND
@@ -17,7 +14,7 @@ from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_R
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, check_for_errors
-from .io import blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
+from .io import blab_write_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
     SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
     read_video_recordings_csv, read_seedlings_codebook, write_all_basic_level_to_csv, \
     SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES, SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES, read_all_basic_level
@@ -26,7 +23,7 @@ from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     _check_modality, get_seedlings_path, get_cha_path, get_opf_path, _normalize_child_month, get_lena_5min_csv_path, \
-    get_its_path, split_recording_id, get_seedlings_nouns_private_path
+    get_its_path, split_recording_id
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as REGIONS_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     assign_tokens_to_regions, reformat_seedlings_nouns_regions
@@ -592,7 +589,8 @@ def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
     # Replace sub-recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
     if amend_if_special_case and recording_id == 'Audio_45_10':
         sub_recordings_original, sub_recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
-        assert sub_recordings.equals(sub_recordings_original)
+        # converting to str first to ignore column data types
+        assert sub_recordings.astype('str').equals(sub_recordings_original.astype('str'))
         sub_recordings = sub_recordings_amended
 
     duration_ms = calculate_recording_duration(sub_recordings=sub_recordings)
@@ -1111,7 +1109,10 @@ def make_updated_seedlings_nouns():
       - If it is (b), cwd must be empty. You'll be instructed to copy the new csvs to the repo before committing them.
     """
     # Get the newest version of all_basiclevel_NA.csv
-    all_basic_level_path = get_file_path('all_basiclevel', None, 'all_basiclevel_NA.csv')
+    all_basic_level_path, abl_version = get_file_path(dataset_name='all_basiclevel',
+                                                      version=None,
+                                                      relative_path='all_basiclevel_NA.csv',
+                                                      return_version=True)
 
     # Use the newest version of seedlings-nouns_private and make sure it's clean
     seedling_nouns_repo, _ = switch_dataset_to_version('seedlings-nouns_private', version=None)
@@ -1131,3 +1132,14 @@ def make_updated_seedlings_nouns():
                              f'{output_dir.absolute()}')
 
     _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir)
+
+    # Log currently installed blabpy version and all_basiclevel versions
+
+    # Using pip in case of editable installs where the version has not been updated yet
+    pip_freeze = subprocess.run(['pip', 'freeze'], stdout=subprocess.PIPE, text=True)
+    versions = pip_freeze.stdout.split('\n')
+    blabpy_version = next(version for version in versions if 'blabpy' in version)
+
+    with output_dir.joinpath('log.txt').open('w') as log:
+        log.write(f'blabpy version: {blabpy_version}\n')
+        log.write(f'all_basiclevel version: {abl_version}\n')
