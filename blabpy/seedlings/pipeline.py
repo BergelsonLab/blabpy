@@ -964,7 +964,7 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_csv_
 
 
 def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
-                                               new_seedlings_nouns_csvs_dir, old_seedlings_nouns_csvs_dir):
+                                               new_seedlings_nouns_csvs_dir):
     if new_dataframes:
         print('These dataframes never had a codebook and need their "description" column filled:\n'
               + '\n'.join(str(path) for path in new_dataframes))
@@ -979,18 +979,14 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
         step0 = '0. Check whether the lists above correspond to what you expected.\n\n'
 
     new_dir_path = new_seedlings_nouns_csvs_dir.absolute()
-    old_dir_path = old_seedlings_nouns_csvs_dir.absolute()
-    step1 = ('1. Copy the csv files\n'
-             f'from: {new_dir_path}\n'
-             f'to:   {old_dir_path}\n\n')
-    if new_dir_path == old_dir_path:
-        step1 = ''
+    steps = (f'1. Copy the csv files and the log to a clone of bergelsonlab/seedlings-nouns_private.\n'
+             f'   Do not use BLAB_DATA for this, make an extra clone if you haven\'t yet. We\'ll use\n'
+             f'   $SN_PRIVATE to refer to the root of that clone below.\n\n'
+             f'   from: {new_dir_path}\n'
+             f'   to:   $SN_PRIVATE/blabpy_output/\n\n'
+             f'2. Go to $SN_PRIVATE and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
-    print(step0 + step1 +
-          '2. Go to\n'
-          f'{old_seedlings_nouns_csvs_dir.absolute()}\n'
-          'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
-
+    print(step0 + steps)
 
 # TODO: This should be all done at the recording level - in gather_recording_seedlings_nouns
 def _post_process_regions(regions):
@@ -1094,8 +1090,7 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir
 
     # Print instructions
     _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
-                                               new_seedlings_nouns_csvs_dir=output_dir,
-                                               old_seedlings_nouns_csvs_dir=seedlings_nouns_csvs_dir)
+                                               new_seedlings_nouns_csvs_dir=output_dir)
 
 
 def make_updated_seedlings_nouns():
