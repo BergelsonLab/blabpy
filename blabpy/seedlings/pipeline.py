@@ -1,23 +1,21 @@
-import logging
 import os
-import sys
+import subprocess
 import warnings
-from itertools import product
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pkg_resources
-from git import Repo
 from tqdm import tqdm
 
 from .regions.top3_top4_surplus import TOP_4_KIND, TOP_3_KIND
 from ..blab_data import get_file_path, switch_dataset_to_version
-from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
+from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS, \
+    SUB_RECORDINGS_SPECIAL_CASES
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, check_for_errors
-from .io import blab_write_csv, blab_read_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
+from .io import blab_write_csv, SEEDLINGS_NOUNS_DTYPES, SEEDLINGS_NOUNS_SORT_BY, \
     SEEDLINGS_NOUNS_SUB_RECORDINGS_DTYPES, SEEDLINGS_NOUNS_RECORDINGS_DTYPES, \
     read_video_recordings_csv, read_seedlings_codebook, write_all_basic_level_to_csv, \
     SEEDLINGS_NOUNS_REGIONS_LONG_DTYPES, SEEDLINGS_NOUNS_REGIONS_WIDE_DTYPES, read_all_basic_level
@@ -26,7 +24,7 @@ from .merge import create_merged, FIXME
 from .opf import export_opf_to_csv
 from .paths import get_all_opf_paths, get_all_cha_paths, get_basic_level_path, _parse_out_child_and_month, \
     _check_modality, get_seedlings_path, get_cha_path, get_opf_path, _normalize_child_month, get_lena_5min_csv_path, \
-    get_its_path, split_recording_id, get_seedlings_nouns_private_path
+    get_its_path, split_recording_id
 from .regions import get_processed_audio_regions as _get_processed_audio_regions, _get_amended_regions, \
     SPECIAL_CASES as REGIONS_SPECIAL_CASES, get_top3_top4_surplus_regions as _get_top3_top4_surplus_regions, \
     assign_tokens_to_regions, reformat_seedlings_nouns_regions
@@ -307,7 +305,7 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
 def scatter_updated_basic_level_files(working_folder=None, skip_backups_if_exist=False):
     """
     Checks for missing basic level data in updated sparse_code csv files.
-    If there are none, copies the files to their place on PN-OPUS, making a backup there first.
+    If there are none, copies the files to their place on BLab share, making a backup there first.
     :return:
     """
     working_folder = working_folder or Path('')
@@ -538,9 +536,11 @@ def get_top3_top4_surplus_regions(subject, month):
 
 def _load_sub_recordings_for_special_cases(recording_id):
     """
-    Loads data for special case of Audio_45_10 which had extra 10 hours at the beginning of the .its.
+    Loads data for special cases:
+    - Audio_45_10 had extra 10 hours at the beginning of the .its,
+    - Audio_06_17 was cropped at the end in the wav file but not .its/.cha.
     """
-    assert recording_id == 'Audio_45_10'
+    assert recording_id.lower() in SUB_RECORDINGS_SPECIAL_CASES, f'Not a special case: {recording_id}'
     special_cases_dir = f'sub-recordings_special-cases/{recording_id}'
     recordings_processed_original_path = os.path.join(special_cases_dir, 'sub-recordings_original.csv')
     recordings_processed_amended_path = os.path.join(special_cases_dir, 'sub-recordings_amended.csv')
@@ -590,9 +590,10 @@ def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
                                 f'`forced_timezone`') from e
 
     # Replace sub-recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
-    if amend_if_special_case and recording_id == 'Audio_45_10':
+    if amend_if_special_case and recording_id.lower() in SUB_RECORDINGS_SPECIAL_CASES:
         sub_recordings_original, sub_recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
-        assert sub_recordings.equals(sub_recordings_original)
+        # converting to str first to ignore column data types
+        assert sub_recordings.astype('str').equals(sub_recordings_original.astype('str'))
         sub_recordings = sub_recordings_amended
 
     duration_ms = calculate_recording_duration(sub_recordings=sub_recordings)
@@ -743,7 +744,7 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
 
 def load_video_recordings_csv(anonymize=True):
     """
-    Loads the video recordings csv from PN-OPUS.
+    Loads the video recordings csv from BLab share.
     :return: a dataframe with the video recordings
     """
     video_info_df = read_video_recordings_csv()
@@ -963,7 +964,7 @@ def _write_df_and_codebook(df, df_filename, output_dir, old_seedlings_nouns_csv_
 
 
 def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
-                                               new_seedlings_nouns_csvs_dir, old_seedlings_nouns_csvs_dir):
+                                               new_seedlings_nouns_csvs_dir):
     if new_dataframes:
         print('These dataframes never had a codebook and need their "description" column filled:\n'
               + '\n'.join(str(path) for path in new_dataframes))
@@ -978,18 +979,14 @@ def _print_seedlings_nouns_update_instructions(new_dataframes, new_variables,
         step0 = '0. Check whether the lists above correspond to what you expected.\n\n'
 
     new_dir_path = new_seedlings_nouns_csvs_dir.absolute()
-    old_dir_path = old_seedlings_nouns_csvs_dir.absolute()
-    step1 = ('1. Copy the csv files\n'
-             f'from: {new_dir_path}\n'
-             f'to:   {old_dir_path}\n\n')
-    if new_dir_path == old_dir_path:
-        step1 = ''
+    steps = (f'1. Copy the csv files and the log to a clone of bergelsonlab/seedlings-nouns_private.\n'
+             f'   Do not use BLAB_DATA for this, make an extra clone if you haven\'t yet. We\'ll use\n'
+             f'   $SN_PRIVATE to refer to the root of that clone below.\n\n'
+             f'   from: {new_dir_path}\n'
+             f'   to:   $SN_PRIVATE/blabpy_output/\n\n'
+             f'2. Go to $SN_PRIVATE and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
 
-    print(step0 + step1 +
-          '2. Go to\n'
-          f'{old_seedlings_nouns_csvs_dir.absolute()}\n'
-          'and follow the instructions in CONTRIBUTING.md to finish updating the dataset.\n')
-
+    print(step0 + steps)
 
 # TODO: This should be all done at the recording level - in gather_recording_seedlings_nouns
 def _post_process_regions(regions):
@@ -1093,8 +1090,7 @@ def _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir
 
     # Print instructions
     _print_seedlings_nouns_update_instructions(new_dataframes=new_dataframes, new_variables=new_variables,
-                                               new_seedlings_nouns_csvs_dir=output_dir,
-                                               old_seedlings_nouns_csvs_dir=seedlings_nouns_csvs_dir)
+                                               new_seedlings_nouns_csvs_dir=output_dir)
 
 
 def make_updated_seedlings_nouns():
@@ -1102,7 +1098,7 @@ def make_updated_seedlings_nouns():
 
     For this function to work, the following must be true:
 
-    - You are connected to PN-OPUS.
+    - You are connected to BLab share.
     - `all_basiclevel` is cloned to `~/BLAB_DATA/all_basiclevel`.
     - `seedlings-nouns_private` is cloned to `~/BLAB_DATA/seedlings-nouns_private`.
     - You are either (a) in the csvs folder of `seedlings-nouns_private` or (b) any other folder.
@@ -1111,7 +1107,10 @@ def make_updated_seedlings_nouns():
       - If it is (b), cwd must be empty. You'll be instructed to copy the new csvs to the repo before committing them.
     """
     # Get the newest version of all_basiclevel_NA.csv
-    all_basic_level_path = get_file_path('all_basiclevel', None, 'all_basiclevel_NA.csv')
+    all_basic_level_path, abl_version = get_file_path(dataset_name='all_basiclevel',
+                                                      version=None,
+                                                      relative_path='all_basiclevel_NA.csv',
+                                                      return_version=True)
 
     # Use the newest version of seedlings-nouns_private and make sure it's clean
     seedling_nouns_repo, _ = switch_dataset_to_version('seedlings-nouns_private', version=None)
@@ -1131,3 +1130,14 @@ def make_updated_seedlings_nouns():
                              f'{output_dir.absolute()}')
 
     _make_updated_seedlings_nouns(all_basic_level_path, seedlings_nouns_csvs_dir, output_dir)
+
+    # Log currently installed blabpy version and all_basiclevel versions
+
+    # Using pip in case of editable installs where the version has not been updated yet
+    pip_freeze = subprocess.run(['pip', 'freeze'], stdout=subprocess.PIPE, text=True)
+    versions = pip_freeze.stdout.split('\n')
+    blabpy_version = next(version for version in versions if 'blabpy' in version)
+
+    with output_dir.joinpath('log.txt').open('w') as log:
+        log.write(f'blabpy version: {blabpy_version}\n')
+        log.write(f'all_basiclevel version: {abl_version}\n')

@@ -21,7 +21,7 @@ def _test_region_output_files(tmpdir):
 
 
 def test_add_intervals_for_annotation(monkeypatch, tmpdir):
-    # Monkeypatch functions that look into the VIHI folder on pn-opus.
+    # Monkeypatch functions that look into the VIHI folder on BLab share.
 
     # Since we are using a full recording id that can't be in the VIHI folder, the worst thing that can happen,
     # if we forget to patch some functions or `add_intervals_for_annotation` starts using different functions, is the

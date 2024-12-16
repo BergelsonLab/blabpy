@@ -9,7 +9,7 @@ POPULATIONS = ['VI', 'HI', 'TD']
 
 def get_vihi_path():
     """
-    Finds the path to the VIHI folder on PN-OPUS
+    Finds the path to the VIHI folder on BLab share
     :return: Path object
     """
     return get_blab_share_path() / 'VIHI'

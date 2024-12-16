@@ -85,6 +85,6 @@ def copy_all_basic_level_files_to_subject_files(updated_basic_level_folder: Path
     :return: None
     """
     for basic_level_path in tqdm(list(updated_basic_level_folder.glob('*.csv')),
-                                 desc=f'Copying {modality} basic level files to pn-opus'):
+                                 desc=f'Copying {modality} basic level files to BLab share'):
         copy_basic_level_to_subject_files(file_path=basic_level_path, modality=modality, backup=backup,
                                           skip_backup_if_exists=skip_backups_if_exist)
