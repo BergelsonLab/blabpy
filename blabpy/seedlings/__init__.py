@@ -14,6 +14,7 @@ MONTHS_INT = tuple(month for month in range(6, 17 + 1))
 ANNOTATION_FILE_COUNT = 527
 MISSING_AUDIO_RECORDINGS = ((22, 9),)
 MISSING_VIDEO_RECORDINGS = ((17, 6),)
+SUB_RECORDINGS_SPECIAL_CASES = ('audio_45_10', 'audio_06_17')
 
 SPEAKER_CODES = (
     'AF3', 'AFA', 'AFB', 'AFC', 'AFL', 'AMC', 'AU2', 'AUN', 'BR1', 'BR2', 'BRO', 'BSS', 'CFS', 'CHI', 'CME', 'EFA',

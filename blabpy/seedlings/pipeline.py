@@ -10,7 +10,8 @@ from tqdm import tqdm
 
 from .regions.top3_top4_surplus import TOP_4_KIND, TOP_3_KIND
 from ..blab_data import get_file_path, switch_dataset_to_version
-from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS
+from . import AUDIO, VIDEO, MISSING_TIMEZONE_FORCED_TIMEZONE, MISSING_TIMEZONE_RECORDING_IDS, \
+    SUB_RECORDINGS_SPECIAL_CASES
 from .cha import export_cha_to_csv
 from .codebooks import make_codebook_template
 from .gather import gather_all_basic_level_annotations, check_for_errors
@@ -304,7 +305,7 @@ def make_updated_basic_level_files(working_folder=None, ignore_audio_annotation_
 def scatter_updated_basic_level_files(working_folder=None, skip_backups_if_exist=False):
     """
     Checks for missing basic level data in updated sparse_code csv files.
-    If there are none, copies the files to their place on PN-OPUS, making a backup there first.
+    If there are none, copies the files to their place on BLab share, making a backup there first.
     :return:
     """
     working_folder = working_folder or Path('')
@@ -535,9 +536,11 @@ def get_top3_top4_surplus_regions(subject, month):
 
 def _load_sub_recordings_for_special_cases(recording_id):
     """
-    Loads data for special case of Audio_45_10 which had extra 10 hours at the beginning of the .its.
+    Loads data for special cases:
+    - Audio_45_10 had extra 10 hours at the beginning of the .its,
+    - Audio_06_17 was cropped at the end in the wav file but not .its/.cha.
     """
-    assert recording_id == 'Audio_45_10'
+    assert recording_id.lower() in SUB_RECORDINGS_SPECIAL_CASES, f'Not a special case: {recording_id}'
     special_cases_dir = f'sub-recordings_special-cases/{recording_id}'
     recordings_processed_original_path = os.path.join(special_cases_dir, 'sub-recordings_original.csv')
     recordings_processed_amended_path = os.path.join(special_cases_dir, 'sub-recordings_amended.csv')
@@ -587,7 +590,7 @@ def get_lena_sub_recordings(recording_id, amend_if_special_case=False):
                                 f'`forced_timezone`') from e
 
     # Replace sub-recordings for one special case - Audio_45_10 where .its was longer than .wav and .cha
-    if amend_if_special_case and recording_id == 'Audio_45_10':
+    if amend_if_special_case and recording_id.lower() in SUB_RECORDINGS_SPECIAL_CASES:
         sub_recordings_original, sub_recordings_amended = _load_sub_recordings_for_special_cases(recording_id)
         # converting to str first to ignore column data types
         assert sub_recordings.astype('str').equals(sub_recordings_original.astype('str'))
