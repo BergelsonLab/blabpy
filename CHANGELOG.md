@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.33.0] - 2024-12-15
+
+### Added
+
+- When updating the seedlings-nouns dataset, we now use hard-coded values for "audio_06_17" sub-recordings and duration.
+  This was necessary because the wav file was cropped while .its and .cha weren't edited so we couldn't get the right numbers from the .its.
+
+### Fixed
+
+- Instructions printed to the user for `seedlings nouns update` needed an update.
+- A number of outdated references to the Duke network drive name "PN-OPUS". Change to "BLab share".
+
 ## [0.32.1] - 2024-06-18
 
 ### Changed
