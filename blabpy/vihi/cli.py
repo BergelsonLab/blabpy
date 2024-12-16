@@ -35,7 +35,7 @@ def start(name, recording_id, email):
     click.clear()
     click.echo(f'Hello, {name}!')
 
-    # Checkout the recording folder from PN-OPUS.
+    # Checkout the recording folder from BLab share.
     click.echo(f'Making a copy of {recording_id} for {name} to annotate (this may take a few minutes) ...')
     annotation_folder = checkout_recording_for_annotation(full_recording_id=recording_id, annotator_name=name,
                                                           annotator_email=email)

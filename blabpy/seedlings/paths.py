@@ -19,7 +19,7 @@ def ensure_folder_exists_and_empty(folder_path):
 
 def get_seedlings_path():
     """
-    Finds the path to the Seedlings folder on PN-OPUS
+    Finds the path to the Seedlings folder on BLab share
     :return: Path object
     """
     return get_blab_share_path() / 'Seedlings'

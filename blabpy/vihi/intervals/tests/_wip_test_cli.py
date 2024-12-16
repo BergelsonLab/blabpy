@@ -17,7 +17,7 @@ info_spreadsheet = \
                        'VI_777_234,12,360'.split(','),
                        'VI_888_098,17,640'.split(',')))
 
-zhenya_pn_opus_mock = Path('/Volumes/pn-opus/VIHI/WorkingFiles/zhenya')
+zhenya_pn_opus_mock = Path('/Volumes/BLab share/VIHI/WorkingFiles/zhenya')
 
 pn_opus_path = get_blab_share_path()
 for row in info_spreadsheet.itertuples():

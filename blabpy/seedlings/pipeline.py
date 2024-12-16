@@ -744,7 +744,7 @@ def gather_recording_nouns_audio(subject, month, recording_basic_level):
 
 def load_video_recordings_csv(anonymize=True):
     """
-    Loads the video recordings csv from PN-OPUS.
+    Loads the video recordings csv from BLab share.
     :return: a dataframe with the video recordings
     """
     video_info_df = read_video_recordings_csv()
@@ -1103,7 +1103,7 @@ def make_updated_seedlings_nouns():
 
     For this function to work, the following must be true:
 
-    - You are connected to PN-OPUS.
+    - You are connected to BLab share.
     - `all_basiclevel` is cloned to `~/BLAB_DATA/all_basiclevel`.
     - `seedlings-nouns_private` is cloned to `~/BLAB_DATA/seedlings-nouns_private`.
     - You are either (a) in the csvs folder of `seedlings-nouns_private` or (b) any other folder.
