@@ -58,7 +58,7 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     # Delete all annotations that are not in the sampled intervals
     is_sampled = annotations_df.code_num.isin(sampled_intervals_df.code_num)
     annotations_to_remove_df = annotations_df.loc[~is_sampled]
-    parent_ids_to_remove = annotations_to_remove_df.participant_annotation_id.to_list()
+    parent_ids_to_remove = annotations_to_remove_df.transcription_id.to_list()
     # We need to find all child-parent pairs because elements need to be deleted from their parents - ElementTree
     # implementation detail.
     annotations_with_parents = get_annotations_with_parents(eaf_tree)
@@ -78,7 +78,7 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
 
     # Remove values of the child annotations of the annotations we are keeping
     annotations_to_keep_df = annotations_df.loc[is_sampled]
-    parent_ids_to_keep = annotations_to_keep_df.participant_annotation_id.to_list()
+    parent_ids_to_keep = annotations_to_keep_df.transcription_id.to_list()
     children_ids_to_remove_values = find_child_annotation_ids(eaf_tree, parent_ids_to_keep)
 
     for a_id, (annotation, parent) in annotations_with_parents.items():
