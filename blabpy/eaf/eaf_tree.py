@@ -714,7 +714,7 @@ class XMLTree(object):
         return element_to_string(self.tree.getroot(), children=True)
 
     def to_file(self, path):
-        Path(path).write_text(self.to_string())
+        Path(path).write_text(self.to_string(), newline='\n')
 
     @staticmethod
     def _make_find_xpath(tag, **attributes):
