@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.1] - 2025-02-21
+
+Fixed:
+- Bug in VIHI reliability coding.
+
+Improved:
+- When writing EAF files to disk, LF is used for end of line - independent of the platform.
+
 ## [0.33.0] - 2024-12-15
 
 ### Added
