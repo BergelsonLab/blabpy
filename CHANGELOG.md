@@ -1,11 +1,19 @@
 # Changelog
 
+## [0.34.0] - 2025-02-25
+
+### Added
+
+- Function `blabpy.utils.source` that does something similar to R's `source`. See the function's docstring for details.
+
 ## [0.33.1] - 2025-02-21
 
-Fixed:
-- Bug in VIHI reliability coding.
+### Fixed
 
-Improved:
+- Bug in VIHI reliability coding. The code wasn't updated to match the updates to the code that extracts annotations from EAFs as tables: the transcription annotation ID column is now called `transcription_id` instead of `participant_annotation_id`.
+
+### Improved
+
 - When writing EAF files to disk, LF is used for end of line - independent of the platform.
 
 ## [0.33.0] - 2024-12-15
