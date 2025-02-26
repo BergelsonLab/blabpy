@@ -296,6 +296,26 @@ class Annotation(EafElement):
         self.cve_ref = cve_ref_for_value
 
 
+class AlignableAnnotation(Annotation):
+    @classmethod
+    def make_xml_element(cls, annotation_id, time_slot_ref1, time_slot_ref2):
+        # <ANNOTATION>
+        #     <ALIGNABLE_ANNOTATION ANNOTATION_ID="a62" TIME_SLOT_REF1="ts14" TIME_SLOT_REF2="ts15">
+        #         <ANNOTATION_VALUE>hi.</ANNOTATION_VALUE>
+        #     </ALIGNABLE_ANNOTATION>
+        # </ANNOTATION>
+        element = element_tree.Element(cls.TAG)
+
+        attributes = {cls.ID: annotation_id, cls.TIME_SLOT_REF1: time_slot_ref1, cls.TIME_SLOT_REF2: time_slot_ref2}
+        inner_element = element_tree.Element(cls.ALIGNABLE_ANNOTATION, attrib=attributes)
+        element.append(inner_element)
+
+        annotation_value = element_tree.Element(cls.ANNOTATION_VALUE)
+        inner_element.append(annotation_value)
+
+        return element
+
+
 class ReferenceAnnotation(Annotation):
     @classmethod
     def make_xml_element(cls, annotation_id, annotation_ref):
@@ -420,17 +440,46 @@ class Tier(EafElement):
                              f'{possible_extra_attributes}.')
         self._validate_no_text()
 
+    def add_alignable_annotation(self, annotation_id, time_slot_ref1, time_slot_ref2):
+        """
+        Add an alignable annotation to the tier.
+
+        Args:
+            annotation_id: The ID of the annotation
+            time_slot_ref1: The ID of the first time slot
+            time_slot_ref2: The ID of the second time slot
+
+        Returns:
+            The added Annotation instance
+        """
+        annotation_element = AlignableAnnotation.make_xml_element(
+            annotation_id=annotation_id,
+            time_slot_ref1=time_slot_ref1,
+            time_slot_ref2=time_slot_ref2)
+
+        added_annotation = Annotation(annotation_element, eaf_tree=self.eaf_tree, tier=self)
+        self.element.append(added_annotation.element)
+        self.annotations[added_annotation.id] = added_annotation
+        self.eaf_tree.annotations[added_annotation.id] = added_annotation
+        return added_annotation
+
     def add_reference_annotation(self, annotation_id, parent_annotation_id):
-        # <ANNOTATION>
-        #             <REF_ANNOTATION ANNOTATION_ID="a127" ANNOTATION_REF="a62" CVE_REF="cveid0">
-        #                 <ANNOTATION_VALUE>C</ANNOTATION_VALUE>
-        #             </REF_ANNOTATION>
-        #         </ANNOTATION>
+        """
+        Add an alignable annotation to the tier.
+
+        Args:
+            annotation_id: The ID of the annotation
+            parent_annotation_id
+
+        Returns:
+            The added Annotation instance
+        """
         annotation_element = ReferenceAnnotation.make_xml_element(
             annotation_id=annotation_id, annotation_ref=parent_annotation_id)
         added_annotation = Annotation(annotation_element, eaf_tree=self.eaf_tree, tier=self)
         self.element.append(added_annotation.element)
         self.annotations[added_annotation.id] = added_annotation
+        self.eaf_tree.annotations[added_annotation.id] = added_annotation
         return added_annotation
 
     def drop_annotation(self, annotation_id):
