@@ -942,7 +942,10 @@ class EafTree(XMLTree):
 
     @property
     def last_used_annotation_id(self) -> int:
-        return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+        if self.annotations:
+            return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+        else:
+            return 0
 
     @last_used_annotation_id.setter
     def last_used_annotation_id(self, value):
@@ -1089,8 +1092,19 @@ class EafTree(XMLTree):
         Returns:
             ID of the newly created time slot
         """
-        # Find the TIME_ORDER element
-        time_order_element = self.find_single_element('TIME_ORDER')
+        # Find or create the TIME_ORDER element
+        try:
+            time_order_element = self.find_single_element('TIME_ORDER')
+        except ValueError:
+            # TIME_ORDER element doesn't exist yet, create it after HEADER
+            root = self.tree.getroot()
+            header_element = self.find_single_element('HEADER')
+            time_order_element = element_tree.Element('TIME_ORDER')
+
+            # Find the index of the HEADER element among its siblings
+            header_index = list(root).index(header_element)
+            # Insert TIME_ORDER after HEADER
+            root.insert(header_index + 1, time_order_element)
 
         # Generate new time slot ID
         existing_time_slots = list(self.time_slots.keys())
