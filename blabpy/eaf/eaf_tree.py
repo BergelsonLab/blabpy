@@ -440,6 +440,22 @@ class Tier(EafElement):
                              f'{possible_extra_attributes}.')
         self._validate_no_text()
 
+    def _add_annotation(self, annotation_xml_element):
+        """
+        Helper method to add an annotation to the tier.
+
+        Args:
+            annotation_xml_element: The XML element for the annotation=
+
+        Returns:
+            The added Annotation instance
+        """
+        added_annotation = Annotation(annotation_xml_element, eaf_tree=self.eaf_tree, tier=self)
+        self.element.append(added_annotation.element)
+        self.annotations[added_annotation.id] = added_annotation
+        self.eaf_tree.annotations[added_annotation.id] = added_annotation
+        return added_annotation
+
     def add_alignable_annotation(self, annotation_id, time_slot_ref1, time_slot_ref2):
         """
         Add an alignable annotation to the tier.
@@ -452,35 +468,29 @@ class Tier(EafElement):
         Returns:
             The added Annotation instance
         """
-        annotation_element = AlignableAnnotation.make_xml_element(
+        annotation_xml_element = AlignableAnnotation.make_xml_element(
             annotation_id=annotation_id,
             time_slot_ref1=time_slot_ref1,
             time_slot_ref2=time_slot_ref2)
 
-        added_annotation = Annotation(annotation_element, eaf_tree=self.eaf_tree, tier=self)
-        self.element.append(added_annotation.element)
-        self.annotations[added_annotation.id] = added_annotation
-        self.eaf_tree.annotations[added_annotation.id] = added_annotation
-        return added_annotation
+        return self._add_annotation(annotation_xml_element)
 
     def add_reference_annotation(self, annotation_id, parent_annotation_id):
         """
-        Add an alignable annotation to the tier.
+        Add a reference annotation to the tier.
 
         Args:
             annotation_id: The ID of the annotation
-            parent_annotation_id
+            parent_annotation_id: The ID of the parent annotation
 
         Returns:
             The added Annotation instance
         """
-        annotation_element = ReferenceAnnotation.make_xml_element(
-            annotation_id=annotation_id, annotation_ref=parent_annotation_id)
-        added_annotation = Annotation(annotation_element, eaf_tree=self.eaf_tree, tier=self)
-        self.element.append(added_annotation.element)
-        self.annotations[added_annotation.id] = added_annotation
-        self.eaf_tree.annotations[added_annotation.id] = added_annotation
-        return added_annotation
+        annotation_xml_element = ReferenceAnnotation.make_xml_element(
+            annotation_id=annotation_id,
+            annotation_ref=parent_annotation_id)
+
+        return self._add_annotation(annotation_xml_element)
 
     def drop_annotation(self, annotation_id):
         if annotation_id not in self.annotations:
