@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="blabpy",
-    version="0.34.0",
+    version="0.35.0",
     packages=find_packages(),
     python_requires='>=3.7',
     install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click', 'requests',

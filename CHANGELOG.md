@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.35.0] - 2025-02-26
+
+### Added
+
+- Add method `blabpy.eaf.eaf_tree.Tier.add_alignable_annotation(onset_ms, offset_ms, value=None)`.
+
+### Changed
+
+- Method `blabpy.eaf.eaf_tree.Tier.add_reference_annotation` no longer requires the caller to provide an annotation id for the added annotation.
+
 ## [0.34.0] - 2025-02-25
 
 ### Added
