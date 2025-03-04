@@ -299,6 +299,26 @@ class Annotation(EafElement):
         self.cve_ref = cve_ref_for_value
 
 
+class AlignableAnnotation(Annotation):
+    @classmethod
+    def make_xml_element(cls, annotation_id, time_slot_ref1, time_slot_ref2):
+        # <ANNOTATION>
+        #     <ALIGNABLE_ANNOTATION ANNOTATION_ID="a62" TIME_SLOT_REF1="ts14" TIME_SLOT_REF2="ts15">
+        #         <ANNOTATION_VALUE>hi.</ANNOTATION_VALUE>
+        #     </ALIGNABLE_ANNOTATION>
+        # </ANNOTATION>
+        element = element_tree.Element(cls.TAG)
+
+        attributes = {cls.ID: annotation_id, cls.TIME_SLOT_REF1: time_slot_ref1, cls.TIME_SLOT_REF2: time_slot_ref2}
+        inner_element = element_tree.Element(cls.ALIGNABLE_ANNOTATION, attrib=attributes)
+        element.append(inner_element)
+
+        annotation_value = element_tree.Element(cls.ANNOTATION_VALUE)
+        inner_element.append(annotation_value)
+
+        return element
+
+
 class ReferenceAnnotation(Annotation):
     @classmethod
     def make_xml_element(cls, annotation_id, annotation_ref):
@@ -423,18 +443,120 @@ class Tier(EafElement):
                              f'{possible_extra_attributes}.')
         self._validate_no_text()
 
-    def add_reference_annotation(self, annotation_id, parent_annotation_id):
-        # <ANNOTATION>
-        #             <REF_ANNOTATION ANNOTATION_ID="a127" ANNOTATION_REF="a62" CVE_REF="cveid0">
-        #                 <ANNOTATION_VALUE>C</ANNOTATION_VALUE>
-        #             </REF_ANNOTATION>
-        #         </ANNOTATION>
-        annotation_element = ReferenceAnnotation.make_xml_element(
-            annotation_id=annotation_id, annotation_ref=parent_annotation_id)
-        added_annotation = Annotation(annotation_element, eaf_tree=self.eaf_tree, tier=self)
+    def _add_annotation(self, annotation_xml_element):
+        """
+        Helper method to add an annotation to the tier.
+
+        Args:
+            annotation_xml_element: The XML element for the annotation
+
+        Returns:
+            The added Annotation instance
+        """
+        added_annotation = Annotation(annotation_xml_element, eaf_tree=self.eaf_tree, tier=self)
         self.element.append(added_annotation.element)
         self.annotations[added_annotation.id] = added_annotation
+        self.eaf_tree.annotations[added_annotation.id] = added_annotation
         return added_annotation
+
+    def _add_alignable_annotation(self, annotation_id, time_slot_ref1, time_slot_ref2):
+        """
+        Private method to add an alignable annotation to the tier with explicit annotation_id and prepared time slots.
+
+        Args:
+            annotation_id: The ID of the annotation
+            time_slot_ref1: The ID of the first time slot
+            time_slot_ref2: The ID of the second time slot
+
+        Returns:
+            The added Annotation instance
+        """
+        annotation_xml_element = AlignableAnnotation.make_xml_element(
+            annotation_id=annotation_id,
+            time_slot_ref1=time_slot_ref1,
+            time_slot_ref2=time_slot_ref2)
+
+        return self._add_annotation(annotation_xml_element)
+
+    def _add_reference_annotation(self, annotation_id, parent_annotation_id):
+        """
+        Private method to add a reference annotation to the tier with explicit annotation_id.
+
+        Args:
+            annotation_id: The ID of the annotation
+            parent_annotation_id: The ID of the parent annotation
+
+        Returns:
+            The added Annotation instance
+        """
+        annotation_xml_element = ReferenceAnnotation.make_xml_element(
+            annotation_id=annotation_id,
+            annotation_ref=parent_annotation_id)
+
+        return self._add_annotation(annotation_xml_element)
+
+    def add_alignable_annotation(self, onset_ms, offset_ms, value=None):
+        """
+        Add an alignable annotation to the tier with automatically generated IDs.
+
+        Args:
+            onset_ms: Onset time in milliseconds
+            offset_ms: Offset time in milliseconds
+            value: Optional initial value for the annotation
+
+        Returns:
+            The added Annotation instance
+        """
+        # Generate a new annotation ID
+        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
+        annotation_id = f'a{last_used_annotation_id}'
+
+        # Create new time slots
+        time_slot_ref1 = self.eaf_tree.create_time_slot(onset_ms)
+        time_slot_ref2 = self.eaf_tree.create_time_slot(offset_ms)
+
+        # Add the annotation
+        annotation = self._add_alignable_annotation(annotation_id, time_slot_ref1, time_slot_ref2)
+
+        # Set value if provided
+        if value is not None:
+            annotation.value = value
+
+        # Update the last used annotation ID
+        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
+
+        return annotation
+
+    def add_reference_annotation(self, parent_annotation_id, value=None):
+        """
+        Add a reference annotation to the tier with automatically generated ID.
+
+        Args:
+            parent_annotation_id: The ID of the parent annotation
+            value: Optional initial value for the annotation
+
+        Returns:
+            The added Annotation instance
+        """
+        # Generate a new annotation ID
+        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
+        annotation_id = f'a{last_used_annotation_id}'
+
+        # Add the annotation
+        annotation = self._add_reference_annotation(annotation_id, parent_annotation_id)
+
+        # Set value if provided
+        if value is not None:
+            annotation.value = value
+
+        # Update the last used annotation ID
+        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
+
+        # Add as child to parent annotation
+        parent_annotation = self.eaf_tree.annotations[parent_annotation_id]
+        parent_annotation.append_child(annotation)
+
+        return annotation
 
     def drop_annotation(self, annotation_id):
         if annotation_id not in self.annotations:
@@ -717,7 +839,7 @@ class XMLTree(object):
         return element_to_string(self.tree.getroot(), children=True)
 
     def to_file(self, path):
-        Path(path).write_text(self.to_string())
+        Path(path).write_text(self.to_string(), newline='\n')
 
     @staticmethod
     def _make_find_xpath(tag, **attributes):
@@ -823,7 +945,10 @@ class EafTree(XMLTree):
 
     @property
     def last_used_annotation_id(self) -> int:
-        return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+        if self.annotations:
+            return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+        else:
+            return 0
 
     @last_used_annotation_id.setter
     def last_used_annotation_id(self, value):
@@ -873,6 +998,17 @@ class EafTree(XMLTree):
         parent_element.insert(list(parent_element).index(after_element.element) + 1, inserted_element.element)
 
     def _add_dependent_tier(self, tier_id, linguistic_type_ref, parent_tier):
+        """
+        Add a dependent tier to the EAF tree.
+
+        Args:
+            tier_id: The ID of the tier
+            linguistic_type_ref: The linguistic type reference
+            parent_tier: The parent tier
+
+        Returns:
+            The added Tier instance
+        """
         # Create a new XML element and add it to the tree
         tier_element = Tier.make_xml_element(tier_id=tier_id, linguistic_type_ref=linguistic_type_ref,
                                              participant=parent_tier.participant, parent_ref=parent_tier.id)
@@ -884,16 +1020,9 @@ class EafTree(XMLTree):
         parent_tier.append_child(added_tier)
 
         # Copy all annotations from the parent tier to the new tier - without values
-        last_used_annotation_id = self.last_used_annotation_id
         for parent_annotation in parent_tier.annotations.values():
-            last_used_annotation_id += 1
-            annotation_id = f'a{last_used_annotation_id}'
-            added_annotation = added_tier.add_reference_annotation(
-                annotation_id=annotation_id,
-                parent_annotation_id=parent_annotation.id)
+            added_annotation = added_tier.add_reference_annotation(parent_annotation_id=parent_annotation.id)
             parent_annotation.append_child(added_annotation)
-            self.annotations[annotation_id] = added_annotation
-        self.last_used_annotation_id = last_used_annotation_id
 
         return added_tier
 
@@ -955,6 +1084,55 @@ class EafTree(XMLTree):
             tier.parent.children.remove(tier)
         del self.tiers[tier_id]
         self.tree.getroot().remove(tier.element)
+
+    def create_time_slot(self, time_value_ms):
+        """
+        Create a new time slot for the given time value.
+
+        Args:
+            time_value_ms: Time value in milliseconds
+
+        Returns:
+            ID of the newly created time slot
+        """
+        # Find or create the TIME_ORDER element
+        try:
+            time_order_element = self.find_single_element('TIME_ORDER')
+        except ValueError:
+            # TIME_ORDER element doesn't exist yet, create it after HEADER
+            root = self.tree.getroot()
+            header_element = self.find_single_element('HEADER')
+            time_order_element = element_tree.Element('TIME_ORDER')
+
+            # Find the index of the HEADER element among its siblings
+            header_index = list(root).index(header_element)
+            # Insert TIME_ORDER after HEADER
+            root.insert(header_index + 1, time_order_element)
+
+        # Generate new time slot ID
+        existing_time_slots = list(self.time_slots.keys())
+        if existing_time_slots:
+            last_id_num = max(int(ts_id[2:]) for ts_id in existing_time_slots)
+            new_id_num = last_id_num + 1
+        else:
+            new_id_num = 1
+
+        time_slot_id = f'ts{new_id_num}'
+
+        # Create the time slot element
+        time_slot_element = element_tree.Element(TimeSlot.TAG,
+                                                 attrib={TimeSlot.ID: time_slot_id,
+                                                         TimeSlot.TIME_VALUE: str(time_value_ms)})
+
+        # Add it to the TIME_ORDER element
+        time_order_element.append(time_slot_element)
+
+        # Create the TimeSlot object and add it to eaf_tree.time_slots
+        time_slot = TimeSlot(time_slot_element, self)
+        self.time_slots[time_slot_id] = time_slot
+
+        return time_slot_id
+
 
     def drop_annotation(self, annotation_id, recursive=False):
         if annotation_id not in self.annotations:

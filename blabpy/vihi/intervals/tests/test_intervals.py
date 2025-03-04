@@ -61,7 +61,7 @@ def test_create_files_with_random_regions(monkeypatch, tmp_path):
 
 
 def test_batch_create_files_with_random_regions(monkeypatch, tmp_path):
-    # Make sure pn-opus is not touched
+    # Make sure BLab share is not touched
     def get_lena_recording_path_(population, subject_id, recording_id):
         return tmp_path / compose_full_recording_id(population, subject_id, recording_id)
     monkeypatch.setattr(intervals_module, 'get_lena_recording_path', get_lena_recording_path_)

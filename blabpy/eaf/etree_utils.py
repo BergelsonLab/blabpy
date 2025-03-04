@@ -97,7 +97,7 @@ def tree_to_string(tree):
 
 
 def tree_to_path(tree, path):
-    Path(path).write_text(tree_to_string(tree))
+    Path(path).write_text(tree_to_string(tree), newline='\n')
 
 
 def get_all(tree, tag, id_attrib):

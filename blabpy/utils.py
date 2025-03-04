@@ -4,6 +4,8 @@ import hashlib
 from zlib import adler32
 from pathlib import Path
 import contextlib
+import importlib.util
+import sys
 import os
 
 from pyprojroot import find_root
@@ -149,3 +151,48 @@ def ensure_folder_exists_and_empty(folder_path):
     assert not (folder_path.exists() and any(folder_path.iterdir())), \
         'The folder should be empty or not yet exist'
     folder_path.mkdir(parents=True, exist_ok=True)
+
+
+def source(filepath, modulename=None):
+    """
+    Source a python script (almost) R-style.
+
+    Why "almost": the variables from a script 'x.py' will be accessible as 'x.variable', not as `variable`. After
+    sourcing, you can also do `from x import variable, fun` and then do `foo = fun(variable)` without prepending `x.`
+
+    If your script name is long or not a valid Python name (e.g., contains "." or "-"), you will need to supply the
+    modulename argument. Something like:
+
+    ```py
+    source('bad-name.py', modulename='good_name')
+    good_name.fun()
+    ```
+
+    Args:
+        filepath (str): The path to the Python script.
+        modulename (str, optional): The name to register the module under.
+                                    If None, the name is derived from the file name.
+
+    Returns:
+        The loaded module object.
+    """
+    if modulename is None:
+        script_stem = os.path.splitext(os.path.basename(filepath))[0]
+        if not script_stem.isidentifier():
+            raise ValueError(f"Script's name \"{script_stem}\" is not a valid Python script. Either supply a valid "
+                             "identifier as the modulename parameter or rename the script.")
+        modulename = script_stem
+    else:
+        if not modulename.isidentifier():
+            raise ValueError(f"Supplied module name \"{modulename}\" is not a valid Python identifier.")
+
+    # Create a module spec from the file location
+    spec = importlib.util.spec_from_file_location(modulename, filepath)
+    module = importlib.util.module_from_spec(spec)
+
+    # Execute the module in its own namespace
+    spec.loader.exec_module(module)
+
+    # Register the module in sys.modules for future imports
+    sys.modules[modulename] = module
+    return module

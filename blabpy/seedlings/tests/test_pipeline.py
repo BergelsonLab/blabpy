@@ -17,7 +17,7 @@ from blabpy.utils import pandas_df_hash
 
 def test_make_updated_all_basic_level_here(tmpdir):
     """
-    Only checks that all_basiclevel can be successfully created. Require connection to PN-OPUS.
+    Only checks that all_basiclevel can be successfully created. Require connection to BLab share.
     """
     with tmpdir.as_cwd():
         make_updated_all_basic_level_here()

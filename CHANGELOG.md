@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.35.0] - 2025-02-26
+
+### Added
+
+- Add method `blabpy.eaf.eaf_tree.Tier.add_alignable_annotation(onset_ms, offset_ms, value=None)`.
+
+### Changed
+
+- Method `blabpy.eaf.eaf_tree.Tier.add_reference_annotation` no longer requires the caller to provide an annotation id for the added annotation.
+
+## [0.34.0] - 2025-02-25
+
+### Added
+
+- Function `blabpy.utils.source` that does something similar to R's `source`. See the function's docstring for details.
+
+## [0.33.1] - 2025-02-21
+
+### Fixed
+
+- Bug in VIHI reliability coding. The code wasn't updated to match the updates to the code that extracts annotations from EAFs as tables: the transcription annotation ID column is now called `transcription_id` instead of `participant_annotation_id`.
+
+### Improved
+
+- When writing EAF files to disk, LF is used for end of line - independent of the platform.
+
+## [0.33.0] - 2024-12-15
+
+### Added
+
+- When updating the seedlings-nouns dataset, we now use hard-coded values for "audio_06_17" sub-recordings and duration.
+  This was necessary because the wav file was cropped while .its and .cha weren't edited so we couldn't get the right numbers from the .its.
+
+### Fixed
+
+- Instructions printed to the user for `seedlings nouns update` needed an update.
+- A number of outdated references to the Duke network drive name "PN-OPUS". Change to "BLab share".
+
 ## [0.32.1] - 2024-06-18
 
 ### Changed

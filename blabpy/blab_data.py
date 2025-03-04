@@ -56,9 +56,10 @@ def switch_dataset_to_version(dataset_name, version):
     return repo, version
 
 
-def get_file_path(dataset_name, version, relative_path):
+def get_file_path(dataset_name, version, relative_path, return_version=False):
     """
-    Switches a dataset to a specific version and return the path to a file in that version.
+    Switches a dataset to a specific version and return the path to a file in that version. Set version to None to get
+    the latest version.
     """
     repo, version = switch_dataset_to_version(dataset_name, version)
 
@@ -66,4 +67,7 @@ def get_file_path(dataset_name, version, relative_path):
     if not file_path.exists():
         raise ValueError(f"File {relative_path} does not exist in version {version} of dataset {dataset_name}.")
 
-    return file_path
+    if return_version is False:
+        return file_path
+    else:
+        return file_path, version
