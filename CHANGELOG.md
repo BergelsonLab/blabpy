@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.36.0] - 2025-03-06
+
+### Fixed
+
+- `vihi annotation start` would intermittently fail with a "the remote end hung up unexpectedly" error. This seems to mostly happen during the push to the annotations repo on Blab share. Now, the script will try harder, and if that doesn't help, just skip the push - we can always do it manually later.
+- The error in `blabpy.paths.get_blab_share_path` was incorrectly formatted and ended up being printed as a tuple of string instead of a single string making the message unreadable.
+
+### Added
+
+- A console script to create individual sparsely cloned one_time_scripts folders. See the [one_time_scripts repo](https://github.com/BergelsonLab/one_time_scripts) for details.
+
 ## [0.35.0] - 2025-02-26
 
 ### Added
