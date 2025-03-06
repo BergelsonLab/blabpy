@@ -37,7 +37,7 @@ def get_blab_share_path():
             f'Could not locate the BLab share at the path specified'
             f' in the environment variable {BLAB_SHARE_PATH_ENV}:\n\n'
             f'{env_path}\n\n'
-            f'Please update this value or unset the variable to try the default path. To unset, run:\n\n',
+            f'Please update this value or unset the variable to try the default path. To unset, run:\n\n'
             f'{unset_env_var_hint}\n\n'
             f'Alternatively, you can set the variable to the correct path like this:\n\n'
             f'{export_env_var_hint}\n\n')

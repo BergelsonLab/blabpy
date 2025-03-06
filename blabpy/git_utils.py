@@ -101,6 +101,76 @@ class TqdmRemoteProgress(RemoteProgress):
             self.progress_bar.close()
 
 
+def try_push_to_remote(repo, remote, branch_name):
+    """
+    Attempts to push a branch to a remote repository, first with default settings
+    and then with optimized settings if the first attempt fails.
+
+    :param repo: The Git repository object
+    :param remote: The remote to push to
+    :param branch_name: The name of the branch to push
+    :return: True if push succeeded, False otherwise
+    """
+    # First try to push with default settings
+    try:
+        print("Attempting to push to remote...")
+        remote.push(branch_name)
+        print(f"Successfully pushed branch '{branch_name}' to remote.")
+        return True
+    except GitCommandError as e:
+        print("Initial push attempt failed. Trying with optimized settings...")
+
+        # If first attempt fails, try with optimized settings
+        try:
+            # Increase buffer size to handle larger repositories
+            repo.git.config('http.postBuffer', '524288000')  # 500MB buffer
+
+            # Add a longer timeout for the push operation
+            repo.git.config('http.lowSpeedLimit', '1000')
+            repo.git.config('http.lowSpeedTime', '60')
+
+            # Attempt to push again with optimized settings
+            remote.push(branch_name)
+            print(f"Successfully pushed branch '{branch_name}' to remote with optimized settings.")
+            return True
+        except GitCommandError as e:
+            print(f"Warning: Could not push to remote. This is normal and won't affect your work.")
+            print("Your local branch is still configured to track the remote branch.")
+            print("You can push your changes manually later with 'git push'.")
+            print(f"Technical details: {e}")
+            return False
+
+
+def setup_branch_tracking(repo, remote_name, branch_name):
+    """
+    Sets up tracking for a local branch to its remote counterpart.
+    Checks if the remote branch already exists and warns if it does.
+
+    :param repo: The Git repository object
+    :param remote_name: The name of the remote
+    :param branch_name: The name of the branch to configure
+    :return: True if successful, False if remote branch already exists
+    """
+    # Check if remote branch exists
+    try:
+        # Try to get info about the remote branch
+        remote_refs = repo.git.ls_remote('--heads', remote_name, branch_name).strip()
+        if remote_refs:
+            print(f"WARNING: The remote branch '{branch_name}' already exists!")
+            print("This could indicate someone else is already annotating this recording.")
+            print("Please contact your lab technician for assistance.")
+            return False
+    except GitCommandError:
+        # If ls-remote fails, we assume it's because there's no such branch
+        pass
+
+    # Configure the local branch to track the future remote branch
+    repo.git.config(f'branch.{branch_name}.remote', remote_name)
+    repo.git.config(f'branch.{branch_name}.merge', f'refs/heads/{branch_name}')
+    print(f"Configured local branch '{branch_name}' to track future remote branch.")
+    return True
+
+
 def sparse_clone(remote_uri, folder_to_clone_into,
                  checked_out_folder, new_branch_name=None,
                  remote_name='origin', source_branch='main',
@@ -159,16 +229,20 @@ def sparse_clone(remote_uri, folder_to_clone_into,
         # Download the last commit and make a new branch pointing to it
         # git fetch --depth=1 "$remote_name" "$main_branch"
         # git switch -c "new_branch_name" "$remote_name"/"$main_branch" --no-track
-        # git push -u "$remote_name" "new_branch_name"
         try:
             progress = TqdmRemoteProgress() if show_fetch_progress else None
             remote.fetch(source_branch, depth=depth, progress=progress)
         except GitCommandError as e:
             raise ValueError(f'Could not find branch `{source_branch}` on {remote_uri}.\n{e}')
+
         new_branch_name = new_branch_name or folder_to_clone_into.name
         new_branch = repo.create_head(new_branch_name, f'{remote_name}/{source_branch}')
         new_branch.checkout()
-        remote.push(f'{new_branch_name}:{new_branch_name}', set_upstream=True)
+
+        # Set up tracking for the new branch
+        if setup_branch_tracking(repo, remote_name, new_branch_name):
+            # Try to push to remote
+            try_push_to_remote(repo, remote, new_branch_name)
 
     return repo
 
