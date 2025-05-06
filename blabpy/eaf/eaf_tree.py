@@ -914,6 +914,9 @@ class TimeSlot(EafElement):
     def time_value(self):
         return self.element.attrib[self.TIME_VALUE]
 
+    def __str__(self):
+        return f'TimeSlot {self.id} at {self.time_value} ms'
+
 
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
