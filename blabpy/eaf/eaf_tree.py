@@ -356,8 +356,11 @@ class Tier(EafElement):
 
     @classmethod
     def make_xml_element(cls, tier_id, linguistic_type_ref, participant, parent_ref):
-        attributes = {cls.ID: tier_id, cls.LINGUISTIC_TYPE_REF: linguistic_type_ref,
-                      cls.PARTICIPANT: participant, cls.PARENT_REF: parent_ref}
+        attributes = {cls.ID: tier_id, cls.LINGUISTIC_TYPE_REF: linguistic_type_ref}
+        if participant is not None:
+            attributes[cls.PARTICIPANT] = participant
+        if parent_ref is not None:
+            attributes[cls.PARENT_REF] = parent_ref
         return element_tree.Element(cls.TAG, attrib=attributes)
 
     @property
@@ -1026,8 +1029,44 @@ class EafTree(XMLTree):
 
         return added_tier
 
-    def _add_independent_tier(self, participant):
-        raise NotImplementedError('Adding independent tiers is not implemented yet.')
+    def _add_independent_tier(self, tier_id, linguistic_type_ref, participant):
+
+        # Create the tier element with no parent_ref
+        tier_element = Tier.make_xml_element(
+            tier_id=tier_id,
+            linguistic_type_ref=linguistic_type_ref,
+            participant=participant,
+            parent_ref=None
+        )
+        added_tier = Tier(tier_element, eaf_tree=self)
+
+        root = self.tree.getroot()
+        insert_after = None
+
+        # We should insert the new tier after the last TIER element, if it exists.
+        # If there are no tiers, we should insert it after TIME_ORDER or HEADER.
+        tiers = [el for el in root if el.tag == 'TIER']
+        if tiers:
+            insert_after = tiers[-1]
+        else:
+            try:
+                insert_after = self.find_single_element('TIME_ORDER')
+            except ValueError:
+                try:
+                    insert_after = self.find_single_element('HEADER')
+                except ValueError:
+                    raise ValueError('Cannot add tier: no TIER, TIME_ORDER, or HEADER element found.')
+
+        # Insert the element
+        parent = self.find_parent(insert_after)
+        index = list(parent).index(insert_after)
+        parent.insert(index + 1, added_tier.element)
+
+        # Register the tier
+        self.tiers[tier_id] = added_tier
+        added_tier.mark_as_childless()
+
+        return added_tier
 
     def add_tier(self, tier_id, linguistic_type, participant=None, parent_tier=None):
         """
@@ -1050,8 +1089,8 @@ class EafTree(XMLTree):
             if '@' not in tier_id:
                 raise ValueError('Tier id must contain the participant after "@" when adding a dependent tier.')
 
-            tier_kind, participant = tier_id.split('@')
-            if participant != parent_tier.participant:
+            tier_kind, participant_from_id = tier_id.split('@')
+            if participant_from_id != parent_tier.participant:
                 raise ValueError('The participant in the tier id must match the participant of the parent tier.')
 
             if linguistic_type.lower() != tier_kind.lower():
@@ -1062,11 +1101,18 @@ class EafTree(XMLTree):
 
             return self._add_dependent_tier(tier_id, linguistic_type, parent_tier)
 
-        if participant is not None:
-            if '@' in tier_id:
-                raise ValueError('Tier id must not contain the participant after "@" when adding an independent tier.')
+        # Independent tier
+        if participant is not None and '@' in tier_id:
+            tier_kind, participant_from_id = tier_id.split('@')
+            if participant != participant_from_id:
+                raise ValueError('The participant in the tier id must match the participant argument.')
+            if linguistic_type.lower() != tier_kind.lower():
+                raise ValueError('The linguistic type in the tier id must match the tier id prefix.')
 
-            self._add_independent_tier(participant=participant)
+        if linguistic_type not in self.linguistic_types:
+            raise ValueError(f'The linguistic type {linguistic_type} must be defined in the EAF file.')
+
+        return self._add_independent_tier(tier_id, linguistic_type, participant)
 
     def drop_tier(self, tier_id):
         if tier_id not in self.tiers:
