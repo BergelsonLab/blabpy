@@ -495,21 +495,38 @@ class Tier(EafElement):
 
         return self._add_annotation(annotation_xml_element)
 
-    def add_alignable_annotation(self, onset_ms, offset_ms, value=None):
+    def _generate_annotation_id(self):
         """
-        Add an alignable annotation to the tier with automatically generated IDs.
+        Generate a new annotation ID and update the last used ID counter.
+
+        Returns:
+            The new annotation ID string
+        """
+        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
+        annotation_id = f'a{last_used_annotation_id}'
+        # Update the last used annotation ID
+        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
+        return annotation_id
+
+    def add_alignable_annotation(self, onset_ms, offset_ms, value=None, annotation_id=None):
+        """
+        Add an alignable annotation to the tier.
 
         Args:
             onset_ms: Onset time in milliseconds
             offset_ms: Offset time in milliseconds
             value: Optional initial value for the annotation
+            annotation_id: Optional specific ID to use (default: auto-generate)
+
+        If you specify annotation_id, the function won't update the last used annotation id in the eaf_tree - it is on
+        the user.
 
         Returns:
             The added Annotation instance
         """
-        # Generate a new annotation ID
-        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
-        annotation_id = f'a{last_used_annotation_id}'
+        # Generate a new annotation ID if not provided
+        if annotation_id is None:
+            annotation_id = self._generate_annotation_id()
 
         # Create new time slots
         time_slot_ref1 = self.eaf_tree.create_time_slot(onset_ms)
@@ -522,25 +539,26 @@ class Tier(EafElement):
         if value is not None:
             annotation.value = value
 
-        # Update the last used annotation ID
-        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
-
         return annotation
 
-    def add_reference_annotation(self, parent_annotation_id, value=None):
+    def add_reference_annotation(self, parent_annotation_id, value=None, annotation_id=None):
         """
-        Add a reference annotation to the tier with automatically generated ID.
+        Add a reference annotation to the tier.
 
         Args:
             parent_annotation_id: The ID of the parent annotation
             value: Optional initial value for the annotation
+            annotation_id: Optional specific ID to use (default: auto-generate)
+
+        If you specify annotation_id, the function won't update the last used annotation id in the eaf_tree - it is on
+        the user.
 
         Returns:
             The added Annotation instance
         """
-        # Generate a new annotation ID
-        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
-        annotation_id = f'a{last_used_annotation_id}'
+        # Generate a new annotation ID if not provided
+        if annotation_id is None:
+            annotation_id = self._generate_annotation_id()
 
         # Add the annotation
         annotation = self._add_reference_annotation(annotation_id, parent_annotation_id)
@@ -548,9 +566,6 @@ class Tier(EafElement):
         # Set value if provided
         if value is not None:
             annotation.value = value
-
-        # Update the last used annotation ID
-        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
 
         # Add as child to parent annotation
         parent_annotation = self.eaf_tree.annotations[parent_annotation_id]

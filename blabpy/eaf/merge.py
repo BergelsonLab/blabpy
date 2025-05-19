@@ -316,34 +316,44 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
                 tier.add_alignable_annotation(
                     onset_ms=their_ann.onset,
                     offset_ms=their_ann.offset,
-                    value=their_ann.value
+                    value=their_ann.value,
+                    annotation_id=ann_id
                 )
             else:
                 # We already logged this problem when adding tiers, so we don't need to log it again
                 pass
 
-    # 2.4.2 Then, process all REF_ANNOTATIONs
-    for ann_id, their_ann in theirs_copy.annotations.items():
+    # 2.4.2: Process REF_ANNOTATIONs with dependency resolution
+    # First, collect all reference annotations that need to be added
+    ref_annotations_to_add = {
+        ann_id: their_ann for ann_id, their_ann in theirs_copy.annotations.items()
         if (ann_id not in base.annotations and
-                ann_id not in merged.annotations and
-                their_ann.annotation_type == Annotation.REF_ANNOTATION):
+            ann_id not in merged.annotations and
+            their_ann.annotation_type == Annotation.REF_ANNOTATION)
+    }
 
+    # Keep trying until no more annotations can be added
+    added_annotation = True
+    while added_annotation and ref_annotations_to_add:
+        added_annotation = False
+
+        # Try to add annotations whose parents exist
+        for ann_id, their_ann in list(ref_annotations_to_add.items()):
             tier_id = their_ann.tier.id
-            if tier_id in merged.tiers:
+            if tier_id in merged.tiers and their_ann.annotation_ref in merged.annotations:
                 tier = merged.tiers[tier_id]
+                tier.add_reference_annotation(
+                    parent_annotation_id=their_ann.annotation_ref,
+                    value=their_ann.value,
+                    annotation_id=ann_id
+                )
+                del ref_annotations_to_add[ann_id]
+                added_annotation = True
 
-                # Ensure the parent annotation exists before adding
-                if their_ann.annotation_ref in merged.annotations:
-                    tier.add_reference_annotation(
-                        parent_annotation_id=their_ann.annotation_ref,
-                        value=their_ann.value
-                    )
-                else:
-                    problems.append(
-                        f"Cannot add reference annotation '{ann_id}' - parent '{their_ann.annotation_ref}' not found")
-            else:
-                # We already logged this problem when adding tiers, so we don't need to log it again
-                pass
+    # Any remaining annotations couldn't be added due to missing parents
+    for ann_id, their_ann in ref_annotations_to_add.items():
+        problems.append(
+            f"Cannot add reference annotation '{ann_id}' - parent '{their_ann.annotation_ref}' not found")
 
     if problems:
         return None, problems
