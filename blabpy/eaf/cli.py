@@ -32,18 +32,66 @@ def _is_file_conflicted(file_path, logger):
         return False
 
 
-def extract_versions_with_git(file_path, logger):
+def check_existing_temp_files(file_path, logger):
+    """Check if temporary versions of files already exist."""
+    file_path = Path(file_path).resolve()
+    base_path = file_path.with_name(file_path.name + ".BASE")
+    ours_path = file_path.with_name(file_path.name + ".OURS")
+    theirs_path = file_path.with_name(file_path.name + ".THEIRS")
+    
+    existing_files = []
+    if base_path.exists():
+        existing_files.append(base_path)
+    if ours_path.exists():
+        existing_files.append(ours_path)
+    if theirs_path.exists():
+        existing_files.append(theirs_path)
+    
+    return existing_files, base_path, ours_path, theirs_path
+
+
+def extract_versions_with_git(file_path, logger, reuse_temps=False, recreate_temps=False):
     """Extract base, ours, and theirs versions using Git."""
     if not _is_file_conflicted(file_path, logger):
         logger.info(f"No conflicts detected in {Path(file_path).name}")
         return None
 
     logger.info(f"Extracting versions for conflicted file: {Path(file_path).name}")
+    
+    # Check for existing temp files
+    existing_files, base_path, ours_path, theirs_path = check_existing_temp_files(file_path, logger)
+    
+    # All three version files exist
+    if len(existing_files) == 3:
+        if recreate_temps:
+            logger.info(f"Recreating existing temporary files at user request.")
+            for file_path in existing_files:
+                logger.debug(f"Removing existing file: {file_path.name}")
+                file_path.unlink()
+        elif reuse_temps:
+            logger.info(f"Reusing existing temporary files: {base_path.name}, {ours_path.name}, {theirs_path.name}")
+            return str(base_path), str(ours_path), str(theirs_path)
+        else:
+            logger.error("Temporary files already exist. Use --reuse-temps to use these files or --recreate-temps to recreate them.")
+            logger.info(f"Existing files: {', '.join(f.name for f in existing_files)}")
+            logger.info(f"To remove these files manually: rm {' '.join(str(f) for f in existing_files)}")
+            return None
+    
+    # Some but not all files exist
+    elif existing_files:
+        if recreate_temps:
+            logger.info(f"Recreating partial set of temporary files at user request.")
+            for file_path in existing_files:
+                logger.debug(f"Removing existing file: {file_path.name}")
+                file_path.unlink()
+        else:
+            logger.error("Some temporary files already exist. Use --recreate-temps to recreate them.")
+            logger.info(f"Existing files: {', '.join(f.name for f in existing_files)}")
+            logger.info(f"To remove these files manually: rm {' '.join(str(f) for f in existing_files)}")
+            return None
+    
+    # No temp files exist (or they were cleared above), proceed with extraction
     file_path = Path(file_path).resolve()
-    base_path = file_path.with_name(file_path.name + ".BASE")
-    ours_path = file_path.with_name(file_path.name + ".OURS")
-    theirs_path = file_path.with_name(file_path.name + ".THEIRS")
-
     rel_path = file_path.relative_to(Path.cwd()).as_posix()
 
     try:
@@ -83,8 +131,10 @@ def cli():
 @click.option('-o', '--output', type=click.Path(dir_okay=False),
               help="Output path for merged file. Defaults to overwriting the input file.")
 @click.option('--keep-temps', is_flag=True, help="Don't delete temporary files after merge attempt.")
+@click.option('--reuse-temps', is_flag=True, help="Reuse existing temporary files if all three exist.")
+@click.option('--recreate-temps', is_flag=True, help="Force recreation of temporary files even if they exist.")
 @click.option('-v', '--verbose', is_flag=True, help="Enable verbose output.")
-def merge(input_file, output, keep_temps, verbose):
+def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose):
     """Check for conflicts in an EAF file, extract versions, and attempt to merge."""
     logger = setup_logging(verbose)
     input_path = Path(input_file).resolve()
@@ -95,11 +145,11 @@ def merge(input_file, output, keep_temps, verbose):
     logger.info(f"Processing {input_path.name}")
 
     # Extract versions using Git
-    temp_files = extract_versions_with_git(input_path, logger)
+    temp_files = extract_versions_with_git(input_path, logger, reuse_temps, recreate_temps)
 
     if not temp_files:
-        logger.info("No conflicts to merge. File is unchanged.")
-        return 0
+        logger.info("No files to merge. Operation canceled.")
+        return 1
 
     base_file, ours_file, theirs_file = temp_files
 
