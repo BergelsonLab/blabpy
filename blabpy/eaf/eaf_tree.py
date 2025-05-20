@@ -1086,7 +1086,7 @@ class EafTree(XMLTree):
     def to_eaf(self, path):
         self.to_file(path)
 
-    def insert_after(self, inserted_element, after_element):
+    def insert_after(self, inserted_element: EafElement, after_element: EafElement):
         parent_element = self.find_parent(after_element.element)
         parent_element.insert(list(parent_element).index(after_element.element) + 1, inserted_element.element)
 
@@ -1129,9 +1129,10 @@ class EafTree(XMLTree):
                     pass # insert_after_xml_element remains None
 
         if insert_after_xml_element is not None:
-            self.insert_after(
-                inserted_element=xml_element_to_insert,
-                after_element=insert_after_xml_element)
+            # Perform insertion directly using XML elements
+            parent = self.find_parent(insert_after_xml_element)
+            index = list(parent).index(insert_after_xml_element)
+            parent.insert(index + 1, xml_element_to_insert)
         else:
             # Fallback: insert at the beginning of the root
             # This handles cases like an empty EAF or EAF without a HEADER
@@ -1154,8 +1155,6 @@ class EafTree(XMLTree):
         if cv_id in self.controlled_vocabularies:
             raise ValueError(f"Controlled Vocabulary with ID '{cv_id}' already exists.")
         if ext_ref_id and ext_ref_id not in self.external_references:
-            # This check might be too strict if we allow adding CVs before their EXT_REFs are parsed/added
-            # For now, assume EXT_REF should exist if specified.
             raise ValueError(f"External Reference ID '{ext_ref_id}' not found in EAF tree.")
 
         cv_element = ControlledVocabulary.make_xml_element(cv_id, description_text, ext_ref_id, entries, lang_ref)
@@ -1341,4 +1340,3 @@ class EafTree(XMLTree):
         self.time_slots[time_slot_id] = time_slot
 
         return time_slot_id
-

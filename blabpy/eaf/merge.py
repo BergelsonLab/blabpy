@@ -333,7 +333,11 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
     # 2.2: Copy external references from theirs that don't exist in merged
     for ext_ref_id, their_ext_ref in theirs_copy.external_references.items():
         if ext_ref_id not in merged.external_references:
-            merged.add_external_reference(their_ext_ref)
+            merged.add_external_reference(
+                ext_ref_id=their_ext_ref.ext_ref_id,
+                type_val=their_ext_ref.type,
+                value_val=their_ext_ref.value
+            )
 
     # 2.3: Copy external controlled vocabularies from theirs that don't exist in merged
     for cv_id, their_cv in theirs_copy.controlled_vocabularies.items():
@@ -345,7 +349,9 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
                     "This CV will not be added. Please ensure all CVs use external references."
                 )
                 continue  # Skip adding this CV
-            merged.add_controlled_vocabulary(their_cv)
+            merged.add_controlled_vocabulary(
+                cv_id=their_cv.id,
+                ext_ref_id=their_cv.ext_ref)
 
     if problems:
         return None, problems
@@ -353,7 +359,13 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
     # 2.4: Copy linguistic types from theirs that don't exist in merged
     for lt_id, their_lt in theirs_copy.linguistic_types.items():
         if lt_id not in merged.linguistic_types:
-            merged.add_linguistic_type(their_lt)
+            merged.add_linguistic_type(
+                linguistic_type_id=their_lt.id,
+                time_alignable=(their_lt.time_alignable == 'true'), # Ensure boolean
+                graphic_references=(their_lt.graphic_references == 'true'), # Ensure boolean
+                constraints_ref=their_lt.constraints,
+                cv_ref=their_lt.controlled_vocabulary_ref
+            )
 
     # 2.5: Add tiers only present in theirs
 
