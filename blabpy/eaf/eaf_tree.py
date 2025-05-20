@@ -1015,6 +1015,41 @@ class EafTree(XMLTree):
         parent_element = self.find_parent(after_element.element)
         parent_element.insert(list(parent_element).index(after_element.element) + 1, inserted_element.element)
 
+    def _insert_element_in_order(self, eaf_element_to_insert: EafElement, fallback_tags_in_order):
+        """Helper to insert an EafElement's XML element into the root, maintaining a preferred order."""
+        root = self.tree.getroot()
+        insert_after_xml_element = None
+        xml_element_to_insert = eaf_element_to_insert.element
+        element_tag = eaf_element_to_insert.TAG
+
+        # Try to insert after the last element of the same tag
+        existing_elements_of_same_tag = [el for el in root if el.tag == element_tag]
+        if existing_elements_of_same_tag:
+            insert_after_xml_element = existing_elements_of_same_tag[-1]
+        else:
+            # Fallback to inserting after the last element of a preceding type
+            for fallback_tag in fallback_tags_in_order:
+                fallback_elements = [el for el in root if el.tag == fallback_tag]
+                if fallback_elements:
+                    insert_after_xml_element = fallback_elements[-1]
+                    break
+            else:
+                # If no fallback elements found, try to insert after HEADER
+                try:
+                    insert_after_xml_element = self.find_single_element('HEADER')
+                except ValueError:
+                    pass # insert_after_xml_element remains None
+
+        if insert_after_xml_element is not None:
+            self.insert_after(
+                inserted_element=xml_element_to_insert,
+                after_element=insert_after_xml_element)
+        else:
+            # Fallback: insert at the beginning of the root
+            # This handles cases like an empty EAF or EAF without a HEADER
+            root.insert(0, xml_element_to_insert)
+
+
     def _add_dependent_tier(self, tier_id, linguistic_type_ref, parent_tier):
         """
         Add a dependent tier to the EAF tree.
@@ -1055,27 +1090,8 @@ class EafTree(XMLTree):
         )
         added_tier = Tier(tier_element, eaf_tree=self)
 
-        root = self.tree.getroot()
-        insert_after = None
-
-        # We should insert the new tier after the last TIER element, if it exists.
-        # If there are no tiers, we should insert it after TIME_ORDER or HEADER.
-        tiers = [el for el in root if el.tag == 'TIER']
-        if tiers:
-            insert_after = tiers[-1]
-        else:
-            try:
-                insert_after = self.find_single_element('TIME_ORDER')
-            except ValueError:
-                try:
-                    insert_after = self.find_single_element('HEADER')
-                except ValueError:
-                    raise ValueError('Cannot add tier: no TIER, TIME_ORDER, or HEADER element found.')
-
-        # Insert the element
-        parent = self.find_parent(insert_after)
-        index = list(parent).index(insert_after)
-        parent.insert(index + 1, added_tier.element)
+        self._insert_element_in_order(added_tier,
+                                      ['TIME_ORDER'])
 
         # Register the tier
         self.tiers[tier_id] = added_tier
