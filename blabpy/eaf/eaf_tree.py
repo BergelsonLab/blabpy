@@ -651,6 +651,20 @@ class LinguisticType(EafElement):
                              f'and {self.POSSIBLE_EXTRA_ATTRIBUTES}.')
         self._validate_no_text()
 
+    @classmethod
+    def make_xml_element(cls, linguistic_type_id, time_alignable: bool, graphic_references: bool,
+                         constraints_ref=None, cv_ref=None):
+        attributes = {
+            cls.ID: linguistic_type_id,
+            cls.TIME_ALIGNABLE: str(time_alignable).lower(),
+            cls.GRAPHIC_REFERENCES: str(graphic_references).lower()
+        }
+        if constraints_ref:
+            attributes[cls.CONSTRAINTS] = constraints_ref
+        if cv_ref:
+            attributes[cls.CONTROLLED_VOCABULARY_REF] = cv_ref
+        return element_tree.Element(cls.TAG, attrib=attributes)
+
 
 class ControlledVocabularyEntry(EafElement):
     TAG = 'CV_ENTRY_ML'
@@ -694,6 +708,23 @@ class ControlledVocabularyEntry(EafElement):
             raise ValueError(f'Controlled vocabulary entry element must have DESCRIPTION and LANG_REF attributes.')
         if not self._value_element.text:
             raise ValueError(f'Controlled vocabulary entry element must have text.')
+
+    @classmethod
+    def make_xml_element(cls, cve_id, description, value, lang_ref="und"):
+        """
+        Creates an XML element for a CV_ENTRY_ML.
+        <CV_ENTRY_ML CVE_ID="cveid0">
+            <CVE_VALUE DESCRIPTION="Present" LANG_REF="und">P</CVE_VALUE>
+        </CV_ENTRY_ML>
+        """
+        cv_entry_ml_element = element_tree.Element(cls.TAG, attrib={cls.ID: cve_id})
+        cve_value_element = element_tree.Element(
+            cls.CVE_VALUE,
+            attrib={'DESCRIPTION': description, 'LANG_REF': lang_ref}
+        )
+        cve_value_element.text = value
+        cv_entry_ml_element.append(cve_value_element)
+        return cv_entry_ml_element
 
 
 class ControlledVocabulary(EafElement):
@@ -777,6 +808,36 @@ class ControlledVocabulary(EafElement):
                           for el in self.element if el.tag == ControlledVocabularyEntry.TAG]
         return description_element, {entry.id: entry for entry in entry_elements}
 
+    @classmethod
+    def make_xml_element(cls, cv_id, description_text=None, ext_ref_id=None, entries=None, lang_ref="und"):
+        """
+        Creates an XML element for a CONTROLLED_VOCABULARY.
+        If ext_ref_id is provided, description_text and entries are ignored.
+        entries should be a list of dicts: [{'cve_id': 'id', 'description': 'desc', 'value': 'val'}]
+        """
+        attributes = {cls.ID: cv_id}
+        if ext_ref_id:
+            attributes[cls.EXT_REF] = ext_ref_id
+            return element_tree.Element(cls.TAG, attrib=attributes)
+        
+        # Internal CV definition
+        cv_element = element_tree.Element(cls.TAG, attrib=attributes)
+        if description_text is not None:
+            desc_element = element_tree.Element(cls.DESCRIPTION, attrib={'LANG_REF': lang_ref})
+            desc_element.text = description_text
+            cv_element.append(desc_element)
+        
+        if entries:
+            for entry_data in entries:
+                cve_element = ControlledVocabularyEntry.make_xml_element(
+                    cve_id=entry_data['cve_id'],
+                    description=entry_data['description'],
+                    value=entry_data['value'],
+                    lang_ref=lang_ref # Assuming same lang_ref for all entries for simplicity
+                )
+                cv_element.append(cve_element)
+        return cv_element
+
 
 class ExternalReference(EafElement):
     TAG = 'EXTERNAL_REF'
@@ -816,6 +877,15 @@ class ExternalReference(EafElement):
 
     def parse(self):
         return ControlledVocabularyResource.from_uri(self.value)
+
+    @classmethod
+    def make_xml_element(cls, ext_ref_id, type_val, value_val):
+        attributes = {
+            cls.ID: ext_ref_id,
+            cls.TYPE: type_val,
+            cls.VALUE: value_val
+        }
+        return element_tree.Element(cls.TAG, attrib=attributes)
 
 
 class XMLTree(object):
@@ -1067,6 +1137,50 @@ class EafTree(XMLTree):
             # This handles cases like an empty EAF or EAF without a HEADER
             root.insert(0, xml_element_to_insert)
 
+    def add_external_reference(self, ext_ref_id, type_val, value_val):
+        """Adds an external reference to the EAF tree."""
+        if ext_ref_id in self.external_references:
+            raise ValueError(f"External Reference with ID '{ext_ref_id}' already exists.")
+
+        ext_ref_element = ExternalReference.make_xml_element(ext_ref_id, type_val, value_val)
+        added_ext_ref = ExternalReference(ext_ref_element) # Assuming __init__ doesn't require eaf_tree
+
+        self._insert_element_in_order(added_ext_ref) 
+        self.external_references[added_ext_ref.id] = added_ext_ref
+        return added_ext_ref
+
+    def add_controlled_vocabulary(self, cv_id, description_text=None, ext_ref_id=None, entries=None, lang_ref="und"):
+        """Adds a controlled vocabulary to the EAF tree."""
+        if cv_id in self.controlled_vocabularies:
+            raise ValueError(f"Controlled Vocabulary with ID '{cv_id}' already exists.")
+        if ext_ref_id and ext_ref_id not in self.external_references:
+            # This check might be too strict if we allow adding CVs before their EXT_REFs are parsed/added
+            # For now, assume EXT_REF should exist if specified.
+            raise ValueError(f"External Reference ID '{ext_ref_id}' not found in EAF tree.")
+
+        cv_element = ControlledVocabulary.make_xml_element(cv_id, description_text, ext_ref_id, entries, lang_ref)
+        added_cv = ControlledVocabulary(cv_element, eaf_tree=self)
+
+        self._insert_element_in_order(added_cv)
+        self.controlled_vocabularies[added_cv.id] = added_cv
+        return added_cv
+
+    def add_linguistic_type(self, linguistic_type_id, time_alignable: bool, graphic_references: bool,
+                            constraints_ref=None, cv_ref=None):
+        """Adds a linguistic type to the EAF tree."""
+        if linguistic_type_id in self.linguistic_types:
+            raise ValueError(f"Linguistic Type with ID '{linguistic_type_id}' already exists.")
+        if cv_ref and cv_ref not in self.controlled_vocabularies:
+            # Similar to CV's EXT_REF, assume CV should exist if referenced.
+            raise ValueError(f"Controlled Vocabulary ID '{cv_ref}' not found for Linguistic Type.")
+
+        lt_element = LinguisticType.make_xml_element(linguistic_type_id, time_alignable, graphic_references,
+                                                     constraints_ref, cv_ref)
+        added_lt = LinguisticType(lt_element, eaf_tree=self)
+
+        self._insert_element_in_order(added_lt)
+        self.linguistic_types[added_lt.id] = added_lt
+        return added_lt
 
     def _add_dependent_tier(self, tier_id, linguistic_type_ref, parent_tier):
         """
@@ -1108,8 +1222,7 @@ class EafTree(XMLTree):
         )
         added_tier = Tier(tier_element, eaf_tree=self)
 
-        self._insert_element_in_order(added_tier,
-                                      ['TIME_ORDER'])
+        self._insert_element_in_order(added_tier)
 
         # Register the tier
         self.tiers[tier_id] = added_tier
