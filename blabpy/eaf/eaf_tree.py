@@ -938,6 +938,11 @@ class TimeSlot(EafElement):
 
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
+    EAF_ELEMENT_ORDER = (
+        'HEADER', 'TIME_ORDER', Tier.TAG, LinguisticType.TAG, 'CONSTRAINT', 
+        ControlledVocabulary.TAG, ExternalReference.TAG
+    )
+
     @classmethod
     def from_eaf(cls, eaf_uri: str, *args, **kwargs):
         return cls.from_uri(eaf_uri, *args, **kwargs)
@@ -1015,12 +1020,25 @@ class EafTree(XMLTree):
         parent_element = self.find_parent(after_element.element)
         parent_element.insert(list(parent_element).index(after_element.element) + 1, inserted_element.element)
 
-    def _insert_element_in_order(self, eaf_element_to_insert: EafElement, fallback_tags_in_order):
+    def _insert_element_in_order(self, eaf_element_to_insert: EafElement):
         """Helper to insert an EafElement's XML element into the root, maintaining a preferred order."""
         root = self.tree.getroot()
         insert_after_xml_element = None
         xml_element_to_insert = eaf_element_to_insert.element
         element_tag = eaf_element_to_insert.TAG
+
+        # Determine fallback_tags_in_order dynamically
+        try:
+            current_element_index = self.EAF_ELEMENT_ORDER.index(element_tag)
+            fallback_tags_in_order = list(self.EAF_ELEMENT_ORDER[:current_element_index])
+            fallback_tags_in_order.reverse()
+        except ValueError:
+            # Tag not in EAF_ELEMENT_ORDER, raise an error.
+            raise ValueError(
+                f"Element tag '{element_tag}' is not defined in EAF_ELEMENT_ORDER. "
+                f"Cannot determine insertion order. Please add it to EafTree.EAF_ELEMENT_ORDER."
+            )
+
 
         # Try to insert after the last element of the same tag
         existing_elements_of_same_tag = [el for el in root if el.tag == element_tag]
