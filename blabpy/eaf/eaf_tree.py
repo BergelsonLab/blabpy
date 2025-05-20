@@ -1096,7 +1096,8 @@ class EafTree(XMLTree):
             raise ValueError(f'Tier with id {tier_id} already exists.')
 
         if parent_tier is not None:
-            if parent_tier.participant == 'CHI':
+            basic_chi_tiers = ('vcm@CHI', 'lex@CHI', 'mwu@CHI')
+            if parent_tier.participant == 'CHI' and tier_id in basic_chi_tiers:
                 # The only reason this can be needed is that the wrong template was used to create the EAF file. For
                 # these cases, we should add some age-based checks before adding anything.
                 raise NotImplementedError('Adding CHI\'s dependent tiers is not supported.')
