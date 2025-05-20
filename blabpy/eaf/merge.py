@@ -1,5 +1,5 @@
 import copy
-from .eaf_tree import EafTree, Annotation
+from .eaf_tree import EafTree, Annotation, ExternalReference, ControlledVocabulary, ControlledVocabularyEntry, LinguisticType
 
 
 def _tiers_equal(t1, t2):
@@ -23,6 +23,48 @@ def _annotations_equal(a1, a2):
         return (
             a1.annotation_ref == a2.annotation_ref and
             a1.value == a2.value)
+
+
+def _external_references_equal(er1: ExternalReference, er2: ExternalReference):
+    """Compare two ExternalReference objects for equality of type and value."""
+    return (
+        er1.type == er2.type and
+        er1.value == er2.value)
+
+
+def _cv_entries_equal(cve1: ControlledVocabularyEntry, cve2: ControlledVocabularyEntry):
+    """Compare two ControlledVocabularyEntry objects for equality of description and value."""
+    # Note: CVE_ID is the key for the dictionary, so it's implicitly compared by structure.
+    return (
+        cve1.description == cve2.description and
+        cve1.value == cve2.value)
+
+
+def _controlled_vocabularies_equal(cv1: ControlledVocabulary, cv2: ControlledVocabulary):
+    """Compare two ControlledVocabulary objects."""
+    if cv1.ext_ref != cv2.ext_ref:
+        return False
+    
+    # Both have same ext_ref (either both None or both same string)
+    if cv1.ext_ref is None: # Internal CV definition
+        if cv1.description != cv2.description: # Compare text of DESCRIPTION element
+            return False
+        if set(cv1.entries.keys()) != set(cv2.entries.keys()):
+            return False
+        for cve_id in cv1.entries:
+            if not _cv_entries_equal(cv1.entries[cve_id], cv2.entries[cve_id]):
+                return False
+    # If ext_ref is not None, equality of ext_ref string is sufficient as content comes from external source.
+    return True
+
+
+def _linguistic_types_equal(lt1: LinguisticType, lt2: LinguisticType):
+    """Compare two LinguisticType objects."""
+    return (
+        lt1.time_alignable == lt2.time_alignable and
+        lt1.graphic_references == lt2.graphic_references and
+        lt1.constraints == lt2.constraints and
+        lt1.controlled_vocabulary_ref == lt2.controlled_vocabulary_ref)
 
 
 def _collect_base_divergences(base: EafTree, ours: EafTree, theirs: EafTree):
@@ -67,6 +109,63 @@ def _collect_base_divergences(base: EafTree, ours: EafTree, theirs: EafTree):
             elif in1 != in2:
                 issues.append(f"Annotation '{ann_id}' presence mismatch in tier '{tier_id}': ours={in1}, theirs={in2}")
 
+    return issues
+
+
+def _collect_external_reference_divergences(base: EafTree, ours: EafTree, theirs: EafTree):
+    """Check ExternalReference consistency with base."""
+    issues = []
+    for er_id, base_er in base.external_references.items():
+        in_ours = er_id in ours.external_references
+        in_theirs = er_id in theirs.external_references
+        if in_ours and in_theirs:
+            ours_er = ours.external_references[er_id]
+            theirs_er = theirs.external_references[er_id]
+            modified_ours = not _external_references_equal(base_er, ours_er)
+            modified_theirs = not _external_references_equal(base_er, theirs_er)
+            modified_equal = _external_references_equal(ours_er, theirs_er)
+            if (modified_ours or modified_theirs) and not modified_equal:
+                issues.append(f"External Reference '{er_id}' differs between branches")
+        elif in_ours != in_theirs:
+            issues.append(f"External Reference '{er_id}' presence mismatch: ours={in_ours}, theirs={in_theirs}")
+    return issues
+
+
+def _collect_cv_divergences(base: EafTree, ours: EafTree, theirs: EafTree):
+    """Check ControlledVocabulary consistency with base."""
+    issues = []
+    for cv_id, base_cv in base.controlled_vocabularies.items():
+        in_ours = cv_id in ours.controlled_vocabularies
+        in_theirs = cv_id in theirs.controlled_vocabularies
+        if in_ours and in_theirs:
+            ours_cv = ours.controlled_vocabularies[cv_id]
+            theirs_cv = theirs.controlled_vocabularies[cv_id]
+            modified_ours = not _controlled_vocabularies_equal(base_cv, ours_cv)
+            modified_theirs = not _controlled_vocabularies_equal(base_cv, theirs_cv)
+            modified_equal = _controlled_vocabularies_equal(ours_cv, theirs_cv)
+            if (modified_ours or modified_theirs) and not modified_equal:
+                issues.append(f"Controlled Vocabulary '{cv_id}' differs between branches")
+        elif in_ours != in_theirs:
+            issues.append(f"Controlled Vocabulary '{cv_id}' presence mismatch: ours={in_ours}, theirs={in_theirs}")
+    return issues
+
+
+def _collect_lt_divergences(base: EafTree, ours: EafTree, theirs: EafTree):
+    """Check LinguisticType consistency with base."""
+    issues = []
+    for lt_id, base_lt in base.linguistic_types.items():
+        in_ours = lt_id in ours.linguistic_types
+        in_theirs = lt_id in theirs.linguistic_types
+        if in_ours and in_theirs:
+            ours_lt = ours.linguistic_types[lt_id]
+            theirs_lt = theirs.linguistic_types[lt_id]
+            modified_ours = not _linguistic_types_equal(base_lt, ours_lt)
+            modified_theirs = not _linguistic_types_equal(base_lt, theirs_lt)
+            modified_equal = _linguistic_types_equal(ours_lt, theirs_lt)
+            if (modified_ours or modified_theirs) and not modified_equal:
+                issues.append(f"Linguistic Type '{lt_id}' differs between branches")
+        elif in_ours != in_theirs:
+            issues.append(f"Linguistic Type '{lt_id}' presence mismatch: ours={in_ours}, theirs={in_theirs}")
     return issues
 
 
@@ -203,13 +302,19 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
     problems = []
 
     # Phase 1: Check that the trees can be merged.
-    # 1.1: Base consistency
+    # 1.1: Base consistency (Tiers and Annotations)
     problems.extend(_collect_base_divergences(base=base, ours=ours, theirs=theirs))
+    # 1.2: Base consistency (External References)
+    problems.extend(_collect_external_reference_divergences(base=base, ours=ours, theirs=theirs))
+    # 1.3: Base consistency (Controlled Vocabularies)
+    problems.extend(_collect_cv_divergences(base=base, ours=ours, theirs=theirs))
+    # 1.4: Base consistency (Linguistic Types)
+    problems.extend(_collect_lt_divergences(base=base, ours=ours, theirs=theirs))
 
-    # 1.2: Tier consistency
+    # 1.5: Tier consistency (Shared tiers between ours and theirs)
     problems.extend(_compare_tiers(ours, theirs))
 
-    # 1.3: Annotations don't overlap
+    # 1.6: Annotations don't overlap
     # Check that new annotations in tree1 and tree2 do not overlap with each other or base
     problems.extend(_collect_overlapping_annotations(theirs, base, "theirs", "base"))
     problems.extend(_collect_overlapping_annotations(ours, base, "ours", "base"))
