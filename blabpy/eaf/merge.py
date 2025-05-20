@@ -330,7 +330,70 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
     # Start with our version as the base for merging
     merged = copy.deepcopy(ours)
 
-    # 2.2: For each modified base annotation, use the modified version.
+    # 2.2: Copy external references from theirs that don't exist in merged
+    for ext_ref_id, their_ext_ref in theirs_copy.external_references.items():
+        if ext_ref_id not in merged.external_references:
+            merged.add_external_reference(their_ext_ref)
+
+    # 2.3: Copy external controlled vocabularies from theirs that don't exist in merged
+    for cv_id, their_cv in theirs_copy.controlled_vocabularies.items():
+        if cv_id not in merged.controlled_vocabularies:
+            if not their_cv.ext_ref:
+                problems.append(
+                    f"Controlled Vocabulary '{cv_id}' from 'theirs' branch does not use an external reference (EXT_REF). "
+                    "Merging internally defined Controlled Vocabularies is not yet implemented. "
+                    "This CV will not be added. Please ensure all CVs use external references."
+                )
+                continue  # Skip adding this CV
+            merged.add_controlled_vocabulary(their_cv)
+
+    if problems:
+        return None, problems
+
+    # 2.4: Copy linguistic types from theirs that don't exist in merged
+    for lt_id, their_lt in theirs_copy.linguistic_types.items():
+        if lt_id not in merged.linguistic_types:
+            merged.add_linguistic_type(their_lt)
+
+    # 2.5: Add tiers only present in theirs
+
+    # 2.5.1: Independent tiers
+    for tier_id, their_tier in theirs_copy.tiers.items():
+        if tier_id not in merged.tiers and their_tier.parent_ref is None:
+            # Create the new independent tier in merged
+            merged.add_tier(
+                tier_id=tier_id,
+                linguistic_type=their_tier.linguistic_type_ref,
+                participant=their_tier.participant
+            )
+
+    # 2.5.2: Dependent tiers
+
+    # 2.5.2.1: Add as many as we can
+    # We need to add parent tiers before we add their dependents. We will ensure this order by only adding a dependent
+    # tier if its parent is already present in merged and looping until no more dependent tiers can be added.
+    added_tier = True
+    while added_tier:
+        added_tier = False
+        for tier_id, their_tier in theirs_copy.tiers.items():
+            if (tier_id not in merged.tiers and their_tier.parent_ref is not None
+                    and their_tier.parent_ref in merged.tiers):
+                # Create the new dependent tier in merged
+                merged.add_tier(
+                    tier_id=tier_id,
+                    linguistic_type=their_tier.linguistic_type_ref,
+                    parent_tier=merged.tiers[their_tier.parent_ref]
+                )
+                added_tier = True
+
+    # 2.5.2.2: Check for tiers that we weren't able to add
+    for tier_id, their_tier in theirs_copy.tiers.items():
+        if tier_id not in merged.tiers:
+            if their_tier.parent_ref is not None and their_tier.parent_ref not in merged.tiers:
+                problems.append(f"Tier '{tier_id}' could not be added because its parent tier "
+                                f"'{their_tier.parent_ref}' does not exist in the merged result.")
+
+    # 2.6: For each modified base annotation, use the modified version.
     for ann_id, base_ann in base.annotations.items():
         in_ours = ann_id in ours.annotations
         in_theirs = ann_id in theirs_copy.annotations
@@ -369,47 +432,9 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
                 merged_ann.inner_element.attrib[Annotation.CVE_REF] = \
                     their_ann.inner_element.attrib[Annotation.CVE_REF]
 
-    # 2.3: Add tiers only present in theirs
+    # 2.7: Copy new annotations from theirs (ones not in base)
 
-    # 2.3.1: Independent tiers
-    for tier_id, their_tier in theirs_copy.tiers.items():
-        if tier_id not in merged.tiers and their_tier.parent_ref is None:
-            # Create the new independent tier in merged
-            merged.add_tier(
-                tier_id=tier_id,
-                linguistic_type=their_tier.linguistic_type_ref,
-                participant=their_tier.participant
-            )
-
-    # 2.3.2: Dependent tiers
-
-    # 2.3.2.1: Add as many as we can
-    # We need to add parent tiers before we add their dependents. We will ensure this order by only adding a dependent
-    # tier if its parent is already present in merged and looping until no more dependent tiers can be added.
-    added_tier = True
-    while added_tier:
-        added_tier = False
-        for tier_id, their_tier in theirs_copy.tiers.items():
-            if (tier_id not in merged.tiers and their_tier.parent_ref is not None
-                    and their_tier.parent_ref in merged.tiers):
-                # Create the new dependent tier in merged
-                merged.add_tier(
-                    tier_id=tier_id,
-                    linguistic_type=their_tier.linguistic_type_ref,
-                    parent_tier=merged.tiers[their_tier.parent_ref]
-                )
-                added_tier = True
-
-    # 2.3.2.2: Check for tiers that we weren't able to add
-    for tier_id, their_tier in theirs_copy.tiers.items():
-        if tier_id not in merged.tiers:
-            if their_tier.parent_ref is not None and their_tier.parent_ref not in merged.tiers:
-                problems.append(f"Tier '{tier_id}' could not be added because its parent tier "
-                                f"'{their_tier.parent_ref}' does not exist in the merged result.")
-
-    # 2.4: Copy new annotations from theirs (ones not in base)
-
-    # 2.4.1. First, process all ALIGNABLE_ANNOTATIONs to ensure they exist when processing reference annotations
+    # 2.7.1. First, process all ALIGNABLE_ANNOTATIONs to ensure they exist when processing reference annotations
     for ann_id, their_ann in theirs_copy.annotations.items():
         if (ann_id not in base.annotations and
                 ann_id not in merged.annotations and
@@ -428,7 +453,7 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
                 # We already logged this problem when adding tiers, so we don't need to log it again
                 pass
 
-    # 2.4.2: Process REF_ANNOTATIONs with dependency resolution
+    # 2.7.2: Process REF_ANNOTATIONs with dependency resolution
     # First, collect all reference annotations that need to be added
     ref_annotations_to_add = {
         ann_id: their_ann for ann_id, their_ann in theirs_copy.annotations.items()
