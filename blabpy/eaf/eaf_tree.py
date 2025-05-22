@@ -1037,18 +1037,32 @@ class EafTree(XMLTree):
         return {element.id: element for element in elements}
 
     @property
+    def last_used_annotation_id_element(self):
+        # Directly return the found element or raise
+        found = self.find_element('PROPERTY', **dict(NAME='lastUsedAnnotationId'))
+        if found is None:
+            raise ValueError("PROPERTY tag with NAME='lastUsedAnnotationId' not found in EAF file.")
+        return found
+
+    @property
     def last_used_annotation_id(self) -> int:
-        if self.annotations:
-            return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+        # Use the property element directly
+        prop_val = self.last_used_annotation_id_element.text
+        prop_val_int = int(prop_val) if prop_val and prop_val.isdigit() else 0
+        max_id = max((int(annotation_id[1:]) for annotation_id in self.annotations), default=0)
+        if prop_val_int < max_id:
+            self.last_used_annotation_id_element.text = max_id
+            return max_id
         else:
-            return 0
+            return prop_val_int
 
     @last_used_annotation_id.setter
     def last_used_annotation_id(self, value):
-        # check that value is an integer
         if not isinstance(value, int):
             raise ValueError('Last used annotation id must be an integer.')
-        self.find_element('PROPERTY', **dict(NAME='lastUsedAnnotationId')).text = str(value)
+        if value < self.last_used_annotation_id:
+            raise ValueError('Cannot decrease last used annotation id.')
+        self.last_used_annotation_id_element.text = str(value)
 
     def assign_children(self):
         """
