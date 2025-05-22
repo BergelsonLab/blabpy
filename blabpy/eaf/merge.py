@@ -294,6 +294,30 @@ def _disambiguate_added_ids(theirs: EafTree, ours: EafTree, base: EafTree):
     return theirs
 
 
+def _collect_duplicate_time_slot_ids(tree: EafTree, label: str):
+    """
+    Check for time slot IDs that are referenced by more than one annotation in the same file.
+    Returns a list of problem descriptions.
+    """
+    problems = []
+    # Only ALIGNABLE_ANNOTATIONs have time slots
+    time_slot_to_annotations = {}
+    for ann in tree.annotations.values():
+        if ann.annotation_type == Annotation.ALIGNABLE_ANNOTATION:
+            ts1 = ann.time_slot_ref1
+            ts2 = ann.time_slot_ref2
+            for ts in (ts1, ts2):
+                if ts not in time_slot_to_annotations:
+                    time_slot_to_annotations[ts] = []
+                time_slot_to_annotations[ts].append(ann.id)
+    for ts, ann_ids in time_slot_to_annotations.items():
+        if len(ann_ids) > 1:
+            problems.append(
+                f"{label}: Time slot ID '{ts}' is referenced by multiple annotations: {', '.join(ann_ids)}"
+            )
+    return problems
+
+
 def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
     """
     Three-way merge of EafTree objects.
@@ -319,6 +343,11 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
     problems.extend(_collect_overlapping_annotations(theirs, base, "theirs", "base"))
     problems.extend(_collect_overlapping_annotations(ours, base, "ours", "base"))
     problems.extend(_collect_overlapping_annotations(theirs, ours, "theirs", "ours"))
+
+    # 1.7: No duplicate time slot IDs in any EAF
+    problems.extend(_collect_duplicate_time_slot_ids(base, "base"))
+    problems.extend(_collect_duplicate_time_slot_ids(ours, "ours"))
+    problems.extend(_collect_duplicate_time_slot_ids(theirs, "theirs"))
 
     if problems:
         return None, problems
