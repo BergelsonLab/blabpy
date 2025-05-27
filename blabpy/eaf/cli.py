@@ -50,13 +50,16 @@ def check_existing_temp_files(file_path, logger):
     return existing_files, base_path, ours_path, theirs_path
 
 
-def extract_versions_with_git(file_path, logger, reuse_temps=False, recreate_temps=False):
+def extract_versions_with_git(file_path, logger, reuse_temps=False, recreate_temps=False, force_extract=False):
     """Extract base, ours, and theirs versions using Git."""
-    if not _is_file_conflicted(file_path, logger):
-        logger.info(f"No conflicts detected in {Path(file_path).name}")
+    if not force_extract and not _is_file_conflicted(file_path, logger):
+        logger.info(f"No conflicts detected in {Path(file_path).name}. Use --force to proceed anyway.")
         return None
 
-    logger.info(f"Extracting versions for conflicted file: {Path(file_path).name}")
+    if force_extract:
+        logger.info(f"Forcing version extraction for {Path(file_path).name} due to --force flag.")
+    else:
+        logger.info(f"Extracting versions for conflicted file: {Path(file_path).name}")
     
     # Check for existing temp files
     existing_files, base_path, ours_path, theirs_path = check_existing_temp_files(file_path, logger)
@@ -134,7 +137,8 @@ def cli():
 @click.option('--reuse-temps', is_flag=True, help="Reuse existing temporary files if all three exist.")
 @click.option('--recreate-temps', is_flag=True, help="Force recreation of temporary files even if they exist.")
 @click.option('-v', '--verbose', is_flag=True, help="Enable verbose output.")
-def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose):
+@click.option('--force', is_flag=True, help="Force extraction and merge attempt even if the file is not marked as conflicted by Git.")
+def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, force):
     """Check for conflicts in an EAF file, extract versions, and attempt to merge."""
     logger = setup_logging(verbose)
     input_path = Path(input_file).resolve()
@@ -145,7 +149,7 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose):
     logger.info(f"Processing {input_path.name}")
 
     # Extract versions using Git
-    temp_files = extract_versions_with_git(input_path, logger, reuse_temps, recreate_temps)
+    temp_files = extract_versions_with_git(input_path, logger, reuse_temps, recreate_temps, force_extract=force)
 
     if not temp_files:
         logger.info("No files to merge. Operation canceled.")
