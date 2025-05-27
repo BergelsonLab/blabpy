@@ -462,8 +462,9 @@ def merge_trees(base: EafTree, ours: EafTree, theirs: EafTree):
 
             # Update type-specific properties
             if their_ann.annotation_type == Annotation.ALIGNABLE_ANNOTATION:
-                merged_ann.inner_element.attrib[Annotation.TIME_SLOT_REF1] = their_ann.time_slot_ref1
-                merged_ann.inner_element.attrib[Annotation.TIME_SLOT_REF2] = their_ann.time_slot_ref2
+                # Update time slot values in case the annotation was moved
+                merged_ann.onset = their_ann.onset
+                merged_ann.offset = their_ann.offset
             elif their_ann.annotation_type == Annotation.REF_ANNOTATION:
                 merged_ann.inner_element.attrib[Annotation.ANNOTATION_REF] = their_ann.annotation_ref
 
