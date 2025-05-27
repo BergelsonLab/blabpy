@@ -160,6 +160,27 @@ class Annotation(EafElement):
                 raise ValueError(f'Annotation {self.id} has already been marked as childless.')
         self._children = []
 
+    def _set_time_slot_value(self, time_slot_ref_attr_name, value_ms):
+        if not isinstance(value_ms, int):
+            raise TypeError(f"Time slot value must be an integer, got {type(value_ms)}")
+        time_slot_id = self.inner_element.attrib[time_slot_ref_attr_name]
+        time_slot = self.eaf_tree.time_slots[time_slot_id]
+        time_slot.element.attrib[TimeSlot.TIME_VALUE] = str(value_ms)
+
+    def _time_slot_setter(self, slot_type: str, value_ms: int):
+        """Helper method to set onset or offset time slot values."""
+        if self.annotation_type != self.ALIGNABLE_ANNOTATION:
+            raise ValueError(f"Cannot set {slot_type} for a non-alignable annotation.")
+
+        if slot_type == "onset":
+            slot_ref_attr = self.TIME_SLOT_REF1
+        elif slot_type == "offset":
+            slot_ref_attr = self.TIME_SLOT_REF2
+        else:
+            raise ValueError(f"Invalid slot_type '{slot_type}'. Must be 'onset' or 'offset'.")
+
+        self._set_time_slot_value(slot_ref_attr, value_ms)
+
     @property
     def onset(self):
         if self.annotation_type == self.ALIGNABLE_ANNOTATION:
@@ -167,12 +188,20 @@ class Annotation(EafElement):
         else:
             return self.parent.onset
 
+    @onset.setter
+    def onset(self, value_ms):
+        self._time_slot_setter("onset", value_ms)
+
     @property
     def offset(self):
         if self.annotation_type == self.ALIGNABLE_ANNOTATION:
             return self.eaf_tree.time_slots[self.time_slot_ref2].time_value
         else:
             return self.parent.offset
+
+    @offset.setter
+    def offset(self, value_ms):
+        self._time_slot_setter("offset", value_ms)
 
     def append_child(self, child):
         self._children = self._children or list()
