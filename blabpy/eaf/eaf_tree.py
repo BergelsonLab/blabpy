@@ -184,7 +184,7 @@ class Annotation(EafElement):
     @property
     def onset(self):
         if self.annotation_type == self.ALIGNABLE_ANNOTATION:
-            return self.eaf_tree.time_slots[self.time_slot_ref1].time_value
+            return int(self.eaf_tree.time_slots[self.time_slot_ref1].time_value)
         else:
             return self.parent.onset
 
@@ -195,7 +195,7 @@ class Annotation(EafElement):
     @property
     def offset(self):
         if self.annotation_type == self.ALIGNABLE_ANNOTATION:
-            return self.eaf_tree.time_slots[self.time_slot_ref2].time_value
+            return int(self.eaf_tree.time_slots[self.time_slot_ref2].time_value)
         else:
             return self.parent.offset
 
