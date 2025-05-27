@@ -153,7 +153,7 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, 
 
     if not temp_files:
         logger.info("No files to merge. Operation canceled.")
-        return 1
+        sys.exit(1)
 
     base_file, ours_file, theirs_file = temp_files
 
@@ -173,7 +173,7 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, 
             for problem in problems:
                 logger.error(f"  - {problem}")
             logger.info(f"The three extracted versions have been kept: {Path(base_file).name}, {Path(ours_file).name}, {Path(theirs_file).name}")
-            return 1
+            sys.exit(1)
 
         # Write the merged result
         logger.info(f"Merge successful. Writing output to {Path(output).name}")
@@ -185,7 +185,7 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, 
         except Exception as e:
             logger.error(f"Error reading merged file '{Path(output).name}' with EafTree.from_eaf: {e}")
             logger.info(f"Temporary files are being kept for inspection: {Path(base_file).name}, {Path(ours_file).name}, {Path(theirs_file).name}")
-            return 1
+            sys.exit(1)
 
         # Clean up temporary files unless --keep-temps was specified
         if not keep_temps:
@@ -196,14 +196,14 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, 
             logger.info(f"Keeping temporary files: {Path(base_file).name}, {Path(ours_file).name}, {Path(theirs_file).name}")
 
         logger.info("Merge completed successfully")
-        return 0
+        sys.exit(0)
 
     except Exception as e:
         logger.exception(f"Error during merge: {str(e)}")
         if not keep_temps:
             logger.info("An error occurred, but temporary files will be kept for inspection")
         logger.info(f"Temporary files are: {Path(base_file).name}, {Path(ours_file).name}, {Path(theirs_file).name}")
-        return 1
+        sys.exit(1)
 
 def main():
     cli()
