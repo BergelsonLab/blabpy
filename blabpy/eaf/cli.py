@@ -179,6 +179,14 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, 
         logger.info(f"Merge successful. Writing output to {Path(output).name}")
         merged_tree.to_eaf(output)
 
+        # Try reading the merged file to validate it
+        try:
+            EafTree.from_eaf(output)
+        except Exception as e:
+            logger.error(f"Error reading merged file '{Path(output).name}' with EafTree.from_eaf: {e}")
+            logger.info(f"Temporary files are being kept for inspection: {Path(base_file).name}, {Path(ours_file).name}, {Path(theirs_file).name}")
+            return 1
+
         # Clean up temporary files unless --keep-temps was specified
         if not keep_temps:
             logger.debug("Removing temporary files")
