@@ -47,7 +47,7 @@ def _controlled_vocabularies_equal(cv1: ControlledVocabulary, cv2: ControlledVoc
     
     # Both have same ext_ref (either both None or both same string)
     if cv1.ext_ref is None: # Internal CV definition
-        if cv1.description != cv2.description: # Compare text of DESCRIPTION element
+        if cv1.description.text != cv2.description.text: # Compare text of DESCRIPTION element
             return False
         if set(cv1.entries.keys()) != set(cv2.entries.keys()):
             return False
