@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.37.0] - 2025-05-28
+
+### Added
+
+- Module `blabpy.eaf.merge`, mainly function `merge_trees`.
+- CLI `blabpy -m blabpy.eaf.cli merge`. A console script hasn't been added yet (see issue #33).
+- Extended `blabpy.eaf.eaf_tree.EafTree` functionality in service of merging but useful in general.
+
+### Fixed
+
+- Multiple bugs in `blabpy.eaf.EafTree`.
+
 ## [0.36.0] - 2025-03-06
 
 ### Fixed
