@@ -160,19 +160,48 @@ class Annotation(EafElement):
                 raise ValueError(f'Annotation {self.id} has already been marked as childless.')
         self._children = []
 
+    def _set_time_slot_value(self, time_slot_ref_attr_name, value_ms):
+        if not isinstance(value_ms, int):
+            raise TypeError(f"Time slot value must be an integer, got {type(value_ms)}")
+        time_slot_id = self.inner_element.attrib[time_slot_ref_attr_name]
+        time_slot = self.eaf_tree.time_slots[time_slot_id]
+        time_slot.element.attrib[TimeSlot.TIME_VALUE] = str(value_ms)
+
+    def _time_slot_setter(self, slot_type: str, value_ms: int):
+        """Helper method to set onset or offset time slot values."""
+        if self.annotation_type != self.ALIGNABLE_ANNOTATION:
+            raise ValueError(f"Cannot set {slot_type} for a non-alignable annotation.")
+
+        if slot_type == "onset":
+            slot_ref_attr = self.TIME_SLOT_REF1
+        elif slot_type == "offset":
+            slot_ref_attr = self.TIME_SLOT_REF2
+        else:
+            raise ValueError(f"Invalid slot_type '{slot_type}'. Must be 'onset' or 'offset'.")
+
+        self._set_time_slot_value(slot_ref_attr, value_ms)
+
     @property
     def onset(self):
         if self.annotation_type == self.ALIGNABLE_ANNOTATION:
-            return self.eaf_tree.time_slots[self.time_slot_ref1].time_value
+            return int(self.eaf_tree.time_slots[self.time_slot_ref1].time_value)
         else:
             return self.parent.onset
+
+    @onset.setter
+    def onset(self, value_ms):
+        self._time_slot_setter("onset", value_ms)
 
     @property
     def offset(self):
         if self.annotation_type == self.ALIGNABLE_ANNOTATION:
-            return self.eaf_tree.time_slots[self.time_slot_ref2].time_value
+            return int(self.eaf_tree.time_slots[self.time_slot_ref2].time_value)
         else:
             return self.parent.offset
+
+    @offset.setter
+    def offset(self, value_ms):
+        self._time_slot_setter("offset", value_ms)
 
     def append_child(self, child):
         self._children = self._children or list()
@@ -356,8 +385,11 @@ class Tier(EafElement):
 
     @classmethod
     def make_xml_element(cls, tier_id, linguistic_type_ref, participant, parent_ref):
-        attributes = {cls.ID: tier_id, cls.LINGUISTIC_TYPE_REF: linguistic_type_ref,
-                      cls.PARTICIPANT: participant, cls.PARENT_REF: parent_ref}
+        attributes = {cls.ID: tier_id, cls.LINGUISTIC_TYPE_REF: linguistic_type_ref}
+        if participant is not None:
+            attributes[cls.PARTICIPANT] = participant
+        if parent_ref is not None:
+            attributes[cls.PARENT_REF] = parent_ref
         return element_tree.Element(cls.TAG, attrib=attributes)
 
     @property
@@ -492,21 +524,38 @@ class Tier(EafElement):
 
         return self._add_annotation(annotation_xml_element)
 
-    def add_alignable_annotation(self, onset_ms, offset_ms, value=None):
+    def _generate_annotation_id(self):
         """
-        Add an alignable annotation to the tier with automatically generated IDs.
+        Generate a new annotation ID and update the last used ID counter.
+
+        Returns:
+            The new annotation ID string
+        """
+        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
+        annotation_id = f'a{last_used_annotation_id}'
+        # Update the last used annotation ID
+        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
+        return annotation_id
+
+    def add_alignable_annotation(self, onset_ms, offset_ms, value=None, annotation_id=None):
+        """
+        Add an alignable annotation to the tier.
 
         Args:
             onset_ms: Onset time in milliseconds
             offset_ms: Offset time in milliseconds
             value: Optional initial value for the annotation
+            annotation_id: Optional specific ID to use (default: auto-generate)
+
+        If you specify annotation_id, the function won't update the last used annotation id in the eaf_tree - it is on
+        the user.
 
         Returns:
             The added Annotation instance
         """
-        # Generate a new annotation ID
-        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
-        annotation_id = f'a{last_used_annotation_id}'
+        # Generate a new annotation ID if not provided
+        if annotation_id is None:
+            annotation_id = self._generate_annotation_id()
 
         # Create new time slots
         time_slot_ref1 = self.eaf_tree.create_time_slot(onset_ms)
@@ -519,25 +568,26 @@ class Tier(EafElement):
         if value is not None:
             annotation.value = value
 
-        # Update the last used annotation ID
-        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
-
         return annotation
 
-    def add_reference_annotation(self, parent_annotation_id, value=None):
+    def add_reference_annotation(self, parent_annotation_id, value=None, annotation_id=None):
         """
-        Add a reference annotation to the tier with automatically generated ID.
+        Add a reference annotation to the tier.
 
         Args:
             parent_annotation_id: The ID of the parent annotation
             value: Optional initial value for the annotation
+            annotation_id: Optional specific ID to use (default: auto-generate)
+
+        If you specify annotation_id, the function won't update the last used annotation id in the eaf_tree - it is on
+        the user.
 
         Returns:
             The added Annotation instance
         """
-        # Generate a new annotation ID
-        last_used_annotation_id = self.eaf_tree.last_used_annotation_id + 1
-        annotation_id = f'a{last_used_annotation_id}'
+        # Generate a new annotation ID if not provided
+        if annotation_id is None:
+            annotation_id = self._generate_annotation_id()
 
         # Add the annotation
         annotation = self._add_reference_annotation(annotation_id, parent_annotation_id)
@@ -545,9 +595,6 @@ class Tier(EafElement):
         # Set value if provided
         if value is not None:
             annotation.value = value
-
-        # Update the last used annotation ID
-        self.eaf_tree.last_used_annotation_id = last_used_annotation_id
 
         # Add as child to parent annotation
         parent_annotation = self.eaf_tree.annotations[parent_annotation_id]
@@ -633,6 +680,20 @@ class LinguisticType(EafElement):
                              f'and {self.POSSIBLE_EXTRA_ATTRIBUTES}.')
         self._validate_no_text()
 
+    @classmethod
+    def make_xml_element(cls, linguistic_type_id, time_alignable: bool, graphic_references: bool,
+                         constraints_ref=None, cv_ref=None):
+        attributes = {
+            cls.ID: linguistic_type_id,
+            cls.TIME_ALIGNABLE: str(time_alignable).lower(),
+            cls.GRAPHIC_REFERENCES: str(graphic_references).lower()
+        }
+        if constraints_ref:
+            attributes[cls.CONSTRAINTS] = constraints_ref
+        if cv_ref:
+            attributes[cls.CONTROLLED_VOCABULARY_REF] = cv_ref
+        return element_tree.Element(cls.TAG, attrib=attributes)
+
 
 class ControlledVocabularyEntry(EafElement):
     TAG = 'CV_ENTRY_ML'
@@ -676,6 +737,23 @@ class ControlledVocabularyEntry(EafElement):
             raise ValueError(f'Controlled vocabulary entry element must have DESCRIPTION and LANG_REF attributes.')
         if not self._value_element.text:
             raise ValueError(f'Controlled vocabulary entry element must have text.')
+
+    @classmethod
+    def make_xml_element(cls, cve_id, description, value, lang_ref="und"):
+        """
+        Creates an XML element for a CV_ENTRY_ML.
+        <CV_ENTRY_ML CVE_ID="cveid0">
+            <CVE_VALUE DESCRIPTION="Present" LANG_REF="und">P</CVE_VALUE>
+        </CV_ENTRY_ML>
+        """
+        cv_entry_ml_element = element_tree.Element(cls.TAG, attrib={cls.ID: cve_id})
+        cve_value_element = element_tree.Element(
+            cls.CVE_VALUE,
+            attrib={'DESCRIPTION': description, 'LANG_REF': lang_ref}
+        )
+        cve_value_element.text = value
+        cv_entry_ml_element.append(cve_value_element)
+        return cv_entry_ml_element
 
 
 class ControlledVocabulary(EafElement):
@@ -759,6 +837,36 @@ class ControlledVocabulary(EafElement):
                           for el in self.element if el.tag == ControlledVocabularyEntry.TAG]
         return description_element, {entry.id: entry for entry in entry_elements}
 
+    @classmethod
+    def make_xml_element(cls, cv_id, description_text=None, ext_ref_id=None, entries=None, lang_ref="und"):
+        """
+        Creates an XML element for a CONTROLLED_VOCABULARY.
+        If ext_ref_id is provided, description_text and entries are ignored.
+        entries should be a list of dicts: [{'cve_id': 'id', 'description': 'desc', 'value': 'val'}]
+        """
+        attributes = {cls.ID: cv_id}
+        if ext_ref_id:
+            attributes[cls.EXT_REF] = ext_ref_id
+            return element_tree.Element(cls.TAG, attrib=attributes)
+        
+        # Internal CV definition
+        cv_element = element_tree.Element(cls.TAG, attrib=attributes)
+        if description_text is not None:
+            desc_element = element_tree.Element(cls.DESCRIPTION, attrib={'LANG_REF': lang_ref})
+            desc_element.text = description_text
+            cv_element.append(desc_element)
+        
+        if entries:
+            for entry_data in entries:
+                cve_element = ControlledVocabularyEntry.make_xml_element(
+                    cve_id=entry_data['cve_id'],
+                    description=entry_data['description'],
+                    value=entry_data['value'],
+                    lang_ref=lang_ref # Assuming same lang_ref for all entries for simplicity
+                )
+                cv_element.append(cve_element)
+        return cv_element
+
 
 class ExternalReference(EafElement):
     TAG = 'EXTERNAL_REF'
@@ -798,6 +906,15 @@ class ExternalReference(EafElement):
 
     def parse(self):
         return ControlledVocabularyResource.from_uri(self.value)
+
+    @classmethod
+    def make_xml_element(cls, ext_ref_id, type_val, value_val):
+        attributes = {
+            cls.ID: ext_ref_id,
+            cls.TYPE: type_val,
+            cls.VALUE: value_val
+        }
+        return element_tree.Element(cls.TAG, attrib=attributes)
 
 
 class XMLTree(object):
@@ -914,9 +1031,17 @@ class TimeSlot(EafElement):
     def time_value(self):
         return self.element.attrib[self.TIME_VALUE]
 
+    def __str__(self):
+        return f'TimeSlot {self.id} at {self.time_value} ms'
+
 
 class EafTree(XMLTree):
     """An XML tree representation of an EAF file."""
+    EAF_ELEMENT_ORDER = (
+        'HEADER', 'TIME_ORDER', Tier.TAG, LinguisticType.TAG, 'CONSTRAINT', 
+        ControlledVocabulary.TAG, ExternalReference.TAG
+    )
+
     @classmethod
     def from_eaf(cls, eaf_uri: str, *args, **kwargs):
         return cls.from_uri(eaf_uri, *args, **kwargs)
@@ -941,18 +1066,32 @@ class EafTree(XMLTree):
         return {element.id: element for element in elements}
 
     @property
+    def last_used_annotation_id_element(self):
+        # Directly return the found element or raise
+        found = self.find_element('PROPERTY', **dict(NAME='lastUsedAnnotationId'))
+        if found is None:
+            raise ValueError("PROPERTY tag with NAME='lastUsedAnnotationId' not found in EAF file.")
+        return found
+
+    @property
     def last_used_annotation_id(self) -> int:
-        if self.annotations:
-            return max(int(annotation_id[1:]) for annotation_id in self.annotations)
+        # Use the property element directly
+        prop_val = self.last_used_annotation_id_element.text
+        prop_val_int = int(prop_val) if prop_val and prop_val.isdigit() else 0
+        max_id = max((int(annotation_id[1:]) for annotation_id in self.annotations), default=0)
+        if prop_val_int < max_id:
+            self.last_used_annotation_id_element.text = str(max_id)
+            return max_id
         else:
-            return 0
+            return prop_val_int
 
     @last_used_annotation_id.setter
     def last_used_annotation_id(self, value):
-        # check that value is an integer
         if not isinstance(value, int):
             raise ValueError('Last used annotation id must be an integer.')
-        self.find_element('PROPERTY', **dict(NAME='lastUsedAnnotationId')).text = str(value)
+        if value < self.last_used_annotation_id:
+            raise ValueError('Cannot decrease last used annotation id.')
+        self.last_used_annotation_id_element.text = str(value)
 
     def assign_children(self):
         """
@@ -990,9 +1129,100 @@ class EafTree(XMLTree):
     def to_eaf(self, path):
         self.to_file(path)
 
-    def insert_after(self, inserted_element, after_element):
+    def insert_after(self, inserted_element: EafElement, after_element: EafElement):
         parent_element = self.find_parent(after_element.element)
         parent_element.insert(list(parent_element).index(after_element.element) + 1, inserted_element.element)
+
+    def _insert_element_in_order(self, eaf_element_to_insert: EafElement):
+        """Helper to insert an EafElement's XML element into the root, maintaining a preferred order."""
+        root = self.tree.getroot()
+        insert_after_xml_element = None
+        xml_element_to_insert = eaf_element_to_insert.element
+        element_tag = eaf_element_to_insert.TAG
+
+        # Determine fallback_tags_in_order dynamically
+        try:
+            current_element_index = self.EAF_ELEMENT_ORDER.index(element_tag)
+            fallback_tags_in_order = list(self.EAF_ELEMENT_ORDER[:current_element_index])
+            fallback_tags_in_order.reverse()
+        except ValueError:
+            # Tag not in EAF_ELEMENT_ORDER, raise an error.
+            raise ValueError(
+                f"Element tag '{element_tag}' is not defined in EAF_ELEMENT_ORDER. "
+                f"Cannot determine insertion order. Please add it to EafTree.EAF_ELEMENT_ORDER."
+            )
+
+
+        # Try to insert after the last element of the same tag
+        existing_elements_of_same_tag = [el for el in root if el.tag == element_tag]
+        if existing_elements_of_same_tag:
+            insert_after_xml_element = existing_elements_of_same_tag[-1]
+        else:
+            # Fallback to inserting after the last element of a preceding type
+            for fallback_tag in fallback_tags_in_order:
+                fallback_elements = [el for el in root if el.tag == fallback_tag]
+                if fallback_elements:
+                    insert_after_xml_element = fallback_elements[-1]
+                    break
+            else:
+                # If no fallback elements found, try to insert after HEADER
+                try:
+                    insert_after_xml_element = self.find_single_element('HEADER')
+                except ValueError:
+                    pass # insert_after_xml_element remains None
+
+        if insert_after_xml_element is not None:
+            # Perform insertion directly using XML elements
+            parent = self.find_parent(insert_after_xml_element)
+            index = list(parent).index(insert_after_xml_element)
+            parent.insert(index + 1, xml_element_to_insert)
+        else:
+            # Fallback: insert at the beginning of the root
+            # This handles cases like an empty EAF or EAF without a HEADER
+            root.insert(0, xml_element_to_insert)
+
+    def add_external_reference(self, ext_ref_id, type_val, value_val):
+        """Adds an external reference to the EAF tree."""
+        if ext_ref_id in self.external_references:
+            raise ValueError(f"External Reference with ID '{ext_ref_id}' already exists.")
+
+        ext_ref_element = ExternalReference.make_xml_element(ext_ref_id, type_val, value_val)
+        added_ext_ref = ExternalReference(ext_ref_element) # Assuming __init__ doesn't require eaf_tree
+
+        self._insert_element_in_order(added_ext_ref) 
+        self.external_references[added_ext_ref.id] = added_ext_ref
+        return added_ext_ref
+
+    def add_controlled_vocabulary(self, cv_id, description_text=None, ext_ref_id=None, entries=None, lang_ref="und"):
+        """Adds a controlled vocabulary to the EAF tree."""
+        if cv_id in self.controlled_vocabularies:
+            raise ValueError(f"Controlled Vocabulary with ID '{cv_id}' already exists.")
+        if ext_ref_id and ext_ref_id not in self.external_references:
+            raise ValueError(f"External Reference ID '{ext_ref_id}' not found in EAF tree.")
+
+        cv_element = ControlledVocabulary.make_xml_element(cv_id, description_text, ext_ref_id, entries, lang_ref)
+        added_cv = ControlledVocabulary(cv_element, eaf_tree=self)
+
+        self._insert_element_in_order(added_cv)
+        self.controlled_vocabularies[added_cv.id] = added_cv
+        return added_cv
+
+    def add_linguistic_type(self, linguistic_type_id, time_alignable: bool, graphic_references: bool,
+                            constraints_ref=None, cv_ref=None):
+        """Adds a linguistic type to the EAF tree."""
+        if linguistic_type_id in self.linguistic_types:
+            raise ValueError(f"Linguistic Type with ID '{linguistic_type_id}' already exists.")
+        if cv_ref and cv_ref not in self.controlled_vocabularies:
+            # Similar to CV's EXT_REF, assume CV should exist if referenced.
+            raise ValueError(f"Controlled Vocabulary ID '{cv_ref}' not found for Linguistic Type.")
+
+        lt_element = LinguisticType.make_xml_element(linguistic_type_id, time_alignable, graphic_references,
+                                                     constraints_ref, cv_ref)
+        added_lt = LinguisticType(lt_element, eaf_tree=self)
+
+        self._insert_element_in_order(added_lt)
+        self.linguistic_types[added_lt.id] = added_lt
+        return added_lt
 
     def _add_dependent_tier(self, tier_id, linguistic_type_ref, parent_tier):
         """
@@ -1023,8 +1253,24 @@ class EafTree(XMLTree):
 
         return added_tier
 
-    def _add_independent_tier(self, participant):
-        raise NotImplementedError('Adding independent tiers is not implemented yet.')
+    def _add_independent_tier(self, tier_id, linguistic_type_ref, participant):
+
+        # Create the tier element with no parent_ref
+        tier_element = Tier.make_xml_element(
+            tier_id=tier_id,
+            linguistic_type_ref=linguistic_type_ref,
+            participant=participant,
+            parent_ref=None
+        )
+        added_tier = Tier(tier_element, eaf_tree=self)
+
+        self._insert_element_in_order(added_tier)
+
+        # Register the tier
+        self.tiers[tier_id] = added_tier
+        added_tier.mark_as_childless()
+
+        return added_tier
 
     def add_tier(self, tier_id, linguistic_type, participant=None, parent_tier=None):
         """
@@ -1039,7 +1285,8 @@ class EafTree(XMLTree):
             raise ValueError(f'Tier with id {tier_id} already exists.')
 
         if parent_tier is not None:
-            if parent_tier.participant == 'CHI':
+            basic_chi_tiers = ('vcm@CHI', 'lex@CHI', 'mwu@CHI')
+            if parent_tier.participant == 'CHI' and tier_id in basic_chi_tiers:
                 # The only reason this can be needed is that the wrong template was used to create the EAF file. For
                 # these cases, we should add some age-based checks before adding anything.
                 raise NotImplementedError('Adding CHI\'s dependent tiers is not supported.')
@@ -1047,8 +1294,8 @@ class EafTree(XMLTree):
             if '@' not in tier_id:
                 raise ValueError('Tier id must contain the participant after "@" when adding a dependent tier.')
 
-            tier_kind, participant = tier_id.split('@')
-            if participant != parent_tier.participant:
+            tier_kind, participant_from_id = tier_id.split('@')
+            if participant_from_id != parent_tier.participant:
                 raise ValueError('The participant in the tier id must match the participant of the parent tier.')
 
             if linguistic_type.lower() != tier_kind.lower():
@@ -1059,11 +1306,18 @@ class EafTree(XMLTree):
 
             return self._add_dependent_tier(tier_id, linguistic_type, parent_tier)
 
-        if participant is not None:
-            if '@' in tier_id:
-                raise ValueError('Tier id must not contain the participant after "@" when adding an independent tier.')
+        # Independent tier
+        if participant is not None and '@' in tier_id:
+            tier_kind, participant_from_id = tier_id.split('@')
+            if participant != participant_from_id:
+                raise ValueError('The participant in the tier id must match the participant argument.')
+            if linguistic_type.lower() != tier_kind.lower():
+                raise ValueError('The linguistic type in the tier id must match the tier id prefix.')
 
-            self._add_independent_tier(participant=participant)
+        if linguistic_type not in self.linguistic_types:
+            raise ValueError(f'The linguistic type {linguistic_type} must be defined in the EAF file.')
+
+        return self._add_independent_tier(tier_id, linguistic_type, participant)
 
     def drop_tier(self, tier_id):
         if tier_id not in self.tiers:
@@ -1129,4 +1383,3 @@ class EafTree(XMLTree):
         self.time_slots[time_slot_id] = time_slot
 
         return time_slot_id
-
