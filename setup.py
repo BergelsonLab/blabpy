@@ -1,4 +1,8 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+
+this_dir = Path(__file__).parent
+long_description = (this_dir / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="blabpy",
@@ -19,5 +23,7 @@ setup(
              'seedlings = blabpy.seedlings.cli:seedlings',
              'one_time_scripts = blabpy.one_time_scripts:one_time_script'
              ]
-    }
+    },
+    long_description=long_description,
+    long_description_content_type="text/markdown",
 )
