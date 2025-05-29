@@ -1080,7 +1080,7 @@ class EafTree(XMLTree):
         prop_val_int = int(prop_val) if prop_val and prop_val.isdigit() else 0
         max_id = max((int(annotation_id[1:]) for annotation_id in self.annotations), default=0)
         if prop_val_int < max_id:
-            self.last_used_annotation_id_element.text = max_id
+            self.last_used_annotation_id_element.text = str(max_id)
             return max_id
         else:
             return prop_val_int
