@@ -196,3 +196,20 @@ def source(filepath, modulename=None):
     # Register the module in sys.modules for future imports
     sys.modules[modulename] = module
     return module
+
+def convert_ms_to_hms(milliseconds):
+    """
+    Converts a duration in milliseconds to hours, minutes, and seconds.
+    Returns a string in the format "H:MM:SS".
+    """
+    # Create a timedelta object with the milliseconds
+    duration = timedelta(milliseconds=milliseconds)
+    
+    # Extract the components
+    total_seconds = int(duration.total_seconds())
+    
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    
+    return f"{hours}:{minutes:02}:{seconds:02}"
