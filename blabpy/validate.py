@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 from blabpy.utils import convert_ms_to_hms
 from datetime import date
+from pprint import pprint
 
 # Paths
 # BLAB_SHARE_PATH = get_blab_share_path()
@@ -49,13 +50,16 @@ def validate():
 
 
 @validate.command()
-@click.argument('folder', required=True)
-@click.argument('output_folder', required=False, default=None)
+@click.argument('folder', required=True, type=click.Path(exists=True))
+@click.argument('output_folder', required=False, default=None, type=click.Path(file_okay=False))
 
 def setup(folder, output_folder):
     print("setup")
     print(folder)
+    print("=====================================")
     paths = find_eaf_paths(folder)
+    print(f"Found {len(paths)} .eaf files to validate.")
+    pprint(paths[:2])
     if output_folder is None:
         today = date.today().strftime("%Y-%m-%d")
         output_folder = Path(folder) / f'{today}_validation_reports'
