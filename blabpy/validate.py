@@ -12,9 +12,9 @@ from datetime import date
 from pprint import pprint
 
 # Paths
-# BLAB_SHARE_PATH = get_blab_share_path()
-# OVS_PATH = BLAB_SHARE_PATH / 'OvSpeech' / 'SubjectFiles' / "Seedlings" / 'overheard_speech'
-# VIHI_PATH = BLAB_SHARE_PATH / 'VIHI' / 'SubjectFiles' / 'LENA' 
+BLAB_SHARE_PATH = get_blab_share_path()
+OVS_PATH = BLAB_SHARE_PATH / 'OvSpeech' / 'SubjectFiles' / "Seedlings" / 'overheard_speech'
+VIHI_PATH = BLAB_SHARE_PATH / 'VIHI' / 'SubjectFiles' / 'LENA' 
 SPEAKER_PATTERN = re.compile(r'CHI|[MFU][ACI][\dE]|EE1')
 TIER_PATTERN = re.compile(r'^\w+@\w\w\w$')
 cv_dict = {
@@ -43,23 +43,17 @@ chi_tiers = ['vcm', 'lex', 'mwu']
 other_speaker_tiers = ['xds', 'cds']
 other_tiers = ['on_off', 'code', 'code_num', 'context']
 
-@click.group()
-def validate():
-    """Setting up CLI for blabpy {name of module}"""
-    pass
-
-
-@validate.command()
+@click.command()
 @click.argument('folder', required=True, type=click.Path(exists=True))
 @click.argument('output_folder', required=False, default=None, type=click.Path(file_okay=False))
 
-def setup(folder, output_folder):
+def validate(folder, output_folder):
     print("setup")
     print(folder)
     print("=====================================")
     paths = find_eaf_paths(folder)
     print(f"Found {len(paths)} .eaf files to validate.")
-    pprint(paths[:2])
+    pprint(paths)
     if output_folder is None:
         today = date.today().strftime("%Y-%m-%d")
         output_folder = Path(folder) / f'{today}_validation_reports'
