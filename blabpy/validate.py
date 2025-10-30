@@ -10,6 +10,7 @@ import pandas as pd
 from blabpy.utils import convert_ms_to_hms
 from datetime import date
 from pprint import pprint
+from tqdm import tqdm
 
 # Paths
 BLAB_SHARE_PATH = get_blab_share_path()
@@ -57,8 +58,10 @@ def validate(folder, output_folder):
     if output_folder is None:
         today = date.today().strftime("%Y-%m-%d")
         output_folder = Path(folder) / f'{today}_validation_reports'
-        # os.mkdir(output_folder, exist_ok=True)
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
     print(f"Output folder: {output_folder}")
+    report_one_file(paths[0], Path(output_folder), cv_dict, value_dict)
     print("=====================================")
 
 def report_one_file(eaf_path, output_folder, cv_dict, value_dict):
