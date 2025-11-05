@@ -43,6 +43,7 @@ value_dict = {
 chi_tiers = ['vcm', 'lex', 'mwu']
 other_speaker_tiers = ['xds', 'cds']
 other_tiers = ['on_off', 'code', 'code_num', 'context']
+pd.options.mode.chained_assignment = None
 
 @click.command()
 @click.argument('folder', required=True, type=click.Path(exists=True))
@@ -54,14 +55,14 @@ def validate(folder, output_folder):
     print("=====================================")
     paths = find_eaf_paths(folder)
     print(f"Found {len(paths)} .eaf files to validate.")
-    pprint(paths)
     if output_folder is None:
         today = date.today().strftime("%Y-%m-%d")
         output_folder = Path(folder) / f'{today}_validation_reports'
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
     print(f"Output folder: {output_folder}")
-    report_one_file(paths[0], Path(output_folder), cv_dict, value_dict)
+    for path in tqdm(paths):
+        report_one_file(path, Path(output_folder), cv_dict, value_dict)
     print("=====================================")
 
 def report_one_file(eaf_path, output_folder, cv_dict, value_dict):
@@ -423,7 +424,7 @@ def validate_standard_tiers_hierarchy(eaf):
         else:
             params = eaf.get_parameters_for_tier(tier)
             if tier not in other_tiers and tier not in all_speakers:
-                other_errs.append(f"⚠️ Non-standard tier found: {tier} with parent tier {params.get('PARENT_REF')} and is of type {params.get('LINGUISTIC_TYPE_REF')}")
+                other_errs.append(f"⚠️ Non-standard tier found: {tier}")
 
     return all_dependent_tiers, all_dependent_errs, other_errs
 
