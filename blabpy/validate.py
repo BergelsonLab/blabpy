@@ -50,20 +50,20 @@ pd.options.mode.chained_assignment = None
 @click.argument('output_folder', required=False, default=None, type=click.Path(file_okay=False))
 
 def validate(folder, output_folder):
-    print("setup")
-    print(folder)
-    print("=====================================")
+    click.echo("setup")
+    click.echo(folder)
+    click.echo("=====================================")
     paths = find_eaf_paths(folder)
-    print(f"Found {len(paths)} .eaf files to validate.")
+    click.echo(f"Found {len(paths)} .eaf files to validate.")
     if output_folder is None:
         today = date.today().strftime("%Y-%m-%d")
         output_folder = Path(folder) / f'{today}_validation_reports'
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
-    print(f"Output folder: {output_folder}")
+    click.echo(f"Output folder: {output_folder}")
     for path in tqdm(paths):
         report_one_file(path, Path(output_folder), cv_dict, value_dict)
-    print("=====================================")
+    click.echo("=====================================")
 
 def report_one_file(eaf_path, output_folder, cv_dict, value_dict):
     """
