@@ -21,7 +21,8 @@ setup(
             ['vihi_make_random_regions = blabpy.vihi.intervals.cli:cli_batch_create_files_with_random_regions',
              'vihi = blabpy.vihi.cli:vihi',
              'seedlings = blabpy.seedlings.cli:seedlings',
-             'one_time_scripts = blabpy.one_time_scripts:one_time_script'
+             'one_time_scripts = blabpy.one_time_scripts:one_time_script',
+             'validate = blabpy.validate:validate'
              ]
     },
     long_description=long_description,
