@@ -22,7 +22,7 @@ setup(
              'vihi = blabpy.vihi.cli:vihi',
              'seedlings = blabpy.seedlings.cli:seedlings',
              'one_time_scripts = blabpy.one_time_scripts:one_time_script',
-             'validate = blabpy.validate:validate'
+             'validate = blabpy.cli:validate'
              ]
     },
     long_description=long_description,

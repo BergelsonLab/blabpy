@@ -4,20 +4,17 @@ from blabpy.paths import get_blab_share_path
 from blabpy.pipeline import find_eaf_paths, extract_aclew_data
 from blabpy.eaf.eaf_plus import EafPlus
 import os
-from pyprojroot import find_root
 from pathlib import Path
 import pandas as pd
 from blabpy.utils import convert_ms_to_hms
 from datetime import date
-from pprint import pprint
 from tqdm import tqdm
 
 # Paths
 BLAB_SHARE_PATH = get_blab_share_path()
 OVS_PATH = BLAB_SHARE_PATH / 'OvSpeech' / 'SubjectFiles' / "Seedlings" / 'overheard_speech'
 VIHI_PATH = BLAB_SHARE_PATH / 'VIHI' / 'SubjectFiles' / 'LENA' 
-SPEAKER_PATTERN = re.compile(r'CHI|[MFU][ACI][\dE]|EE1')
-TIER_PATTERN = re.compile(r'^\w+@\w\w\w$')
+
 cv_dict = {
     'vcm': ['L', 'Y', 'N', 'C', 'U'],
     'lex': ['W', '0'],
@@ -40,32 +37,9 @@ value_dict = {
     'cds': ('xds', 'C')
 }
 
-chi_tiers = ['vcm', 'lex', 'mwu']
-other_speaker_tiers = ['xds', 'cds']
-other_tiers = ['on_off', 'code', 'code_num', 'context']
 pd.options.mode.chained_assignment = None
 
-@click.command()
-@click.argument('folder', required=True, type=click.Path(exists=True))
-@click.argument('output_folder', required=False, default=None, type=click.Path(file_okay=False))
-
-def validate(folder, output_folder):
-    click.echo("setup")
-    click.echo(folder)
-    click.echo("=====================================")
-    paths = find_eaf_paths(folder)
-    click.echo(f"Found {len(paths)} .eaf files to validate.")
-    if output_folder is None:
-        today = date.today().strftime("%Y-%m-%d")
-        output_folder = Path(folder) / f'{today}_validation_reports'
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
-    click.echo(f"Output folder: {output_folder}")
-    for path in tqdm(paths):
-        report_one_file(path, Path(output_folder), cv_dict, value_dict)
-    click.echo("=====================================")
-
-def report_one_file(eaf_path, output_folder, cv_dict, value_dict):
+def validate_one_file(eaf_path, output_folder):
     """
     Generate a Markdown validation report for a single ELAN (.eaf) file.
     This function reads and validates an ELAN file at `eaf_path` and writes a
@@ -75,7 +49,7 @@ def report_one_file(eaf_path, output_folder, cv_dict, value_dict):
     Validation and report content include:
     - Listing all unique speakers and reporting any speakers that do not conform
         to the ACLEW naming scheme.
-    - Validating standard tier hierarchy and reporting dependent-tier errors and
+    - Validating standard tier hierarchy and reporting dependent-tier errors (per `parent_dict`) and
         other tier hierarchy problems.
     - Counting the number of annotations per "interval" and reporting intervals
         containing blank annotations (including annotation onset/offset times).
@@ -93,11 +67,6 @@ def report_one_file(eaf_path, output_folder, cv_dict, value_dict):
             Path to the input ELAN (.eaf) file to be validated.
     output_folder : pathlib.Path
             Directory where the generated Markdown report will be written. 
-    cv_dict : dict
-            Dictionary mapping tier names to lists of allowed controlled vocabulary values.
-    value_dict : dict
-            Dictionary mapping tier names to tuples of (parent, expected_value) for
-            parent-tier expected value.
     """
 
     eaf = EafPlus(Path(eaf_path))
@@ -239,6 +208,7 @@ def validate_speaker(eaf):
         all_speakers (list): List of all unique speaker tiers found in the ELAN file.
         errs (list): List of speaker tiers that do not conform to the ACLEW scheme.
     """
+    SPEAKER_PATTERN = re.compile(r'CHI|[MFU][ACI][\dE]|EE1')
     all_speakers = eaf.get_participant_tier_ids()
     errs = []
     for speaker in all_speakers:
@@ -337,6 +307,10 @@ def validate_standard_tiers_hierarchy(eaf):
             - all_dependent_errs (dict): Mapping of speaker IDs to lists of error messages related to their dependent tiers.
             - other_errs (list): List of error messages for other issues found in the tier hierarchy.
     """
+    TIER_PATTERN = re.compile(r'^\w+@\w\w\w$')
+    chi_tiers = ['vcm', 'lex', 'mwu']
+    other_speaker_tiers = ['xds', 'cds']
+    other_tiers = ['on_off', 'code', 'code_num', 'context']
 
     all_tiers = eaf.get_tier_names()
     all_speakers = eaf.get_participant_tier_ids()
@@ -427,6 +401,3 @@ def validate_standard_tiers_hierarchy(eaf):
                 other_errs.append(f"⚠️ Non-standard tier found: {tier}")
 
     return all_dependent_tiers, all_dependent_errs, other_errs
-
-if __name__ == '__main__':
-    validate()
