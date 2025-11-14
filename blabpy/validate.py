@@ -78,8 +78,6 @@ def validate_one_file(eaf_path, output_folder):
     speakers, speaker_errs = validate_speaker(eaf)
     all_dependent_tiers, all_dependent_errs, other_errs = validate_standard_tiers_hierarchy(eaf)
 
-    anno_by_interval, anno_with_transcriptions = report_number_of_annotations(annotations)
-
     blanks, blank_cols = validate_blanks(annotations)
     cv_results = dict()
     for tier in cv_dict.keys():
@@ -114,23 +112,32 @@ def validate_one_file(eaf_path, output_folder):
             for e in other_errs:
                 f.write(f"{e}\n\n")
 
-        f.write("## Number of Annotations in Each Interval\n\n")
-        for code_num in anno_by_interval.index:
-            if True in anno_by_interval.columns and pd.notna(anno_by_interval.loc[code_num, True]):
-                blank_count = anno_by_interval.loc[code_num, True]
+        f.write("## Number of Transcriptions in Each Interval\n\n")
+        for code_num in intervals['code_num'].astype(int).sort_values():
+            annotations_count = validate_each_interval(annotations, str(code_num))
+            if not annotations_count:
+                f.write(f"#### Interval {code_num}: 0 transcriptions\n\n")
             else:
-                blank_count = 0
-
-            if False in anno_by_interval.columns and pd.notna(anno_by_interval.loc[code_num, False]):
-                non_blank_count = anno_by_interval.loc[code_num, False]
-            else:
-                non_blank_count = 0
-            f.write(f"#### Interval {code_num}: {int(non_blank_count + blank_count)} annotations\n\n")
-            if blank_count != 0:
-                f.write(f"❌  {int(blank_count)} blank annotations\n\n")
-                for _, row in anno_with_transcriptions.iterrows():
-                    if row["code_num"] == code_num:
+                total_count, blank_annotations = annotations_count
+                f.write(f"#### Interval {code_num}: {total_count} transcriptions\n\n")
+                if len(blank_annotations) > 0:
+                    f.write(f"❌  {int(len(blank_annotations))} blank transcriptions\n\n")
+                    for _, row in blank_annotations.iterrows():
                         f.write(f"- From {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}\n\n")
+        uncoded_interval = annotations[annotations['code_num'] == '-1']
+        if not uncoded_interval.empty:
+            total_count = len(uncoded_interval)
+            f.write(f"#### ❌ Not coded for interval: {total_count} transcriptions\n\n")
+            for _, row in uncoded_interval.iterrows():
+                f.write(f"- From {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}\n\n")
+
+        f.write("## Transcriptions Validation\n\n")
+        for _, row in annotations.iterrows():
+            transcriptions_errs = validate_transcription(row['transcription'])
+            if transcriptions_errs:
+                f.write(f"#### ❌ '{row['transcription']}' by {row['participant']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}:\n\n")
+                for err in transcriptions_errs:
+                    f.write(f"- {err}\n\n")
 
         f.write("## Blank Code\n\n")
         if blanks.empty:
@@ -139,7 +146,7 @@ def validate_one_file(eaf_path, output_folder):
             for _, row in blanks.iterrows():
                 for col in blank_cols:
                     if row[col]:
-                        f.write(f"❌ Blank code found in interval {row['code_num']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}, at tier {col}@{row['participant']}\n\n")
+                        f.write(f"❌ Blank code found at tier {col}@{row['participant']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}\n\n")
 
         f.write("## Controlled Vocabulary and Parent Tier Dependency Validation\n\n")
         for tier in cv_results.keys():
@@ -152,52 +159,25 @@ def validate_one_file(eaf_path, output_folder):
                 f.write(f"✅ All annotations in tier {tier} conform to the controlled vocabulary.\n\n")
             else:
                 for _, row in tier_wrong_value.iterrows():  
-                    f.write(f"❌ Wrong value *{row[tier]}* in interval {row['code_num']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}, should be one of {cv_dict[tier]}\n\n")
+                    f.write(f"❌ Wrong value *{row[tier]}* by {row['participant']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}, should be one of {cv_dict[tier]}\n\n")
             
             if tier in value_results.keys():
                 f.write(f'#### Parent Tier Value\n\n')
                 if value_results[tier] is not None and not value_results[tier].empty:
                     for _, row in value_results[tier].iterrows():
-                        f.write(f"❌ Incorrect parent tier value *{row[value_dict[tier][0]] if row[value_dict[tier][0]] != '' else '<blank>'}* in interval {row['code_num']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}, should be {value_dict[tier][1]}\n\n")
+                        f.write(f"❌ Incorrect parent tier value *{row[value_dict[tier][0]] if row[value_dict[tier][0]] != '' else '<blank>'}* by {row['participant']} from {convert_ms_to_hms(row['onset'])} to {convert_ms_to_hms(row['offset'])}, should be {value_dict[tier][1]}\n\n")
                 elif value_results[tier] is not None:
                     f.write(f"✅ All {tier} annotations have correct parent value.\n\n")
 
-def report_number_of_annotations(annotations):
-    """
-    Report counts of annotations per code interval and any blank transcriptions.
-    Parameters
-    ----------
-    annotations : pandas.DataFrame representation of the eaf files
-    Returns
-    -------
-    anno_by_interval : pandas.DataFrame
-        DataFrame indexed by interval 'code_num' with columns corresponding to the boolean values of
-        'is_blank' (True for blank transcriptions, False for non-blank). Each cell contains the
-        count of annotations for that interval and blank-status. The table is sorted by
-        'code_num'.
-    anno_with_transcriptions : pandas.DataFrame
-        DataFrame containing the columns 'transcription', 'code_num', 'onset', 'offset', and
-        an added boolean column 'is_blank'. This returned DataFrame is filtered to only rows
-        where 'is_blank' is True (i.e., blank transcriptions).
+def validate_each_interval(annotations, code_num):
+    interval_annotations = annotations[annotations['code_num'] == code_num]
+    total_annotations = len(interval_annotations)
+    if total_annotations == 0:
+        return None
+    
+    blank_annotations = interval_annotations[interval_annotations['transcription'] == '']
 
-    Notes
-    -----
-    - The function sorts intervals by int(code_num) for human-meaningful ordering.
-    - Blank transcriptions are defined strictly as the empty string '' (not NaN or None).
-    """
-
-    annotations = annotations.sort_values(by = "code_num", key = lambda x: x.astype(int))
-
-    anno_with_transcriptions = annotations[['transcription', 'code_num', "onset", "offset"]]
-    anno_with_transcriptions["is_blank"] = (anno_with_transcriptions["transcription"] == '')
-
-    anno_by_interval = anno_with_transcriptions[['transcription', 'code_num', "is_blank"]].groupby(['code_num', "is_blank"]).size().reset_index(name='count')
-    anno_by_interval = anno_by_interval.pivot(index='code_num', columns="is_blank", values="count")
-    anno_by_interval = anno_by_interval.sort_values(by = "code_num", key = lambda x: x.astype(int))
-
-    anno_with_transcriptions = anno_with_transcriptions[anno_with_transcriptions["is_blank"] == True]
-
-    return anno_by_interval, anno_with_transcriptions
+    return total_annotations, blank_annotations
 
 def validate_speaker(eaf):
     """
@@ -401,3 +381,53 @@ def validate_standard_tiers_hierarchy(eaf):
                 other_errs.append(f"⚠️ Non-standard tier found: {tier}")
 
     return all_dependent_tiers, all_dependent_errs, other_errs
+
+def validate_transcription(transcription):
+    """
+    Validates the transcription text according to ACLEW transcription conventions,
+    in particular checking that transcriptions end with exactly one terminal punctuation,
+    that square bracketed annotations are correctly formatted as <blabla> [: blabla], <blabla> [=! blabla] or [- abc],
+    and that at-sign annotations are correctly formatted as bla@c, bla@l, or bla@s:eng.
+    Args:
+        annotation (str): The transcription text to validate.
+    Returns:
+        errs (list): List of error messages for any violations found in the transcription.
+    """
+    errs = []
+
+    transcription = transcription.strip()
+    if transcription:
+
+        # terminal
+        if not transcription.endswith(('.', '!', '?')):
+            errs.append(f"Utterance should end with a terminal")
+        elif re.fullmatch(r'.*([.!?]){2,}$', transcription):
+            errs.append(f"Utterance has multiple terminal marks, should only have one")
+
+        # square brackets
+        squareBracketMatches = re.findall(r'\[.*?\]', transcription)
+        for match in squareBracketMatches:
+            angle_brackets = r'<[^>]*> ' + re.escape(match)
+            angle_match = re.search(angle_brackets, transcription)
+            content = match.lstrip("[").rstrip("]").strip()
+            if content.startswith("-"):
+                if not re.fullmatch(r'-\s*[A-Za-z]{3}', content):
+                    errs.append(f"Bracketed transcription '{match}' does not contain a valid 3-letter code after '-'")
+                if angle_match:
+                    errs.append(f"Bracketed transcription '{match}' should not be preceded by angle brackets")
+            elif content.startswith((':', '=!')):
+                if not angle_match:
+                    errs.append(f"Bracketed transcription '{match}' is not preceded by angle brackets")
+            else:
+                errs.append(f"Bracketed transcription '{match}' does not start with :, =! or -.")
+
+        # at sign
+        atSignMatches = re.findall(r'\S*@\S*', transcription)
+        for match in atSignMatches:
+            if match.startswith('@'):
+                errs.append(f"At-sign transcription '{match}' is missing preceding text before '@'")
+            content = re.search(r'@.*', match).group(0).strip(string.punctuation)
+            if content != "l" and content != "c" and not re.fullmatch(r's:[a-z]{3}', content):
+                errs.append(f"At-sign transcription '{match}' does not conform to expected format '@c, @l, @s:eng'")
+
+    return errs
