@@ -14,7 +14,6 @@ from pathlib import Path
 @click.argument('output_folder', required=False, default=None, type=click.Path(file_okay=False))
 
 def validate(folder, output_folder):
-    click.echo("setup")
     click.echo(folder)
     click.echo("=====================================")
     paths = find_eaf_paths(folder)
