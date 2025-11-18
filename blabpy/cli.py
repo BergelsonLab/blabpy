@@ -5,19 +5,18 @@ import click
 import os
 from datetime import date
 from tqdm import tqdm
-from blabpy.pipeline import find_eaf_paths
-from blabpy.validate import validate_one_file
+from .pipeline import find_eaf_paths
+from .validate import validate_one_file
 from pathlib import Path
 
 @click.command()
-@click.argument('folder', required=True, type=click.Path(exists=True))
+@click.argument('folder', required=False, default=".", type=click.Path(exists=True))
 @click.argument('output_folder', required=False, default=None, type=click.Path(file_okay=False))
 
 def validate(folder, output_folder):
-    click.echo(folder)
     click.echo("=====================================")
     paths = find_eaf_paths(folder)
-    click.echo(f"Found {len(paths)} .eaf files to validate.")
+    click.echo(f"Found {len(paths)} eaf files to validate.")
     if output_folder is None:
         today = date.today().strftime("%Y-%m-%d")
         output_folder = Path(folder) / f'{today}_validation_reports'

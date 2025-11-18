@@ -242,7 +242,7 @@ def validate_controlled_vocabulary_by_tier(annotations, tier_name):
 
 def validate_parent_tier_values(annotations, tier_name, parent_tier, parent_value):
     """
-    Validates that all non-null annotations in a specified tier have the expected value in a parent tier.
+    Validates that all annotations in a specified tier have the expected value in a parent tier.
     Args:
         annotations (pd.DataFrame): DataFrame containing annotation data with multiple tiers.
         tier_name (str): The name of the tier to validate.
@@ -258,9 +258,13 @@ def validate_parent_tier_values(annotations, tier_name, parent_tier, parent_valu
         - If the specified tier is not found in the annotations DataFrame, None is returned.
     """
 
-    if tier_name not in annotations.columns:
+    # TODO: So right now it is not handling missing parent tier well. Technically, this would be reported in 
+    # the hiearchy validation step, but should be investigated further.
+    if tier_name not in annotations.columns or parent_tier not in annotations.columns:
         return None
     
+    # Select all annotations in the specified tier. Not NA is ensuring that only annotations with said tier is selected,
+    # since every annotation will have a column for every tier, even if they are blank
     all_annotations_of_tier = annotations.loc[
         pd.notna(annotations[tier_name]), [
             "eaf_filename", "participant", "onset", "offset", 'code_num', tier_name, parent_tier
