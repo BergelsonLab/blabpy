@@ -23,7 +23,8 @@ setup(
              'seedlings = blabpy.seedlings.cli:seedlings',
              'one_time_scripts = blabpy.one_time_scripts:one_time_script',
              'validate = blabpy.cli:validate',
-             'eaf = blabpy.eaf.cli:eaf'
+             'eaf = blabpy.eaf.cli:eaf',
+             'ovs = blabpy.ovs.cli:ovs'
              ]
     },
     long_description=long_description,
