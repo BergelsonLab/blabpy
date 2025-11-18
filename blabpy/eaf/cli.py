@@ -125,11 +125,11 @@ def extract_versions_with_git(file_path, logger, reuse_temps=False, recreate_tem
 
 
 @click.group()
-def cli():
+def eaf():
     """EAF file utilities."""
     pass
 
-@cli.command(help="Check for conflicts in an EAF file, extract versions, and attempt to merge.")
+@eaf.command(help="Check for conflicts in an EAF file, extract versions, and attempt to merge.")
 @click.argument('input_file', type=click.Path(exists=True, dir_okay=False))
 @click.option('-o', '--output', type=click.Path(dir_okay=False),
               help="Output path for merged file. Defaults to overwriting the input file.")
@@ -206,7 +206,7 @@ def merge(input_file, output, keep_temps, reuse_temps, recreate_temps, verbose, 
         sys.exit(1)
 
 def main():
-    cli()
+    eaf()
 
 if __name__ == "__main__":
     sys.exit(main())
