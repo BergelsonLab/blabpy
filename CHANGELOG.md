@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.38.0] - 2025-11-18
+
+### Added
+
+- New script `validate.py` and command line interfact `blabpy.cli`, which can be called by `validate`
+- Initialize `blabpy.ovs` module with simple `paths` method. To be added.
+
+### Fixed
+
+- Resolve issue #33, rename CLI `blabpy -m blabpy.eaf.cli merge` to eaf and create the CLI entry point 
+
 ## [0.37.0] - 2025-05-28
 
 ### Added

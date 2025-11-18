@@ -6,7 +6,7 @@ long_description = (this_dir / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="blabpy",
-    version="0.37.0",
+    version="0.38.0",
     packages=find_packages(),
     python_requires='>=3.7',
     install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click', 'requests',
@@ -22,7 +22,8 @@ setup(
              'vihi = blabpy.vihi.cli:vihi',
              'seedlings = blabpy.seedlings.cli:seedlings',
              'one_time_scripts = blabpy.one_time_scripts:one_time_script',
-             'validate = blabpy.cli:validate'
+             'validate = blabpy.cli:validate',
+             'eaf = blabpy.eaf.cli:eaf'
              ]
     },
     long_description=long_description,
