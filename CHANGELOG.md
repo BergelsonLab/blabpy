@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1] - 2025-11-19
+
+## Added
+
+- Minor addition, adding safeguard in `blabpy.cli` for overwriting output file
+- Minor documentation amendments for `validate.py`
+
 ## [0.38.0] - 2025-11-18
 
 ### Added
