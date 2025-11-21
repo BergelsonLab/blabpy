@@ -50,17 +50,14 @@ def validate_one_file(eaf_path, output_folder):
     Validation and report content include:
     - Listing all unique speakers and reporting any speakers that do not conform
         to the ACLEW naming scheme.
-    - Validating standard tier hierarchy and reporting dependent-tier errors (per `parent_dict`) and
-        other tier hierarchy problems.
-    - Counting the number of annotations per "interval" and reporting intervals
-        containing blank annotations (including annotation onset/offset times).
-    - Reporting any annotations that use the project-defined "blank code", with
-        the tier and participant where it was found.
-    - Validating controlled vocabulary for configured tiers (per `cv_dict`) and
-        reporting annotations whose values are not in the allowed vocabulary.
-    - Validating parent-tier dependency values for configured tiers (per
-        `value_dict`) and reporting annotations whose parent-tier values do not
-        match the expected one.
+    - Validating standard tier hierarchy (e.g cds should be a child of xds), 
+        reporting any unconventional tiers and their dependency.
+    - Reporting the number of annotations per interval and whether intervals containing blank annotations, 
+        as well as any annotations not coded for interval. 
+    - Reporting any annotations that has blank code, with the tier and participant where it was found.
+    - Validating that the code in each tier is in their controlled vocabulary (per `cv_dict`).
+    - Validating parent-tier dependency values (e.g. if there is a mwu tier, its parent lex tier must be coded as W)
+    - Validating transcription text according to ACLEW conventions.
 
     Parameters
     ----------
