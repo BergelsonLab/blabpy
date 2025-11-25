@@ -352,17 +352,17 @@ def make_intervals(sub_recordings):
         sub_recordings
         .assign(
             # Narrow the boundaries, so that there is enough space for the context.
-            first_code_onset=lambda df: df.recording_start + pd.Timedelta(f'{CONTEXT_BEFORE}ms'),
-            last_code_offset=lambda df: df.recording_end - pd.Timedelta(f'{CONTEXT_AFTER}ms'))
+            first_code_onset=lambda df: df.start_dt + pd.Timedelta(f'{CONTEXT_BEFORE}ms'),
+            last_code_offset=lambda df: df.end_dt - pd.Timedelta(f'{CONTEXT_AFTER}ms'))
         .assign(
             # Round starts up and ends down to the closes whole number of code region durations:
             # (1:02:03, 7:45:00) -> (1:04:00, 7:44:00)
             first_code_onset=lambda df: df.first_code_onset.dt.ceil(f'{CODE_REGION}ms'),
             last_code_offset=lambda df: df.last_code_offset.dt.floor(f'{CODE_REGION}ms'),
             # Add first code region onset as ms from the wav start
-            first_code_onset_recording=lambda df: (df.first_code_onset - df.recording_start).dt.total_seconds() * 1000,
+            first_code_onset_recording=lambda df: (df.first_code_onset - df.start_dt).dt.total_seconds() * 1000,
             first_code_onset_wav=lambda df:
-                df.recording_start_wav + df.first_code_onset_recording.astype(int)))
+                df.start_ms + df.first_code_onset_recording.astype(int)))
 
     # Create intervals within the boundaries we calculate above
     intervals = pd.concat(
