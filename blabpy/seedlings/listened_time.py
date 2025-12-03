@@ -496,15 +496,12 @@ def _extract_subregion_info(comment):
 
     return position, rank, offset
 
-
-def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
+def _extract_comments(clan_file_text: str, drop_lena_comments=False):
     """
-    Extracts region boundaries, subregions ranks, and info about "listened to, nothing to annotate" from a clan file.
+    Extracts all comments from a clan file
     :param clan_file_text: string with the clan file text
-    :return:
+    :return: a dataframe with one row per comment and three columns: offset and text
     """
-    # Find all the comments except for the LENA comments
-
     # This regex will consume any number of lines the first of which starts with '%com' or '%xcom' and the last of which
     # is followed by a line that starts with any character except for the tabulation symbol. This is necessary to
     # consume the multiline comments which use `\t` as the line continuation symbol. For this regex to work, we need
@@ -515,14 +512,17 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
         columns=('text', 'position_in_text'),
         data=[(match.group(), match.start())
               for match in re.finditer(comment_line_regex, clan_file_text, flags=re.MULTILINE + re.DOTALL)])
+
     # Remove LENA comments, counting '|' solution comes from pyclan
-    comments_df = comments_df[comments_df.text.str.count('\|') <= 3]
+    if drop_lena_comments:
+        comments_df = comments_df[comments_df.text.str.count('\|') <= 3]
+
     # Add timestamp info
     comments_df = _match_with_timestamps(
         positions_in_text=comments_df,
         timestamps_df=_extract_timestamps(clan_file_text),
         above=True)
-    # Some files have region comments before the first tier and thus they don't get a timestamp, so it will have
+    # Some files have comments before the first tier and thus they don't get a timestamp, so it will have
     # NaN as offset, which will force pandas to convert the whole column to 'float64' which will cause problems down the
     # line. So, here, we will convert offset to a special integer datatype that supports NaNs and will fill the ones in
     # the beginning with 0.
@@ -530,6 +530,16 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
         comments_df[column] = comments_df[column].astype(pd.Int64Dtype())
         # .ffill() will ensure we are only filling NaNs in the beginning.
         comments_df.loc[comments_df[column].ffill().isnull(), column] = 0
+
+    return comments_df
+
+def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
+    """
+    Extracts region boundaries, subregions ranks, and info about "listened to, nothing to annotate" from a clan file.
+    :param clan_file_text: string with the clan file text
+    :return:
+    """
+    comments_df = _extract_comments(clan_file_text, drop_lena_comments=True)
 
     subregions = []  # List of strings of the format 'Position: {}, Rank: {}'
     region_boundaries = []  # List of strings of the format
@@ -587,7 +597,6 @@ def _extract_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_
         subregion_ranks_df = None
 
     return region_boundaries_df, subregion_ranks_df, listened_but_empty
-
 
 def _preprocess_region_info(clan_file_text: str, subregion_count=DEFAULT_SUBREGION_COUNT):
     """

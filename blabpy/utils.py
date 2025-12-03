@@ -8,6 +8,7 @@ import importlib.util
 import sys
 import os
 
+from pyhere import here
 from pyprojroot import find_root
 import pandas as pd
 
@@ -213,3 +214,18 @@ def convert_ms_to_hms(milliseconds):
     
     
     return f"{hours}:{minutes:02}:{seconds:02}"
+
+def find_this_dir(this_dir_name):
+    """
+    Find the directory in a project assuming that the directory name is unique and that the current working directory
+    is somewhere in the project. Mostly used in one_time_scripts.
+    :return: A pathlib.Path object
+    """
+    root = here()
+    try:
+        return next(root.parent.rglob(this_dir_name))
+    except StopIteration:
+        # Raise a FileNotFoundError and give a hint suggesting checking the directory name and the current working directory.
+        raise FileNotFoundError(f"Directory '{this_dir_name}' not found in the project.\n\n"
+                                f"Project root found by pyhere:\n'{root}\n\n"
+                                f"Please check the directory name and your current working directory.")

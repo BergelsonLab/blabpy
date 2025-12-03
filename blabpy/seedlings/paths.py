@@ -203,6 +203,23 @@ def get_its_path(child, month):
     return _get_home_visit_folder(child=child, month=month) / 'Processing' / 'Audio_Files' / f'{child}_{month}.its'
 
 
+@lru_cache(maxsize=None)
+def get_all_its_paths():
+    return _get_all_paths(get_single_file_function=get_its_path,
+                          missing_child_month_combinations=MISSING_AUDIO_RECORDINGS)
+
+
+def get_lena_cha_path(child, month):
+    child, month = _normalize_child_month(child=child, month=month)
+    return _get_home_visit_folder(child=child, month=month) / 'Processing' / 'Audio_Files' / f'{child}_{month}.lena.cha'
+
+
+@lru_cache(maxsize=None)  # do this just once
+def get_all_lena_cha_paths():
+    return _get_all_paths(get_single_file_function=get_lena_cha_path,
+                          missing_child_month_combinations=MISSING_AUDIO_RECORDINGS)
+
+
 def get_seedlings_nouns_private_path():
     """
     Returns path to the seedlings-nouns_private repo in BLAB_DATA.
@@ -227,6 +244,16 @@ def get_video_file_path(child, month, filename):
     home_folder = _get_home_visit_folder(child=child, month=month)
     return home_folder / 'Processing' / 'Video_Files' / f'{child}_{month}_{filename}'
 
+def get_wav_file_path(child, month):
+    """
+    Find the path to the .wav file for a given subject and month.
+    :param child: child ID
+    :param month: month number
+    :return: pathlib.Path object
+    """
+    child, month = _normalize_child_month(child=child, month=month)
+    home_folder = _get_home_visit_folder(child=child, month=month)
+    return home_folder / 'Processing' / 'Audio_Files' / f'{child}_{month}.wav'
 
 def get_video_recordings_csv_path():
     """
