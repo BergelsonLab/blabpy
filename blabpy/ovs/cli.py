@@ -16,9 +16,11 @@ def ovs():
 
 def aggregate(output_folder):
     """Aggregate OvS annotations into one CSV file."""
-    root_dir = find_root('.git')
     OVS_PATH = get_ovs_path()
+    os.chdir(OVS_PATH)
     ANNOTATION_PATH = get_ovs_annotation_path()
+
+    root_dir = find_root('.git')
     if root_dir != OVS_PATH:
         raise ValueError("Please run this script from the OvS project root directory.")
     
