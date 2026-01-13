@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.39.0] 
+
+### Added
+
+- Created `wav.py`, along with relevant methods in `paths.py`, `utils.py`, and `seedlings.lisetned_time.py`, for working with and scrubbing wav files. 
+- `ovs.cli.py` for creating aggregated csv files for Overheard Speech project.
+- `eaf.convert.py` for converting between csv and eaf files.
+
+### Fixed
+
+- Partially fixes bug in `vihi.pipeline.py` (see issue #35)
+
 ## [0.38.1] - 2025-11-19
 
 ## Added
