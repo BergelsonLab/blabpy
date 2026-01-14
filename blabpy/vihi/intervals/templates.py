@@ -19,6 +19,8 @@ basic_19_36 = _get_etf_template('ACLEW-basic-template_19-36mo.etf')
 basic_00_07_pfsx = _get_etf_template('ACLEW-basic-template_00-07mo.pfsx')
 basic_08_18_pfsx = _get_etf_template('ACLEW-basic-template_08-18mo.pfsx')
 basic_19_36_pfsx = _get_etf_template('ACLEW-basic-template_19-36mo.pfsx')
+basic_all = _get_etf_template('ACLEW-basic-template_all-tiers.etf')
+basic_all_pfsx = _get_etf_template('ACLEW-basic-template_all-tiers.pfsx')
 
 
 def choose_template(*, age_in_months):
@@ -28,3 +30,6 @@ def choose_template(*, age_in_months):
         return basic_08_18, basic_08_18_pfsx
     elif 19 <= age_in_months <= 36:
         return basic_19_36, basic_19_36_pfsx
+    else:
+        return basic_all, basic_all_pfsx
+
