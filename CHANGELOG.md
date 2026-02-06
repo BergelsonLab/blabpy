@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.40.1] - 2026-02-06
+
+### Fixed
+
+- Typo, minor bug fix
+
 ## [0.40.0] - 2026-02-06
 
 ### Added
