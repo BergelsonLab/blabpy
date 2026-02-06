@@ -8,7 +8,7 @@ See GitBook for instructions on how to run VTC on the Duke cluster.
 """
 
 from .vihi.paths import find_all_rttm_paths
-from utils import concatenate_dataframes
+from .utils import concatenate_dataframes
 
 from pathlib import Path
 import pandas as pd
