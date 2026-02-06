@@ -1,14 +1,15 @@
 # Changelog
 
-## [0.40.0] - 2026-02-
+## [0.40.0] - 2026-02-06
 
 ### Added
 
-- 
+- The method `find_all_rttm_paths` in `blabpy.vihi.paths.py`and the method `gather_rttm_to_csv` in `blabpy.vtc.py`, both for the purpose of aggregating all the VTC output into one central csv
 
 ### Fixed
 
 - Adding missing package `pyhere` to `setup.py`
+- Fixes `blabpy.vihi.intervals.templates.py` to include standard case
 
 ## [0.39.0] - 2026-01-13
 
