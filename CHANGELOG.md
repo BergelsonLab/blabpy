@@ -1,6 +1,16 @@
 # Changelog
 
-## [0.39.0] 
+## [0.40.0] - 2026-02-
+
+### Added
+
+- 
+
+### Fixed
+
+- Adding missing package `pyhere` to `setup.py`
+
+## [0.39.0] - 2026-01-13
 
 ### Added
 
