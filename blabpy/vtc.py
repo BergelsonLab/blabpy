@@ -7,8 +7,10 @@ See https://github.com/MarvinLvn/voice-type-classifier for details.
 See GitBook for instructions on how to run VTC on the Duke cluster.
 """
 
-from pathlib import Path
+from .vihi.paths import find_all_rttm_paths
+from utils import concatenate_dataframes
 
+from pathlib import Path
 import pandas as pd
 
 
@@ -74,3 +76,21 @@ def split_rttm(rttm_path: Path, output_dir: Path):
         output_path = _output_path(filename)
         if not output_path.exists():
             _write_rttm(sub_df, _output_path(filename))
+
+def gather_rttm_to_csv(output_csv_path: Path):
+    '''
+    Gathers the separated rttm files into a single csv file. 
+    :param output_csv_path: path to the output csv file
+    :return: None 
+    '''
+    rttm_paths = find_all_rttm_paths()
+    all_vtc_dfs = []
+    recording_ids = []
+
+    for path in rttm_paths:
+        print(f'Found rttm file: {path}')
+        all_vtc_dfs.append(read_rttm(path))
+        recording_ids.append(path.parent.name)
+
+    df = concatenate_dataframes(all_vtc_dfs, recording_ids, 'full_recording_id')
+    df.to_csv(output_csv_path, index=False)

@@ -32,15 +32,18 @@ def aggregate(output_folder):
 
     if output_folder is None:
         output_folder = Path('./aggregated_data')
-
-    if os.path.exists(output_folder):
-        click.echo(
-            click.style(
-                f"\nThis process will override existing files in folder: {output_folder}." 
-                "\nMake sure the data has been committed to GitHub or backed up elsewhere if needed."
-            , fg='red')
-        )
-        click.confirm('\nDo you want to continue?', abort=True)
+    else:
+        if os.path.exists(output_folder):
+            click.echo(
+                click.style(
+                    f"\nThis process will override existing files in folder: {output_folder}." 
+                    "\nMake sure the data has been committed to GitHub or backed up elsewhere if needed."
+                , fg='red')
+            )
+            click.confirm('\nDo you want to continue?', abort=True)
+        else:
+            click.echo(f"\nCreating output folder: {output_folder}")
+            os.mkdir(output_folder)
 
     click.echo(f"\nWriting aggregated annotations to CSV in folder: {output_folder}")
     ovs_to_csv(annotations, output_folder / 'annotations.csv')

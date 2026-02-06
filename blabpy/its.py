@@ -82,6 +82,10 @@ class Its(object):
             raise ItsNoTimeZoneInfo('I wasn\'t able to locate timezone info in this .its file')
 
         timezone_info = dict(timezone_element.items())
+        # print("\t Timezone info from ITS file:")
+        # print(timezone_info)
+        # print("\t Interpreted as:")
+        # print(dict(seconds_offset=timezone_info['StandardSecondsOffset'], uses_dst=timezone_info['UsesDST']))
         return dict(seconds_offset=timezone_info['StandardSecondsOffset'], uses_dst=timezone_info['UsesDST'])
 
     def _convert_utc_to_local(self, clock_time: pd.Series):
