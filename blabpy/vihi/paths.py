@@ -281,3 +281,21 @@ def find_all_lena_eaf_paths(lena_annotations_path=None, skip_excluded=False):
                                                              skip_excluded=skip_excluded)
     return [folder / f'{folder.name}.eaf'
             for folder in lena_recording_folders]
+
+def find_all_rttm_paths(lena_annotations_path=None, skip_excluded=False):
+    """
+    Find all LENA .rttm file paths (VTC).
+    See find_all_lena_recording_folders for the arguments.
+    :return: list of Path objects
+    """
+    lena_recording_folders = find_all_lena_recording_folders(lena_annotations_path=lena_annotations_path,
+                                                             skip_excluded=skip_excluded)
+    rttm_paths = []
+    for folder in lena_recording_folders:
+        population, subject_id, recording_id = parse_full_recording_id(folder.name).values()
+        rttm_path = get_rttm_path(population, subject_id, recording_id)
+        if rttm_path.exists():
+            rttm_paths.append(rttm_path)
+        else:
+            print(f'Warning: .rttm file not found for {folder.name} at expected path {rttm_path}')
+    return rttm_paths
