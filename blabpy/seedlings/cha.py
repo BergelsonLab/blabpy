@@ -117,7 +117,7 @@ class Parser:
         personal_info_com_start = None
         personal_info_com_end = None
 
-        with open(self.input_file, "rU") as input:
+        with open(self.input_file, "r") as input:
             for index, line in enumerate(input):
 
                 if line.startswith("%com:") and ("|" not in line):
@@ -649,7 +649,7 @@ class Parser:
         :return: returns false if we found a problem
         """
 
-        with open(self.input_file, "rU") as input:
+        with open(self.input_file, "r") as input:
             for index, line in enumerate(input):
                 regx_result = self.interval_regx.findall(line)
                 if regx_result:
