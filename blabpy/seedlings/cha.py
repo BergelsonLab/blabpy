@@ -14,8 +14,8 @@ class Parser:
         self.input_file = input_path
         # output == None means we're being called from parse_clan2 main
         if output is None:
-            self.output_file = input_path.replace(".cha", "_processed.csv")
-            self.error_file = input_path.replace(".cha", "_errors.txt")
+            self.output_file = Path(str(input_path).replace(".cha", "_processed.csv"))
+            self.error_file = Path(str(input_path).replace(".cha", "_errors.txt"))
         # otherwise, Parser object is being constructed from an external source
         else:
             processed_path = os.path.split(input_path)[1].replace(".cha", "_processed.csv")
