@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.] - 
+
+### Fixed
+
+- Error with how cha files are being read into the script and the way filenames are manipulated in `blabpy.seedlings.cha.py`
+
 ## [0.40.1] - 2026-02-06
 
 ### Fixed
