@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.41.00] - 2026
+
+### Added
+
+- Added OvS pipeline (sampling random intervals)
+
 ## [0.40.1] - 2026-02-06
 
 ### Fixed
