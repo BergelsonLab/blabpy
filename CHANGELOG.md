@@ -1,10 +1,11 @@
 # Changelog
 
-## [0.41.0] - 2026
+## [0.41.0] - 2026-01-14
 
 ### Added
 
 - Added OvS pipeline (sampling random intervals)
+- Adding OvS functions for resampling new intervals that do not overlap
 
 ### Fixed
 
