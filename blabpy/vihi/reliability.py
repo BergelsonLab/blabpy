@@ -113,9 +113,6 @@ def prepare_eaf_for_reliability(eaf_tree: ElementTree, eaf: EafPlus, random_seed
     sampled_sampling_types = sampled_intervals_df.sampling_type.to_list()
     return eaf_tree, (sampled_code_nums, sampled_sampling_types)
 
-def prepare_eaf_for_reliability_by_tier(eaf_tree: ElementTree, eaf: EafPlus, tier: str, random_seed=None):
-    print("DEV")
-
 def prune_eaf_tree(eaf_tree: EafTree,
                    transcription_ids_keep,
                    tier_types_clear=None, tier_types_keep=None):
@@ -128,7 +125,7 @@ def prune_eaf_tree(eaf_tree: EafTree,
     :param inplace: If True (default), the tree will be modified in-place.
     :return: A copy (unless inplace is True) of eaf_tree with annotations pruned.
 
-    Only one of tier_types_clear and tier_types_keep should be specified.
+    Only one of tier_types_clear and tier_types_keep should be specified. Also note that when removing tiers
     """
     if (tier_types_clear is None) == (tier_types_keep is None):
         raise ValueError('Exactly one of tier_types_clear and tier_types_keep should be specified.')
@@ -170,5 +167,6 @@ def prune_eaf_tree(eaf_tree: EafTree,
     for tier in tiers_clear:
         for annotation in tier.annotations.values():
             annotation.clear_value()
+            annotation.cve_ref = ""
 
     return eaf_tree
