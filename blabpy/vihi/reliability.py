@@ -167,6 +167,7 @@ def prune_eaf_tree(eaf_tree: EafTree,
     for tier in tiers_clear:
         for annotation in tier.annotations.values():
             annotation.clear_value()
-            annotation.cve_ref = ""
+            if tier.uses_cv:
+                annotation.cve_ref = ""
 
     return eaf_tree
