@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1] - 2026-08-03
+
+### Added
+
+- Added `blabpy.vihi.reliability.prune_eaf_tree()` method
+- For `eaf.eaf_tree.py`, adding `EafTree.drop_annotation()` and `EafTree.export_annotations()` methods
+
 ## [0.41.0] - 2026-01-14
 
 ### Added
