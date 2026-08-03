@@ -136,3 +136,5 @@ dmypy.json
 
 # dev testing folder
 output
+
+.vscode
