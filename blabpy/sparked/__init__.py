@@ -1,0 +1,1 @@
+SPARKED_COLS = ["gesture", "play", "notes"]
