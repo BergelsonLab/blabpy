@@ -10,7 +10,7 @@ setup(
     packages=find_packages(),
     python_requires='>=3.7',
     install_requires=['pandas', 'numpy', 'pyarrow', 'pympi-ling', 'pydub', 'StrEnum', 'tqdm', 'click', 'requests',
-                      'GitPython', 'pywin32; sys_platform == "win32"', 'pyprojroot', 'pyhere'],
+                      'GitPython', 'pywin32; sys_platform == "win32"', 'pyprojroot', 'pyhere', 'scikit-learn'],
     include_package_data=True,
     package_data={'blabpy': ['vihi/intervals/etf_templates/*.etf',
                              'vihi/intervals/etf_templates/*.pfsx',
@@ -24,7 +24,8 @@ setup(
              'one_time_scripts = blabpy.one_time_scripts:one_time_script',
              'validate = blabpy.cli:validate',
              'eaf = blabpy.eaf.cli:eaf',
-             'ovs = blabpy.ovs.cli:ovs'
+             'ovs = blabpy.ovs.cli:ovs',
+             'sparked = blabpy.sparked.cli:sparked'
              ]
     },
     long_description=long_description,
