@@ -3,11 +3,24 @@ import pandas as pd
 import numpy as np
 
 from . import SPARKED_COLS
-from .paths import get_sparked_talker_opf_path
+from .paths import parse_sparked_id, get_sparked_talkers_path
 from ..utils import convert_ms_to_hms
 
 from pathlib import Path
 from sklearn.metrics import cohen_kappa_score
+
+def get_gold_standard_path(sparked_id):
+    parse_sparked_id(sparked_id)
+    return get_sparked_talkers_path() / "gold_standard" / "templates" / "scoring" / f"talker_{sparked_id}_gs.tsv"
+
+def get_annotator_training_path(sparked_id, annotator):
+    parse_sparked_id(sparked_id)
+    annotator = annotator.strip().lower()
+    training_folder = get_sparked_talkers_path() / "gold_standard" / f"training_{annotator}"
+    assert training_folder.exists(), "Cannot find training folder. Your OPF file and output should be stored in a folder called, say, 'training_jh' if your initial is 'jh'."
+    training_file = training_folder / f"talker_{sparked_id}_{annotator}.tsv"
+    assert training_file.exists(), "Cannot find training file. Your OPF file and output should be named, say, 'talker_01_12_jh.opf' and 'talker_01_12_jh.tsv' if your initial is 'jh' and you're working on file '01_12'."
+    return training_file
 
 def wrangle_by_frame_csv(csv_path):
     '''
@@ -140,11 +153,7 @@ def print_codes(df, cols):
         codes.append(f"\t{row[cols[1]]}-{row[cols[2]]}: '{row[cols[3]]}'")
     return codes
 
-def gold_standard_report(talker_id, age_in_months, annotator):
-    # gs_file = get_sparked_talker_opf_path(talker_id, age_in_months, suffix="gold_standard")
-    # new_file = get_sparked_talker_opf_path(talker_id, age_in_months, suffix=annotator)
-    gs_file = Path(f"csv/talker_{talker_id}_{age_in_months}_gold_standard.tsv")
-    new_file = Path(f"csv/talker_{talker_id}_{age_in_months}_{annotator}.tsv")
+def gold_standard_report(gs_file, new_file):
     df1 = wrangle_by_frame_csv(gs_file)
     df2 = wrangle_by_frame_csv(new_file)
     report = []
@@ -157,7 +166,3 @@ def gold_standard_report(talker_id, age_in_months, annotator):
         report.append("\n")
 
     return report
-    # if not Path("report").exists():
-    #     Path("report").mkdir()
-    # with open(f"report/report_{id}_{annotator}.txt", "w") as f:
-    #     f.write("\n".join(report))
