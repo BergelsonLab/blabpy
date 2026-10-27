@@ -16,7 +16,7 @@ def gold_standard(sparked_id, annotator):
 
     click.echo(f"Scoring gold standard training for file {sparked_id} by annotator {annotator}...")
     report = gold_standard_report(gs_file, annotator_file)
-    report_filepath = annotator_file.with_suffix(".txt")
+    report_filepath = annotator_file.with_suffix(".md")
     if report_filepath.exists():
         response = input(f"The file '{report_filepath}' already exists. Overwrite? (y/n): ").strip().lower()
         if not response in ['y', 'yes']:
@@ -26,7 +26,7 @@ def gold_standard(sparked_id, annotator):
             print("Overwriting file...")
 
     with open(report_filepath, "w") as f:
-        f.write("\n".join(report))
+        f.write("\n\n".join(report))
     click.echo(f"Finish scoring. Check your results in {report_filepath}.")
 
 if __name__ == "__main__":

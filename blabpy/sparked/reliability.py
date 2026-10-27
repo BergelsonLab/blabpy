@@ -22,22 +22,14 @@ def get_annotator_training_path(sparked_id, annotator):
     assert training_file.exists(), "Cannot find training file. Your OPF file and output should be named, say, 'talker_01_12_jh.opf' and 'talker_01_12_jh.tsv' if your initial is 'jh' and you're working on file '01_12'."
     return training_file
 
-def wrangle_by_frame_csv(csv_path):
-    '''
-    Read in tsv files of frame-by-frame opf exports and filter for only frames within the windows of interest
-    '''
-    sparked_df = pd.read_csv(csv_path, sep = "\t", skip_blank_lines=True)
-    sparked_df = sparked_df[sparked_df["windows_of_interest_interval_type"].notna() & 
-                            sparked_df["windows_of_interest_window_num"].notna()]
-    return sparked_df
-
 def get_kappa_per_col(df1, df2, col, report):
     '''
     Calculate the kappa liability score for column "col" between df1 and df2. 
-    The score's description is added to 'report'
+    The score's description is added to 'report'.
     '''
-    df1 = df1.fillna("no_code")[f"{col}_code0"].to_numpy()
-    df2 = df2.fillna("no_code")[f"{col}_code0"].to_numpy()
+    new_code_name = "window_num" if col == "windows_of_interest" else "code0"
+    df1 = df1.fillna("no_code")[f"{col}_{new_code_name}"].to_numpy()
+    df2 = df2.fillna("no_code")[f"{col}_{new_code_name}"].to_numpy()
     kappa = cohen_kappa_score(df1, df2)
     if kappa < 0.8:
         report.append(f"COHEN'S KAPPA for code {col} is below 0.8: {round(kappa, 3)}. Please review the following differences:")
@@ -66,10 +58,12 @@ def compare_to_gold_standard(gs_df, new_df, col, report):
         old and new values for the selected code.
     """
     id_cols = ["framenum", "time"]
+    new_code_name = "window_num" if col == "windows_of_interest" else "code0"
+
     cols = [f"{col}_ordinal",
             f"{col}_onset",
             f"{col}_offset",
-            f"{col}_code0"]
+            f"{col}_{new_code_name}"]
     new_cols = [f"{x}_new" for x in cols]
     gs_df = gs_df[id_cols + cols].sort_values("time")
     new_df = new_df[id_cols + cols].sort_values("time")
@@ -137,32 +131,41 @@ def compare_to_gold_standard(gs_df, new_df, col, report):
                 report.append(f"❌ There's differences in {sub['chunk_on_off'].iloc[0]}")
         else:
             report.append(f"✅ No major differences in {sub['chunk_on_off'].iloc[0]}")
-        
-        report.append(f"\tGold standard segments:")
-        report.extend(print_codes(gs_codes, cols))
-        report.append(f"\tYour segments:")
-        report.extend(print_codes(new_codes, new_cols))
+            continue
+        table_comparison = [f"| Gold Standard | Yours |\n| :--- | :--- |"]
+        gs_cells = print_codes(gs_codes, cols)
+        your_cells = print_codes(new_codes, new_cols)
+        for i in range(max(len(gs_cells), len(your_cells))):
+            gs_cell = gs_cells[i] if len(gs_cells) > i else " "
+            your_cell = your_cells[i] if len(your_cells) > i else " "
+            table_comparison.append(f"| {gs_cell} | {your_cell} |")
+        report.append("\n".join(table_comparison))
+
+        # report.append(f"- Gold standard segments:")
+        # report.extend(print_codes(gs_codes, cols))
+        # report.append(f"- Your segments:")
+        # report.extend(print_codes(new_codes, new_cols))
 
     return changes
 
 def print_codes(df, cols):
     if df.empty:
-        return(["\t<No segments>"])
+        return(["No segments"])
     codes = []
     for _, row in df.iterrows():
-        codes.append(f"\t{row[cols[1]]}-{row[cols[2]]}: '{row[cols[3]]}'")
+        codes.append(f"Cell {int(row[cols[0]])} at {row[cols[1]]}-{row[cols[2]]}: '{row[cols[3]]}'")
     return codes
 
 def gold_standard_report(gs_file, new_file):
-    df1 = wrangle_by_frame_csv(gs_file)
-    df2 = wrangle_by_frame_csv(new_file)
+    gs_df = pd.read_csv(gs_file, sep = "\t", skip_blank_lines=True)
+    your_df = pd.read_csv(new_file, sep = "\t", skip_blank_lines=True)
     report = []
 
     for col in SPARKED_COLS:
         report.append("===========================")
-        report.append(f"Comparing code {col}")
-        get_kappa_per_col(df1, df2, col, report)
-        compare_to_gold_standard(df1, df2, col, report)
+        report.append(f"Comparing code **{col}**")
+        get_kappa_per_col(gs_df, your_df, col, report)
+        compare_to_gold_standard(gs_df, your_df, col, report)
         report.append("\n")
 
     return report
