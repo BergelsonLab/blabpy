@@ -253,6 +253,8 @@ def find_all_lena_recording_folders(lena_annotations_path=None, skip_excluded=Fa
                 for recording_dir in subject_dir.iterdir():
                     if not recording_dir.is_dir():
                         continue
+                    if skip_excluded and recording_dir.name.endswith('_excl'):
+                        continue
                     recording_id = _extract_group(rf'{population}_{subject_id}_(\d{{3}})', recording_dir.name)
                     if recording_id:
                         recordings.append(recording_dir)
