@@ -54,11 +54,34 @@ def get_all_sparked_opf_complete_paths():
             all_paths += f
     return all_paths
 
-    
+def get_gold_standard_path(sparked_id):
+    '''
+    Get the path to the gold standard file for a given SPARKED ID.
+    :param sparked_id: The SPARKED ID of the OPF file, e.g "01_13".
+    :return: The path to the gold standard file
+    '''
+    parse_sparked_id(sparked_id)
+    return get_sparked_talkers_path() / "gold_standard" / "templates" / "scoring" / f"talker_{sparked_id}_gs.tsv"
 
-# TODO: parsed id string, but depends on cases
-# def parsed_sparked_id(id_str):
-#     pass
+def get_annotator_training_path(sparked_id, annotator):
+    '''
+    Get the path to the annotator's training file for a given SPARKED ID.
+    :param sparked_id: The SPARKED ID of the OPF file, e.g "01_13".
+    :param annotator: The annotator's initials, e.g. "jd" for John Doe.
+    :return: The path to the annotator's training file
+
+    Note: 
+        The training file should be named, say, 'talker_01_12_jh.tsv' if your initial is 'jh' 
+        and you're working on file '01_12'. This function checks that the sparked id is correctly formatted and 
+        the training folder and file exist.
+    '''
+    parse_sparked_id(sparked_id)
+    annotator = annotator.strip().lower()
+    training_folder = get_sparked_talkers_path() / "gold_standard" / f"training_{annotator}"
+    assert training_folder.exists(), "Cannot find training folder. Your OPF file and output should be stored in a folder called, say, 'training_jh' if your initial is 'jh'."
+    training_file = training_folder / f"talker_{sparked_id}_{annotator}.tsv"
+    assert training_file.exists(), "Cannot find training file. Your OPF file and output should be named, say, 'talker_01_12_jh.opf' and 'talker_01_12_jh.tsv' if your initial is 'jh' and you're working on file '01_12'."
+    return training_file
 
 
 
