@@ -198,9 +198,11 @@ def source(filepath, modulename=None):
     sys.modules[modulename] = module
     return module
 
-def convert_ms_to_hms(milliseconds):
+def convert_ms_to_hms(milliseconds, truncate=True):
     """
     Converts a duration in milliseconds to hours, minutes, and seconds.
+    :param milliseconds: Duration in milliseconds.
+    :param truncate: If True, the hours will be omitted if they are zero.
     Returns a string in the format "H:MM:SS".
     """
     # Create a timedelta object with the milliseconds
@@ -211,7 +213,9 @@ def convert_ms_to_hms(milliseconds):
     
     hours, remainder = divmod(total_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
-    
+
+    if truncate and hours == 0:
+        return f"{minutes}:{seconds:02}"
     
     return f"{hours}:{minutes:02}:{seconds:02}"
 
@@ -229,3 +233,43 @@ def find_this_dir(this_dir_name):
         raise FileNotFoundError(f"Directory '{this_dir_name}' not found in the project.\n\n"
                                 f"Project root found by pyhere:\n'{root}\n\n"
                                 f"Please check the directory name and your current working directory.")
+
+def save_file_no_overwrite(file_path, content):
+    """
+    Save a file without overwriting an existing file. If the file already exists, append a number to the filename.
+    :param file_path: The path to the file to save.
+    :param content: The content to write to the file.
+    :return: The path to the saved file.
+    """
+    file_path = Path(file_path)
+    if not file_path.exists():
+        with open(file_path, 'w') as f:
+            f.write(content)
+        return file_path
+
+    # If the file exists, find a new filename by appending a number
+    counter = 1
+    new_file_path = file_path.with_name(f"{file_path.stem}_{counter}{file_path.suffix}")
+    while new_file_path.exists():
+        counter += 1
+        new_file_path = file_path.with_name(f"{file_path.stem}_{counter}{file_path.suffix}")
+
+    with open(new_file_path, 'w') as f:
+        f.write(content)
+
+    return new_file_path
+
+def save_file_with_timestamp(file_path, content):
+    """
+    Save a file with a timestamp in the filename. If the file already exists, append a number to the filename.
+    :param file_path: The path to the file to save.
+    :param content: The content to write to the file.
+    :return: The path to the saved file.
+    """
+    file_path = Path(file_path)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_file_path = file_path.with_name(f"{file_path.stem}_{timestamp}{file_path.suffix}")
+
+    save_file_no_overwrite(new_file_path, content)
+
+    return new_file_path
