@@ -1,5 +1,7 @@
 import click
-from .reliability import get_gold_standard_path, get_annotator_training_path, gold_standard_report
+from .paths import get_gold_standard_path, get_annotator_training_path
+from .reliability import gold_standard_report
+from ..utils import save_file_with_timestamp
 
 @click.group()
 def sparked():
@@ -17,17 +19,9 @@ def gold_standard(sparked_id, annotator):
     click.echo(f"Scoring gold standard training for file {sparked_id} by annotator {annotator}...")
     report = gold_standard_report(gs_file, annotator_file)
     report_filepath = annotator_file.with_suffix(".md")
-    if report_filepath.exists():
-        response = input(f"The file '{report_filepath}' already exists. Overwrite? (y/n): ").strip().lower()
-        if not response in ['y', 'yes']:
-            print("Operation cancelled. File not overwritten.")
-            exit()
-        else:
-            print("Overwriting file...")
+    report_filepath_with_timestamp = save_file_with_timestamp(report_filepath, "\n\n".join(report))
 
-    with open(report_filepath, "w") as f:
-        f.write("\n\n".join(report))
-    click.echo(f"Finish scoring. Check your results in {report_filepath}.")
+    click.echo(f"Finish scoring. Check your results in {report_filepath_with_timestamp}.")
 
 if __name__ == "__main__":
     sparked()
