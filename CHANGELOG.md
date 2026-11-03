@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.42.0] - 2026-11-03
+
+### Added
+
+- Added `blabpy.sparked` module with `paths.py` for getting sparked related path on blab_share, `reliability.py` for gold standard training and scoring, and `cli.py` to set up command line interface for scoring gold standard
+
+### Fixed
+
+- Changed `blabpy.vihi.paths.find_all_lena_recording_folders()` to exclude subject folders and recording folders with "_excl" suffix
+
 ## [0.41.1] - 2026-08-03
 
 ### Added
