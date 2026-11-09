@@ -25,7 +25,7 @@ def normalized_id(id):
 
 def parse_sparked_id(id_str):
     components = id_str.split("_")
-    assert len(components) == 2, "SPARKED ID must be of the form {talker_id}_{age_in_moths} (i.e. 01_13)"
+    assert len(components) == 2, f"SPARKED ID must be of the form (talker_id)_(age_in_months) (i.e. 01_13), not {id_str}"
     talker_id, months_in_age = components
     assert normalized_id(int(talker_id)) == talker_id, "The first element of the SPARKED ID must be the talker's id, a 2 digit number with leading zeroes accordingly."
     assert normalized_id(int(months_in_age)) == months_in_age, "The second element of the SPARKED ID must be the talker's age in months, a 2 digit number with leading zeroes accordingly."
@@ -78,9 +78,9 @@ def get_annotator_training_path(sparked_id, annotator):
     parse_sparked_id(sparked_id)
     annotator = annotator.strip().lower()
     training_folder = get_sparked_talkers_path() / "gold_standard" / f"training_{annotator}"
-    assert training_folder.exists(), "Cannot find training folder. Your OPF file and output should be stored in a folder called, say, 'training_jh' if your initial is 'jh'."
+    assert training_folder.exists(), f"Cannot find training folder. Your OPF file and output should be stored in a folder called, say, 'training_{annotator}' if your initial is '{annotator}'."
     training_file = training_folder / f"talker_{sparked_id}_{annotator}.tsv"
-    assert training_file.exists(), "Cannot find training file. Your OPF file and output should be named, say, 'talker_01_12_jh.opf' and 'talker_01_12_jh.tsv' if your initial is 'jh' and you're working on file '01_12'."
+    assert training_file.exists(), f"Cannot find training file. Your OPF file and output should be named, say, 'talker_{sparked_id}_{annotator}.opf' and 'talker_{sparked_id}_{annotator}.tsv' if your initial is '{annotator}' and you're working on file '{sparked_id}'."
     return training_file
 
 
