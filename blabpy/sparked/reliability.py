@@ -99,8 +99,8 @@ def compare_to_gold_standard(gs_df, new_df, col, report):
                .drop_duplicates())
 
     # Formatting the missing and extra times to be more readable (in H:MM:SS format)
-    for col in cols[1:3] + new_cols[1:3]:
-        changes[col] = changes[col].fillna(0).apply(convert_ms_to_hms)
+    for c in cols[1:3] + new_cols[1:3]:
+        changes[c] = changes[c].fillna(0).apply(convert_ms_to_hms)
 
     # Creating a readable summary of the differences for each chunk and appending it to the report
     # This code attempts to quantify the kind of differences in each chunk by looking at:
@@ -123,13 +123,13 @@ def compare_to_gold_standard(gs_df, new_df, col, report):
         elif (any(sub_length) or sub_diff > 0):
             if (len(gs_codes) != len(new_codes)):
                 report.append(f"❌ Different number of segments in {sub['chunk_on_off'].iloc[0]}")
-            elif (sub_length <= len(gs_codes)).all():
+            elif (sub_length.sum() <= len(gs_codes)):
                 if sub_diff == 0:
-                    report.append(f"⚠️ There're some segments with different durations in {sub['chunk_on_off'].iloc[0]}")
+                    report.append(f"⚠️ There're some segments with different **durations** in {sub['chunk_on_off'].iloc[0]}")
                 else:
-                    report.append(f"⚠️ There're some segments with different durations and codes in {sub['chunk_on_off'].iloc[0]}")
+                    report.append(f"⚠️ There're some segments with different **durations** and **codes** in {sub['chunk_on_off'].iloc[0]}")
             else:
-                report.append(f"❌ There're differences in {sub['chunk_on_off'].iloc[0]}")
+                report.append(f"❌ There're major differences in {sub['chunk_on_off'].iloc[0]}")
         else:
             report.append(f"✅ No major differences in {sub['chunk_on_off'].iloc[0]}")
             continue
@@ -174,10 +174,14 @@ def gold_standard_report(gs_file, new_file):
     report.append(f"- ⚠️ marks minor differences. If time difference is ~1s, it can be ignored.")
     report.append(f"- ❌ marks major differences that need to be fixed.")
 
+    n_col_passed = 0
+
     for col in SPARKED_COLS:
         report.append(f"# Comparing code **{col}**")
-        get_kappa_per_col(gs_df, your_df, col, report)
+        k = get_kappa_per_col(gs_df, your_df, col, report)
+        if k >= 0.8:
+            n_col_passed += 1
         compare_to_gold_standard(gs_df, your_df, col, report)
         report.append("\n")
 
-    return report
+    return report, n_col_passed
