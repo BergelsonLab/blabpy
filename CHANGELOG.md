@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.42.1] - 2026-11-09
+
+### Fixed
+
+- Fixed `blabpy.sparked.reliability` and how it is counting number of missing/extra segments within a chunk. 
+
+- Minor changes to formatting of sparked gold standard reports
+
+  - Have the errors be caught and printed out in colors to make it easier for RAs
+  
+  - Add COMPLETE message for when you have pass all four columns
+
+- Created new folders for gold standard reports instead of saving to main
+
 ## [0.42.0] - 2026-11-03
 
 ### Added
